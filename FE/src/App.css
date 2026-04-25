@@ -1,0 +1,1301 @@
+/* ========================================================
+   CSS VARIABLES
+======================================================== */
+
+/* THEME LIGHT - SOFT */
+.theme-light {
+  /* BASE */
+  --color-primary: #f7f8fa;
+  --color-primary-dark: #e5e7eb;
+  --color-secondary: #f1f3f5;
+  --color-bg: #f6f7f9;
+
+  --bg-sae-hover: #e5e7eb;
+  --color-sae-hover: #1f2933;
+
+  /* TEXT */
+  --color-text: #1f2933;
+  --color-text-inverse: #000000;
+  --color-text-muted: #6b7280;
+
+  --color-box-shadow: rgba(0, 0, 0, 0.08);
+
+  /* TABLE */
+  --color-table-header: #eef0f2;
+  --color-table-body: #f9fafb;
+  --color-table-footer: #eef0f2;
+  --color-table-border: #d1d5db;
+  --color-table-row-hover: #f1f3f5;
+
+  /* CARD */
+  --color-card-header: #eef0f2;
+  --color-card-body: #ffffff;
+  --color-card-footer: #eef0f2;
+  --color-card-text: #1f2933;
+
+  /* FORM (off-white, bukan putih bersih) */
+  --color-form-bg: #f9fafb;
+  --color-form-text: #1f2933;
+  --color-form-border: #d1d5db;
+  --color-form-placeholder: #9ca3af;
+  --color-form-focus: #4dabf7;
+  --color-form-disabled-bg: #eef0f2;
+
+  /* READONLY INPUT */
+  --color-input-readonly-bg: #eef0f2;
+  --color-input-readonly-border: #d1d5db;
+
+  /* CHART */
+  --chart-primary: #2563eb;
+  --chart-success: #16a34a;
+  --chart-danger: #dc2626;
+
+  /* SIDEBAR */
+  --color-sidebar-bg: #f7f8fa;
+  --color-sidebar-hover: #e5e7eb;
+  --color-sidebar-text: #1f2933;
+
+  /* TOPBAR */
+  --color-topbar-bg: #f1f3f5;
+
+  /* PRIMARY */
+  --color-on-primary: #1f2933;
+  --color-primary-hover: #e5e7eb;
+  --color-on-primary-hover: #1f2933;
+
+  /* HOVER */
+  --color-hover-bg: #e5e7eb;
+  --color-hover-text: #1f2933;
+
+  /* PLAECHOLDER LIGHT */
+  --color-form-placeholder: #9ca3af;
+}
+
+/* THEME DARK - SOFT */
+.theme-dark {
+  /* BASE */
+  --color-primary: #2a2d31;
+  --color-primary-dark: #1e2125;
+  --color-secondary: #33373c;
+  --color-bg: #1c1f23;
+
+  --bg-sae-hover: #3a3f45;
+  --color-sae-hover: #ffffff;
+
+  /* TEXT */
+  --color-text: #e6e6e6;
+  --color-text-inverse: #ffffff;
+  --color-text-muted: #b0b3b8;
+
+  --color-box-shadow: rgba(0, 0, 0, 0.35);
+
+  /* TABLE */
+  --color-table-header: #2f3338;
+  --color-table-body: #23272b;
+  --color-table-footer: #2f3338;
+  --color-table-border: #3f444a;
+  --color-table-row-hover: #2d3136;
+
+  /* CARD */
+  --color-card-header: #2f3338;
+  --color-card-body: #24282d;
+  --color-card-footer: #2f3338;
+  --color-card-text: #e6e6e6;
+
+  /* FORM (abu-abu, bukan putih) */
+  --color-form-bg: #2b3036;
+  --color-form-text: #e6e6e6;
+  --color-form-border: #454b52;
+  --color-form-placeholder: #9aa0a6;
+  --color-form-focus: #4dabf7;
+  --color-form-disabled-bg: #3a3f45;
+
+  /* READONLY INPUT */
+  --color-input-readonly-bg: #30353b;
+  --color-input-readonly-border: #454b52;
+
+  /* CHART */
+  --chart-primary: #5fa8ff;
+  --chart-success: #63e6be;
+  --chart-danger: #ff8787;
+
+  /* SIDEBAR */
+  --color-sidebar-bg: #23272b;
+  --color-sidebar-hover: #343a40;
+  --color-sidebar-text: #e6e6e6;
+
+  /* TOPBAR */
+  --color-topbar-bg: #262a2f;
+
+  /* PRIMARY BUTTON */
+  --color-on-primary: #ffffff;
+  --color-primary-hover: #3a3f45;
+  --color-on-primary-hover: #ffffff;
+
+  /* HOVER */
+  --color-hover-bg: #343a40;
+  --color-hover-text: #ffffff;
+
+  /* PLACEHOLDER DARK */
+  --color-form-placeholder: #c7ccd1;
+}
+
+.theme-light .app-bg {
+  background:
+    linear-gradient(#ffffff, #ffffff),
+    url("./assets/bgbody.png");
+
+  background-repeat: repeat;
+  background-size: cover, 200px;
+
+  filter: none;
+  opacity: 0.35;
+}
+
+.theme-dark .app-bg {
+  background:
+    linear-gradient(rgba(18, 18, 18, 0.8), rgba(18, 18, 18, 0.8)),
+    url("./assets/bgbody.png");
+  background-repeat: repeat;
+  background-size: cover, 200px;
+
+  filter: brightness(0.2);
+  opacity: 0.95;
+}
+
+/* ========================================================
+   BASE RESET & GLOBAL
+======================================================== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-size: 10pt;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: sans-serif;
+}
+
+/* ========================================================
+  APP WRAPPER BG
+======================================================== */
+.app-bg {
+  position: fixed;
+  inset: 0;
+  background-image: url("./assets/bgbody.png");
+  background-repeat: repeat;
+  background-size: 200px;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.35;
+  transition: all 0.3s ease;
+}
+
+/* ========================================================
+   LINKS
+==================================================== */
+.text-muted-theme {
+  color: var(--color-text-muted);
+}
+
+/* ========================================================
+   SAE / PRIMARY STYLING
+======================================================== */
+.text-sae {
+  color: var(--color-primary);
+}
+
+.bg-sae {
+  background: linear-gradient(to bottom,
+      var(--color-primary) 0%,
+      var(--color-primary) 90%,
+      var(--color-primary-dark) 90%,
+      var(--color-primary-dark) 100%);
+}
+
+.bg-sae-only {
+  background-color: var(--color-primary);
+}
+
+.bg-sae-hover {
+  background-color: var(--bg-sae-hover);
+  color: var(--color-sae-hover);
+}
+
+.bg-sae-liner-only {
+  background-color: transparent;
+  border-bottom: 4px solid var(--color-primary-dark);
+}
+
+.bg-sae-box-shadowed {
+  background-color: var(--color-secondary);
+  box-shadow:
+    0 2px 4px var(--color-box-shadow),
+    0 -2px 4px var(--color-box-shadow),
+    2px 0 4px var(--color-box-shadow),
+    -2px 0 4px var(--color-box-shadow);
+}
+
+.dropdown-item.active.bg-sae-hover {
+  background-color: var(--bg-sae-hover) !important;
+}
+
+/* ==================================================
+   APP TITTLE STYLE
+=================================================== */
+
+.topbar-title {
+  color: var(--color-on-primary);
+  font-weight: bold;
+  padding: 0px;
+  margin: 0px;
+  line-height: 20px;
+}
+
+.topbar-subtitle {
+  color: var(--color-on-primary);
+}
+
+/* ==================================================
+  CARD STYLE
+=================================================== */
+.card-theme {
+  background-color: var(--color-card-body);
+  color: var(--color-card-text);
+  border: 1px solid var(--color-table-border);
+  border-radius: 6px;
+  /* optional, konsisten dengan tabel */
+}
+
+.card-theme .card-header {
+  background-color: var(--color-card-header);
+  color: var(--color-card-text);
+}
+
+.card-theme .card-body {
+  background-color: var(--color-card-body);
+  color: var(--color-card-text);
+}
+
+.card-theme .card-footer {
+  background-color: var(--color-card-footer);
+  color: var(--color-card-text);
+}
+
+
+/* ==================================================
+   TOPBAR BTN APP STYLE
+=================================================== */
+
+.topbar-btn {
+  background-color: var(--color-primary);
+  padding: 8px;
+  color: var(--color-on-primary);
+  border: 1px solid var(--color-primary-dark);
+  transition: background-color .2s, color .2s;
+}
+
+.topbar-btn:hover {
+  background-color: var(--color-primary-hover);
+  color: var(--color-on-primary-hover);
+}
+
+.dropdown-menu-theme {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-primary-dark);
+}
+
+.btn.dropdown-item-theme {
+  background-color: transparent;
+  color: var(--color-text);
+}
+
+.btn.dropdown-item-theme:hover,
+.btn.dropdown-item-theme.active {
+  background-color: var(--color-hover-bg);
+  color: var(--color-hover-text);
+  border: 1px solid var(--color-primary-dark);
+}
+
+.badge-theme {
+  background-color: var(--color-primary-dark);
+  color: var(--color-text-inverse);
+}
+
+/* ===============================
+   THEME SWITCH (TOPBAR)
+================================ */
+
+.theme-switch-wrapper {
+  margin-left: 10px;
+}
+
+.theme-switch-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  font-size: 9pt;
+  border-radius: 4px;
+  border: 1px solid var(--border-soft);
+  background-color: var(--bg-soft);
+  color: var(--text-main);
+  cursor: pointer;
+  transition: background-color .15s ease, color .15s ease, border .15s ease;
+}
+
+.theme-switch-btn:hover {
+  background-color: var(--color-hover-bg);
+}
+
+.theme-switch-btn i {
+  font-size: 11pt;
+}
+
+.theme-switch-text {
+  font-size: 9pt;
+  font-weight: 600;
+}
+
+/* ========================================================
+   TABLE STYLE
+======================================================== */
+.table-theme {
+  background-color: var(--color-table-body);
+  color: var(--color-text);
+  border-color: var(--color-table-border);
+}
+
+/* HEADER */
+.table-theme thead th {
+  background-color: var(--color-table-header);
+  color: var(--color-text);
+  border-color: var(--color-table-border);
+}
+
+/* BODY */
+.table-theme tbody td {
+  background-color: var(--color-table-body);
+  color: var(--color-text);
+  border-color: var(--color-table-border);
+}
+
+/* FOOTER */
+.table-theme tfoot td {
+  background-color: var(--color-table-footer);
+  color: var(--color-text);
+  border-color: var(--color-table-border);
+}
+
+/* ROW HOVER */
+.table-theme tbody tr:hover td {
+  background-color: var(--color-table-row-hover);
+}
+
+.table-theme.table-striped tbody tr:nth-of-type(odd) td {
+  background-color: color-mix(in srgb,
+      var(--color-table-body),
+      var(--color-text) 3%);
+}
+
+.table-theme.table-striped tbody tr:nth-of-type(even) td {
+  background-color: var(--color-table-body);
+}
+
+/* ========================================================
+   FORM CONTROL (SELECT / CHECKBOX / RADIO)
+======================================================== */
+input,
+select,
+textarea {
+  background-color: var(--color-form-bg);
+  color: var(--color-form-text);
+  border: 1px solid var(--color-form-border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  transition: all .15s ease;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-form-placeholder);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--color-form-focus);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-form-focus), transparent 75%);
+}
+
+input::placeholder,
+textarea::placeholder,
+input[type="number"]::placeholder {
+  color: var(--color-form-placeholder);
+  opacity: 1;
+}
+
+/* SELECT */
+select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--color-text-muted) 50%),
+    linear-gradient(135deg, var(--color-text-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) 50%,
+    calc(100% - 12px) 50%;
+  background-size: 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 36px;
+}
+
+/* CHECKBOX & RADIO */
+input[type="checkbox"],
+input[type="radio"] {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-form-border);
+  background-color: var(--color-form-bg);
+  cursor: pointer;
+  position: relative;
+  text-align: center;
+}
+
+input[type="checkbox"] {
+  border-radius: 4px;
+}
+
+input[type="radio"] {
+  border-radius: 50%;
+}
+
+input[type="checkbox"]:checked,
+input[type="radio"]:checked {
+  background-color: var(--color-form-focus);
+  border-color: var(--color-form-focus);
+}
+
+input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+input[type="radio"]:checked::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 6px;
+  height: 6px;
+  background: #fff;
+  border-radius: 50%;
+}
+
+/* DATE & MONTH */
+input[type="date"],
+input[type="month"] {
+  background-color: var(--color-form-bg);
+  color: var(--color-form-text);
+  border: 1px solid var(--color-form-border);
+  cursor: pointer;
+}
+
+/* Calendar icon (Chrome, Edge) */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="month"]::-webkit-calendar-picker-indicator {
+  filter: invert(0);
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+/* Dark mode fix: icon jadi terang */
+.theme-dark input[type="date"]::-webkit-calendar-picker-indicator,
+.theme-dark input[type="month"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.85;
+}
+
+/* NUMBER */
+input[type="number"] {
+  background-color: var(--color-form-bg);
+  color: var(--color-form-text);
+  border: 1px solid var(--color-form-border);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+
+/* Spinner Chrome / Edge */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  opacity: 0.6;
+  filter: grayscale(1);
+}
+
+/* Dark mode spinner */
+.theme-dark input[type="number"]::-webkit-inner-spin-button,
+.theme-dark input[type="number"]::-webkit-outer-spin-button {
+  filter: invert(1);
+  opacity: 0.8;
+}
+
+/* Firefox */
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* ========================================================
+   GLOBAL FORM THEME (AUTO DARK MODE)
+======================================================== */
+
+/* Focus state */
+.theme-dark input:focus,
+.theme-dark select:focus,
+.theme-dark textarea:focus {
+  background-color: #242424;
+  color: #ffffff;
+  border-color: #666;
+  box-shadow: 0 0 0 0.15rem rgba(255, 255, 255, 0.1);
+}
+
+/* Placeholder */
+.theme-dark input::placeholder,
+.theme-dark textarea::placeholder {
+  color: #aaaaaa;
+}
+
+/* Disabled */
+.theme-dark input:disabled,
+.theme-dark select:disabled,
+.theme-dark textarea:disabled {
+  background-color: #2a2a2a;
+  color: #888;
+  cursor: not-allowed;
+}
+
+/* ========================================================
+   CHECKBOX & RADIO
+======================================================== */
+
+.theme-dark input[type="checkbox"],
+.theme-dark input[type="radio"] {
+  accent-color: #4da3ff;
+  /* warna centang */
+}
+
+/* Label warna */
+.theme-dark label {
+  color: #f1f1f1;
+}
+
+/* ========================================================
+   FORM CONTROL BOOTSTRAP OVERRIDE
+======================================================== */
+
+.theme-dark .form-control,
+.theme-dark .form-select {
+  background-color: #1f1f1f;
+  color: #f1f1f1;
+  border: 1px solid #444;
+}
+
+.theme-dark .form-control:focus,
+.theme-dark .form-select:focus {
+  background-color: #242424;
+  color: #ffffff;
+  border-color: #666;
+  box-shadow: 0 0 0 0.15rem rgba(255, 255, 255, 0.1);
+}
+
+/* Checkbox bootstrap */
+.theme-dark .form-check-input {
+  background-color: #1f1f1f;
+  border: 1px solid #666;
+}
+
+.theme-dark .form-check-input:checked {
+  background-color: #4da3ff;
+  border-color: #4da3ff;
+}
+
+/* ========================================================
+   DATE / NUMBER SPIN BUTTON FIX
+======================================================== */
+
+.theme-dark input[type="date"],
+.theme-dark input[type="number"] {
+  color-scheme: dark;
+}
+
+/* ========================================================
+   LAYOUT STYLE
+======================================================== */
+#wrapper {
+  width: 100%;
+}
+
+#content-wrapper {
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+.container-fluid {
+  padding: 10px;
+  overflow-x: hidden;
+}
+
+.mid-content {
+  padding: 5px;
+}
+
+.modal {
+  z-index: 9999;
+}
+
+/* ========================================================
+   SIDEBAR & MENU
+======================================================== */
+.sidebar-x {
+  width: 200px;
+  height: 100vh;
+  position: fixed;
+  top: 58px;
+  left: 0;
+  overflow-y: auto;
+  background-color: var(--color-sidebar-bg);
+  border-right: 1px solid var(--border-soft);
+}
+
+.sidebar-link-x {
+  display: block;
+  padding: 6px 10px;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--color-sidebar-text);
+  transition: background-color .15s ease, color .15s ease;
+}
+
+/* HOVER & ACTIVE (NAIKKAN SPECIFICITY) */
+.sidebar-link-x:hover,
+.sidebar-link-x.active,
+.submenu-link:hover,
+.submenu-link.active,
+.submenu-link-xx:hover,
+.submenu-link-xx.active {
+  background-color: var(--color-hover-bg);
+  color: var(--color-hover-text);
+  text-decoration: none;
+}
+
+.sidebar-link-x.active,
+.submenu-link.active,
+.submenu-link-xx.active {
+  font-weight: 700;
+  box-shadow: inset 3px 0 0 var(--color-primary-dark);
+}
+
+/* Panah dropdown submenu */
+.dropdown-arrow {
+  position: absolute;
+  text-align: end;
+  right: 20px;
+  margin-top: 5px;
+  font-size: 6pt;
+  transition: transform 0.3s ease;
+}
+
+/* List submenu */
+.submenu {
+  list-style: none;
+  padding-left: 6px;
+  margin: 0;
+}
+
+/* Item submenu */
+.submenu-item {
+  margin: 0;
+}
+
+/* Link di submenu */
+.submenu-link,
+.submenu-link-xx {
+  display: block;
+  padding: 6px 14px;
+  font-size: 9.5pt;
+  text-decoration: none;
+  color: var(--color-sidebar-text);
+  transition: background-color .15s ease, color .15s ease;
+}
+
+.submenu-link-xx {
+  display: flex;
+  align-items: flex-start;
+  gap: .5rem;
+}
+
+.submenu-link-xx span {
+  display: inline-block;
+  /* agar text bisa wrap */
+}
+
+/* RESPONSIF: ukuran mobile/HP */
+@media (max-width: 768px) {
+
+  .submenu-link,
+  .submenu-link-xx {
+    padding: 5px 14px;
+    font-size: 12pt;
+  }
+}
+
+/* Warna latar untuk berbagai level submenu */
+.level-1 {
+  background-color: lightblue;
+}
+
+.level-2 {
+  background-color: lightcyan;
+}
+
+.level-3 {
+  background-color: gainsboro;
+}
+
+.level-4 {
+  background-color: lightgoldenrodyellow;
+}
+
+.level-5 {
+  background-color: white;
+}
+
+
+/* ========================================================
+   TOPBAR
+======================================================== */
+.custom-topbar {
+  background-color: var(--color-topbar-bg);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+/* ========================================================
+   LOGIN PAGE
+======================================================== */
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+.login-box {
+  width: 100%;
+  max-width: 400px;
+  padding: 2rem;
+  border-radius: 4px;
+  box-shadow: 0 0 15px var(--color-box-shadow);
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+.login-box h3 {
+  margin-bottom: 1.5rem;
+  text-align: center;
+  color: var(--color-text-inverse);
+}
+
+.login-box input {
+  width: 100%;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 2px;
+  font-size: 1rem;
+}
+
+.login-box button {
+  width: 100%;
+  padding: 0.75rem;
+  border: none;
+  color: var(--color-text-inverse);
+  border-radius: 2px;
+  font-weight: bold;
+  cursor: pointer;
+  background-color: var(--color-primary);
+}
+
+.login-box button:hover {
+  background-color: var(--color-primary-dark);
+}
+
+/* ========================================================
+   ALERT
+======================================================== */
+.floating-alert {
+  position: fixed;
+  left: 50%;
+  top: 10px;
+  transform: translateX(-50%);
+  z-index: 1088;
+  background-color: var(--color-secondary);
+  color: var(--color-text);
+  padding: 12px 16px;
+  border-radius: 5px;
+  box-shadow: 0 2px 6px var(--color-box-shadow);
+  max-width: 90%;
+  min-width: 70%;
+  font-size: 14px;
+}
+
+/* ========================================================
+   CUSTOM SCROLLBAR
+======================================================== */
+.custom-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #c0c0c0 #f0f0f0;
+}
+
+.custom-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scroll::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 10px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: #c0c0c0;
+  border-radius: 10px;
+  transition: background 0.3s;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+  background: #a0a0a0;
+}
+
+/* ========================================================
+   ANIMASI LOADING
+======================================================== */
+.loader-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  width: 100%;
+}
+
+.spinner {
+  border: 6px solid #f3f3f3;
+  border-top: 6px solid var(--color-primary);
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* ========================================================
+   ANIMASI TABLE / DASHBOARD
+======================================================== */
+@keyframes fadeIn {
+  from {
+    opacity: 0
+  }
+
+  to {
+    opacity: 1
+  }
+}
+
+@keyframes slideLeft {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn .2s ease-out;
+}
+
+.animate-slideLeft {
+  animation: slideLeft .25s ease-out;
+}
+
+/* ========================================================
+   SKELETON & BADGE - THEME AWARE
+======================================================== */
+
+/* Skeleton dasar */
+.skeleton {
+  background: var(--color-secondary);
+  /* mengikuti theme */
+  border-radius: 4px;
+}
+
+/* Skeleton animasi */
+.skeleton--animated {
+  animation: shimmer 1.4s ease infinite;
+  background: linear-gradient(90deg,
+      var(--color-secondary) 25%,
+      var(--color-bg) 37%,
+      var(--color-secondary) 63%);
+  background-size: 400% 100%;
+}
+
+/* Skeleton header / tinggi baris */
+.skeleton-header {
+  height: 20px;
+}
+
+/* Skeleton table */
+.skeleton-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.skeleton-table th,
+.skeleton-table td {
+  padding: 8px;
+  background: var(--color-secondary);
+}
+
+/* Keyframes shimmer */
+@keyframes shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+
+  100% {
+    background-position: 400px 0;
+  }
+}
+
+/* Badge blink / notifikasi */
+.badge-blink {
+  animation: pulseHide 1.2s infinite;
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+  border-radius: 8px;
+  padding: 2px 6px;
+  font-size: 0.7rem;
+}
+
+/* Pulse animation */
+@keyframes pulseHide {
+
+  0%,
+  70% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  85% {
+    transform: scale(1.3);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(0);
+    opacity: 0;
+  }
+}
+
+/*===============================================================*/
+/* TABLE DENGAN FONT BESAR */
+/*===============================================================*/
+.table-besar th,
+.table-besar td {
+  font-size: 14pt !important;
+}
+
+/*===============================================================*/
+/* NOTIFIKASI MESSAGE */
+/*===============================================================*/
+@keyframes pulseHide {
+
+  0%,
+  70% {
+    transform: scale(1);
+    opacity: 1;
+    /* tampil normal lebih lama */
+  }
+
+  85% {
+    transform: scale(1.3);
+    opacity: 1;
+    /* membesar */
+  }
+
+  100% {
+    transform: scale(0);
+    opacity: 0;
+    /* mengecil & hilang */
+  }
+}
+
+.badge-blink {
+  animation: pulseHide 1.2s infinite;
+}
+
+/* ========================================================
+/*   CUSTOM STYLES FOR SPECIFIC COMPONENTS */
+/* ======================================================== */
+.modal-custom {
+  width: 95vw;
+  max-width: 1200px;
+  height: 90vh;
+}
+
+.modal-body-custom {
+  overflow-y: auto;
+  max-height: calc(90vh - 120px);
+  /* header + footer */
+}
+
+/* ========================================================
+   MODAL THEME AWARE
+======================================================== */
+.modal-theme .modal-content {
+  background-color: var(--color-card-body);
+  color: var(--color-card-text);
+  border: 1px solid var(--color-table-border);
+}
+
+.modal-theme .modal-header {
+  background-color: var(--color-card-header);
+  color: var(--color-card-text);
+  border-bottom: 1px solid var(--color-table-border);
+}
+
+.modal-theme .modal-body {
+  background-color: var(--color-card-body);
+  color: var(--color-card-text);
+}
+
+.modal-theme .modal-footer {
+  background-color: var(--color-card-footer);
+  border-top: 1px solid var(--color-table-border);
+}
+
+/* Close button biar terang di dark mode */
+.theme-dark .modal-theme .btn-close {
+  filter: invert(1);
+  opacity: 0.8;
+}
+
+/* =============================================
+   MODAL
+===============================================*/
+.modal-mobile-full .modal-content {
+  height: 100vh;
+}
+
+.modal-mobile-full .modal-body {
+  overflow-y: auto;
+}
+
+.modal-backdrop.show {
+  backdrop-filter: blur(3px);
+}
+
+/* ============================================
+   MAPPING CSS SIDEBAR LAMA KE SIDEBAR BARU
+============================================*/
+
+/* container sidebar */
+.leftside-menu {
+  width: 200px;
+  background-color: var(--color-sidebar-bg);
+  /*border-right: 1px solid var(--color-table-border);*/
+}
+
+/* scroll */
+.leftside-menu .h-100 {
+  overflow-y: auto;
+}
+
+/* UL utama */
+.side-nav {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* title */
+.side-nav-title {
+  font-size: 10pt;
+  font-weight: 700;
+  padding: 8px 12px;
+  color: var(--color-text-muted);
+}
+
+/* item */
+.side-nav-item {
+  position: relative;
+}
+
+/* ===== ROOT MENU (LEVEL 1) ===== */
+.side-nav-link-root {
+  display: block;
+  padding: 6px 10px;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--color-sidebar-text);
+  transition: background-color .15s ease, color .15s ease;
+}
+
+/* ===== SUB MENU ===== */
+.side-nav-link-sub {
+  display: block;
+  padding: 6px 14px;
+  font-size: 9.5pt;
+  text-decoration: none;
+  color: var(--color-sidebar-text);
+  transition: background-color .15s ease, color .15s ease;
+}
+
+/* level 2 */
+.side-nav-second-level {
+  list-style: none;
+  padding-left: 6px;
+  margin: 0;
+}
+
+/* level 3 */
+.side-nav-third-level {
+  list-style: none;
+  padding-left: 12px;
+  margin: 0;
+}
+
+/* ===== HOVER & ACTIVE ===== */
+.side-nav-link-root:hover,
+.side-nav-link-root.active,
+.side-nav-link-sub:hover,
+.side-nav-link-sub.active {
+  background-color: var(--color-hover-bg);
+  color: var(--color-hover-text);
+}
+
+/* active indicator (garis kiri) */
+.side-nav-link-root.active,
+.side-nav-link-sub.active {
+  font-weight: 700;
+  box-shadow: inset 3px 0 0 var(--color-primary-dark);
+}
+
+/* ===== ICON ===== */
+.side-nav-link-root i {
+  margin-right: 8px;
+}
+
+/* ===== DROPDOWN ICON ===== */
+.side-nav-link-root .ms-auto {
+  float: right;
+  font-size: 10pt;
+}
+
+/* ===== COLLAPSE ===== */
+.collapse {
+  display: none;
+}
+
+.collapse.show {
+  display: block;
+}
+
+/* ===== MOBILE ===== */
+.leftside-menu.mobile {
+  position: fixed;
+  z-index: 999;
+}
+
+/* ===== CLOSED STATE ===== */
+.leftside-menu.closed {
+  width: 0;
+  overflow: hidden;
+}
+
+.side-nav-second-level .side-nav-link-sub {
+  padding-left: 20px;
+}
+
+.side-nav-third-level .side-nav-link-sub {
+  padding-left: 28px;
+}
+
+/* ICON ROOT MENU */
+.side-nav-link-root i {
+  font-size: 16px;
+  width: 20px;
+  display: inline-block;
+  text-align: center;
+  margin-right: 10px;
+  color: var(--color-sidebar-text);
+}
+
+/* ICON SAAT ACTIVE */
+.side-nav-link-root.active i {
+  color: var(--color-hover-text);
+}
+
+/* ICON SUBMENU (kalau nanti dipakai) */
+.side-nav-link-sub i {
+  font-size: 14px;
+  width: 18px;
+  margin-right: 8px;
+  opacity: 0.8;
+}
+
+.side-nav-link-root span {
+  vertical-align: middle;
+}
+
+.side-nav-link-root {
+  display: flex;
+  align-items: center;
+}
+
+.side-nav-link-root:hover i {
+  transform: scale(1.1);
+  transition: 0.2s;
+}
