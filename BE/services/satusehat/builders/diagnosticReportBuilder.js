@@ -1,3 +1,5 @@
+import { formatSatuSehatDate } from "../../../utility/formatSatuSehatDate.js";
+
 export const buildDiagnosticReport = (
   data,
   observationId,
@@ -39,8 +41,8 @@ export const buildDiagnosticReport = (
     encounter: {
       reference: `Encounter/${data.encounter_id}`,
     },
-    effectiveDateTime: data.measured_dt,
-    issued: new Date().toISOString(),
+    effectiveDateTime: formatSatuSehatDate(data.measured_dt),
+    issued: formatSatuSehatDate(new Date()),
     result: [
       {
         reference: `Observation/${observationId}`,

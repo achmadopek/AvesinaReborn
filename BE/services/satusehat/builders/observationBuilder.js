@@ -1,3 +1,5 @@
+import { formatSatuSehatDate } from "../../../utility/formatSatuSehatDate.js";
+
 export const buildObservation = (data) => {
   return {
     resourceType: "Observation",
@@ -34,8 +36,8 @@ export const buildObservation = (data) => {
         reference: `Practitioner/${data.doctor_id}`,
       },
     ],
-    effectiveDateTime: data.measured_dt,
-    issued: new Date().toISOString(),
+    effectiveDateTime: formatSatuSehatDate(data.measured_dt),
+    issued: formatSatuSehatDate(new Date()),
     valueString: data.hasil_bacaan,
   };
 };

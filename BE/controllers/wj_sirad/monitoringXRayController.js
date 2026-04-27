@@ -217,7 +217,7 @@ exports.getData = async (req, res) => {
       const l = mapLokal[u.registry_id] || {};
       const s = mapSS[u.registry_id] || {};
 
-      const isFinal = !!u.photo_reading;
+      const isRead = !!u.photo_reading;
 
       const tindakanArr = u.tindakan?.split(",") || [];
 
@@ -245,8 +245,8 @@ exports.getData = async (req, res) => {
 
         hasil_bacaan: u.photo_reading || l.hasil_bacaan || null,
 
-        status: isFinal ? "done" : l.status || "none",
-        is_final: isFinal,
+        status: isRead ? "read" : l.status || "none",
+        is_final: isRead,
 
         tindakan_mapping,
 
@@ -320,7 +320,7 @@ exports.getDetail = async (req, res) => {
       [registry_id],
     );
 
-    const isFinal = !!utama.photo_reading;
+    const isRead = !!utama.photo_reading;
 
     res.json({
       success: true,
@@ -333,9 +333,9 @@ exports.getDetail = async (req, res) => {
         // fallback
         hasil_bacaan: utama.photo_reading || lokal?.hasil_bacaan || null,
 
-        status: isFinal ? "done" : lokal?.status || "none",
+        status: isRead ? "done" : lokal?.status || "none",
 
-        is_final: isFinal,
+        is_final: isRead,
       },
     });
   } catch (err) {
@@ -789,98 +789,221 @@ exports.requestXRay = async (req, res) => {
 };
 
 exports.sendSatuSehat = async (req, res) => {
-  const conn = await dbLokal.promise().getConnection();
+  const connLokal = await dbLokal.promise().getConnection();
 
   try {
     const { registry_id } = req.body;
 
-    if (!registry_id) throw new Error("registry_id wajib");
-
-    const [[detail]] = await conn.query(
-      `SELECT * FROM sirad_xray
-       WHERE registry_id = ?
-       AND is_active = 1
-       LIMIT 1`,
-      [registry_id],
-    );
-
-    if (!detail) throw new Error("Data tidak ditemukan");
-    if (detail.status !== "read") throw new Error("Belum siap kirim");
-    if (!detail.read_by) throw new Error("Dokter pemeriksa belum ada");
-    if (!detail.read_at) throw new Error("Tanggal baca belum ada");
-
-    if (!detail.uid_study || !detail.uid_series || !detail.uid_instance1) {
-      throw new Error("UID DICOM belum lengkap");
+    if (!registry_id) {
+      throw new Error("registry_id wajib");
     }
 
-    const [[ss]] = await dbERM.promise().query(
-      `SELECT patient_ihs_number, encounter_uuid
-       FROM satusehat
-       WHERE registry_id = ?
-       LIMIT 1`,
-      [registry_id],
+    // =========================
+    // 1. AMBIL DATA UTAMA (SOURCE OF TRUTH)
+    // =========================
+    const [[utama]] = await dbUtama.promise().query(
+      `
+      SELECT 
+        r.registry_id,
+        xrd.photo_reading,
+        xrh.measured_dt,
+        xrh.expert AS pemeriksa_id
+      FROM registry r
+      JOIN unit_visit uv ON uv.registry_id = r.registry_id
+      JOIN x_ray_hdr xrh ON xrh.unit_visit_id = uv.unit_visit_id
+      JOIN x_ray_dtl xrd ON xrd.x_ray_id = xrh.x_ray_id
+      WHERE r.registry_id = ?
+      LIMIT 1
+    `,
+      [registry_id]
     );
 
-    if (!ss?.patient_ihs_number) throw new Error("Patient belum punya IHS");
-    if (!ss?.encounter_uuid) throw new Error("Encounter belum ada");
+    if (!utama) {
+      throw new Error("Data utama tidak ditemukan");
+    }
 
+    // =========================
+    // 2. AMBIL DATA LOKAL (FALLBACK)
+    // =========================
+    const [[lokal]] = await dbLokal.promise().query(
+      `
+      SELECT hasil_bacaan, read_at, read_by
+      FROM sirad_xray
+      WHERE registry_id = ?
+      AND is_active = 1
+      LIMIT 1
+    `,
+      [registry_id]
+    );
+
+    // =========================
+    // 2b. AMBIL DATA REQUEST SERVICE
+    // =========================
+    const [[sr]] = await dbERM.promise().query(
+      `SELECT service_request_uuid 
+      FROM satusehat_service_request
+      WHERE registry_id = ?
+      LIMIT 1`,
+      [registry_id]
+    );
+
+    if (!sr?.service_request_uuid) {
+      throw new Error("ServiceRequest belum ada");
+    }
+
+    // =========================
+    // 3. MERGE DATA (CORE LOGIC)
+    // =========================
+    const hasil_bacaan = utama.photo_reading || lokal?.hasil_bacaan || null;
+
+    const measured_dt =
+      utama.measured_dt || lokal?.read_at || new Date();
+
+    const dokter_id =
+      utama.pemeriksa_id || lokal?.read_by || null;
+
+    // =========================
+    // 4. VALIDASI DATA MEDIS
+    // =========================
+    if (!hasil_bacaan) {
+      throw new Error("Hasil bacaan belum tersedia");
+    }
+
+    if (!dokter_id) {
+      throw new Error("Dokter pemeriksa belum ada");
+    }
+
+    // =========================
+    // 5. AMBIL DATA SATUSEHAT (ERM)
+    // =========================
+    const [[ss]] = await dbERM.promise().query(
+      `
+      SELECT patient_ihs_number, encounter_uuid
+      FROM satusehat
+      WHERE registry_id = ?
+      LIMIT 1
+    `,
+      [registry_id]
+    );
+
+    if (!ss?.patient_ihs_number) {
+      throw new Error("Patient belum punya IHS");
+    }
+
+    if (!ss?.encounter_uuid) {
+      throw new Error("Encounter belum ada");
+    }
+
+    // =========================
+    // 6. AMBIL IHS DOKTER
+    // =========================
     const [[dokter]] = await dbUtama.promise().query(
-      `SELECT satusehat_ihs_number
-       FROM employee
-       WHERE employee_id = ?
-       LIMIT 1`,
-      [detail.read_by],
+      `
+      SELECT satusehat_ihs_number
+      FROM employee
+      WHERE employee_id = ?
+      LIMIT 1
+    `,
+      [dokter_id]
     );
 
     if (!dokter?.satusehat_ihs_number) {
       throw new Error("Dokter belum punya IHS");
     }
 
+    // =========================
+    // 7. BUILD PAYLOAD
+    // =========================
     const payloadData = {
-      ...detail,
+      registry_id,
+
+      hasil_bacaan,
+      measured_dt,
+
+      // mapping ke format builder
       patient_id: ss.patient_ihs_number,
       encounter_id: ss.encounter_uuid,
       doctor_id: dokter.satusehat_ihs_number,
-      measured_dt: detail.read_at,
+
+      // tetap simpan original (optional)
+      patient_ihs: ss.patient_ihs_number,
+      encounter_uuid: ss.encounter_uuid,
+      practitioner_ihs: dokter.satusehat_ihs_number,
+
+      service_request_id: sr.service_request_uuid,
     };
 
-    const result = await sendSatuSehatService(
+    console.log("===== SEND SATUSEHAT PAYLOAD =====");
+    console.dir(payloadData, { depth: null });
+
+    // =========================
+    // 8. HIT SATUSEHAT
+    // =========================
+    const result = await sendSatuSehat(
       payloadData,
-      process.env.ORGANIZATION_ID,
+      process.env.ORGANIZATION_ID
     );
 
-    await conn.query(
-      `UPDATE sirad_xray
-       SET satusehat_status = 'done',
-           satusehat_response = ?,
-           updated_at = NOW()
-       WHERE registry_id = ?`,
-      [JSON.stringify(result), registry_id],
+    // =========================
+    // 9. UPDATE STATUS LOKAL (OPTIONAL)
+    // =========================
+    await connLokal.query(
+      `
+      UPDATE sirad_xray
+      SET 
+        satusehat_status = 'done',
+        satusehat_response = ?,
+        updated_at = NOW()
+      WHERE registry_id = ?
+    `,
+      [JSON.stringify(result), registry_id]
     );
 
+    // =========================
+    // 10. RESPONSE
+    // =========================
     res.json({
       success: true,
-      message: "Berhasil kirim SatuSehat",
+      message: "Berhasil kirim ke SatuSehat",
     });
+
   } catch (err) {
     console.error("SEND SATUSEHAT ERROR:", err?.response?.data || err.message);
 
+    if (err.response) {
+      console.error("STATUS:", err.response.status);
+      console.error("DATA:");
+      console.dir(err.response.data, { depth: null });
+    } else {
+      console.error(err.message);
+    }
+
+    // =========================
+    // UPDATE STATUS FAILED (NON-BLOCKING)
+    // =========================
     try {
-      await conn.query(
-        `UPDATE sirad_xray
-         SET satusehat_status = 'failed'
-         WHERE registry_id = ?`,
-        [req.body.registry_id],
+      await dbLokal.promise().query(
+        `
+        UPDATE sirad_xray
+        SET satusehat_status = 'failed',
+            updated_at = NOW()
+        WHERE registry_id = ?
+      `,
+        [req.body.registry_id]
       );
-    } catch (err) {
-      console.error("UPDATE XRAY DATA ERROR:", err.message);
+    } catch (e) {
+      console.error("UPDATE FAILED STATUS ERROR:", e.message);
     }
 
     res.status(500).json({
       success: false,
-      message: err?.response?.data?.issue?.[0]?.diagnostics || err.message,
+      message:
+        err?.response?.data?.issue?.[0]?.diagnostics ||
+        err.message ||
+        "Gagal kirim ke SatuSehat",
     });
+
   } finally {
-    conn.release();
+    connLokal.release();
   }
 };

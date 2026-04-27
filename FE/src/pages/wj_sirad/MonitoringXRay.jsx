@@ -464,40 +464,9 @@ const MonitoringXRay = (
     }
   };
 
-  const generateUID = () => {
-    const baseOid = "1.2.826.0.1.3680043.10"; // bebas, tapi konsisten
-
-    const ts = Date.now(); // timestamp
-    const hex = ts.toString(16); // hex
-
-    const root = `${baseOid}.${ts}`;
-
-    return {
-      imagingStudy: `urn:oid:${root}.0`,
-      series: `${root}.1`,
-      instance1: `${root}.2`,
-      instance2: `${root}.3`,
-      raw: hex,
-    };
-  };
-
-  const openModalSatuSehat = async (row) => {
-    try {
-      const res = await fetchDetailXRay(row.registry_id);
-
-      if (res.success) {
-        const uid = generateUID();
-
-        setSelectedDetail(res.data);
-        setGeneratedUIDs(uid);
-        setUidBase(uid.raw);
-
-        setShowSatuSehatModal(true);
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error("Gagal generate data SatuSehat");
-    }
+  const openModalSatuSehat = (row) => {
+    setSelectedDetail(row);
+    setShowSatuSehatModal(true);
   };
 
   const handleSendSatuSehat = async () => {
@@ -509,21 +478,17 @@ const MonitoringXRay = (
 
       setLoading(true);
 
-      console.log("UID:", generatedUIDs);
-      console.log("DATA:", selectedDetail);
-
-      /*const res = await sendSatuSehat(selectedDetail.registry_id, uids: generatedUIDs);
+      const res = await sendSatuSehat(selectedDetail.registry_id);
 
       if (res.success) {
-        toast.success("Berhasil kirim ke SatuSehat 🚀");
+        toast.success("Berhasil kirim ke SatuSehat");
 
         setShowSatuSehatModal(false);
-
-        // reload data biar status update
         loadData(currentPage, tanggal);
       } else {
         toast.error(res.message || "Gagal kirim");
-      }*/
+      }
+
     } catch (err) {
       console.error(err);
       toast.error(err?.response?.data?.message || "Gagal kirim ke SatuSehat");
@@ -1067,55 +1032,101 @@ const MonitoringXRay = (
       <Modal
         show={showSatuSehatModal}
         onHide={() => setShowSatuSehatModal(false)}
+        size="lg"
         centered
       >
         <Modal.Header closeButton>
-          <Modal.Title>Generate UID SatuSehat</Modal.Title>
+          <Modal.Title>Kirim ke SatuSehat</Modal.Title>
         </Modal.Header>
 
         <Modal.Body>
-          <div className="mb-2">
-            <label>UID Base (hex timestamp)</label>
-            <input className="form-control" value={uidBase} readOnly />
-          </div>
-
-          {generatedUIDs && (
+          {!selectedDetail ? (
+            <div className="text-center py-4">Loading...</div>
+          ) : (
             <>
-              <div className="mb-2">
-                <label>ImagingStudy UID</label>
-                <input
-                  className="form-control"
-                  value={generatedUIDs.imagingStudy}
-                  readOnly
-                />
+              <div className="row">
+                {/* ===================== */}
+                {/* INFO PASIEN */}
+                {/* ===================== */}
+                <div className="mb-3 col-md-6">
+                  <h6 className="fw-bold">Pasien</h6>
+                  <div>Nama: {selectedDetail.patient_nm}</div>
+                  <div>MR: {selectedDetail.mr_code}</div>
+                  <div>
+                    Tanggal: {formatDate(selectedDetail.measured_dt)}
+                  </div>
+                </div>
+
+                {/* ===================== */}
+                {/* INFO PEMERIKSAAN */}
+                {/* ===================== */}
+                <div className="mb-3 col-md-6">
+                  <h6 className="fw-bold">Pemeriksaan</h6>
+                  <div>Tindakan: {selectedDetail.tindakan}</div>
+                  <div>Pengirim: {selectedDetail.dr_pengirim}</div>
+                  <div>Pemeriksa: {selectedDetail.dr_pemeriksa}</div>
+                </div>
               </div>
 
-              <div className="mb-2">
-                <label>Series UID</label>
-                <input
-                  className="form-control"
-                  value={generatedUIDs.series}
-                  readOnly
-                />
+              {/* ===================== */}
+              {/* HASIL BACAAN */}
+              {/* ===================== */}
+              <div className="mb-3">
+                <h6 className="fw-bold">Hasil Bacaan</h6>
+                <div className="border p-2 rounded bg-light">
+                  {selectedDetail.hasil_bacaan || "-"}
+                </div>
               </div>
 
-              <div className="mb-2">
-                <label>Instance 1</label>
-                <input
-                  className="form-control"
-                  value={generatedUIDs.instance1}
-                  readOnly
-                />
+              {/* ===================== */}
+              {/* STATUS SATUSEHAT */}
+              {/* ===================== */}
+              <div className="mb-3">
+                <h6 className="fw-bold">Status SatuSehat</h6>
+
+                <ul className="list-unstyled mb-0">
+                  <li>
+                    {selectedDetail?.satu_sehat?.patient ? "✅" : "❌"} Patient IHS
+                  </li>
+                  <li>
+                    {selectedDetail?.satu_sehat?.encounter ? "✅" : "❌"} Encounter
+                  </li>
+                  <li>
+                    {selectedDetail?.satu_sehat?.service_request ? "✅" : "❌"} Service Request
+                  </li>
+                  {/*<li>
+                    {selectedDetail?.satu_sehat?.imaging ? "✅" : "❌"} Imaging Study
+                  </li>
+                  <li>
+                    {selectedDetail?.satu_sehat?.report ? "✅" : "❌"} Diagnostic Report
+                  </li>
+                  <li>
+                    {selectedDetail?.satu_sehat?.observation ? "✅" : "❌"} Observation
+                  </li>*/}
+                </ul>
               </div>
 
-              <div className="mb-2">
-                <label>Instance 2</label>
-                <input
-                  className="form-control"
-                  value={generatedUIDs.instance2}
-                  readOnly
-                />
-              </div>
+              {/* ===================== */}
+              {/* VALIDATION WARNING */}
+              {/* ===================== */}
+              {(!selectedDetail?.hasil_bacaan ||
+                !selectedDetail?.satu_sehat?.patient ||
+                !selectedDetail?.satu_sehat?.encounter) && (
+                <div className="alert alert-warning">
+                  ⚠️ Data belum lengkap:
+                  <ul className="mb-0">
+                    {!selectedDetail?.hasil_bacaan && (
+                      <li>Hasil bacaan belum diisi</li>
+                    )}
+                    {!selectedDetail?.satu_sehat?.patient && (
+                      <li>Patient IHS belum ada</li>
+                    )}
+                    {!selectedDetail?.satu_sehat?.encounter && (
+                      <li>Encounter belum ada</li>
+                    )}
+                  </ul>
+                </div>
+              )}
             </>
           )}
         </Modal.Body>
@@ -1125,15 +1136,20 @@ const MonitoringXRay = (
             variant="secondary"
             onClick={() => setShowSatuSehatModal(false)}
           >
-            Tutup
+            Batal
           </Button>
 
           <Button
-            variant="success"
+            variant="primary"
+            disabled={
+              loading ||
+              !selectedDetail?.hasil_bacaan ||
+              !selectedDetail?.satu_sehat?.patient ||
+              !selectedDetail?.satu_sehat?.encounter
+            }
             onClick={handleSendSatuSehat}
-            disabled={loading}
           >
-            {loading ? "Mengirim..." : "Kirim (Next Step)"}
+            {loading ? "Mengirim..." : "Kirim ke SatuSehat"}
           </Button>
         </Modal.Footer>
       </Modal>
@@ -1317,6 +1333,8 @@ const MonitoringXRay = (
                     satu_sehat = {},
                   } = row;
 
+                  console.log(filteredData);
+
                   const {
                     patient = false,
                     encounter = false,
@@ -1339,12 +1357,12 @@ const MonitoringXRay = (
                   const hasPemeriksa = !!pemeriksa_ihs;
 
                   const canRequest =
-                    isNotFinal &&
+                    //isNotFinal &&
                     patient &&
                     encounter &&
                     hasPengirim &&
                     hasPemeriksa &&
-                    hasValidTindakan &&
+                    //hasValidTindakan &&
                     !service_request;
 
                   const canUpload = status === "ordered" && isNotFinal;
@@ -1355,10 +1373,11 @@ const MonitoringXRay = (
 
                   const canKirim =
                     isRead &&
-                    isNotFinal &&
+                    //isNotFinal// &&
                     encounter &&
-                    service_request &&
-                    imaging;
+                    service_request// &&
+                    //imaging
+                    ;
 
                   return (
                     <tr key={row.unit_visit_id || i}>
