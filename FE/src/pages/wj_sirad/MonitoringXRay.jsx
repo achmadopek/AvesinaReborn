@@ -102,7 +102,7 @@ const MonitoringXRay = (
       const res = await fetchPaginatedDataXRay({ tgl, role, peg_id });
       setData(res.data || []);
 
-      console.log(res);
+      //console.log("DATA", res);
 
       setTotalPages(res.totalPages || 1);
       setCurrentPage(page);
@@ -1333,7 +1333,7 @@ const MonitoringXRay = (
                     satu_sehat = {},
                   } = row;
 
-                  console.log(filteredData);
+                  //console.log(filteredData);
 
                   const {
                     patient = false,

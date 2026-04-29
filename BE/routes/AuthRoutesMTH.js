@@ -8,4 +8,6 @@ console.log(authMTHController);
 
 router.post("/menus-role", authMTHController.getMenusRole);
 
+router.get('/profile-detail', authMTHController.getProfileDetail);
+
 module.exports = router;

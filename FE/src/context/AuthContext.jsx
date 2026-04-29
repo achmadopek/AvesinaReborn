@@ -98,7 +98,7 @@ export const AuthProvider = ({ children }) => {
 
         const decoded = jwtDecode(token);
 
-        // console.log("DECODED TOKEN:", decoded);
+        //console.log("DECODED TOKEN:", decoded);
 
         if (decoded.exp * 1000 < Date.now()) {
           const refreshed = await getValidToken();

@@ -5,10 +5,13 @@ import ToDoList from "../../pages/user/ToDoList";
 import { Modal, Button } from "react-bootstrap";
 import { useNotification } from "../../context/NotificationContext";
 import { formatRole } from "../../utils/FormtText";
+import API from "../../api/axiosInstance";
 
 const Topbar = ({ onToggleSidebar, onToggleRight, onLogout }) => {
   const {
+    peg_id,
     username,
+    token,
     role,
     roles,
     setRole,
@@ -26,6 +29,8 @@ const Topbar = ({ onToggleSidebar, onToggleRight, onLogout }) => {
   const [theme, setTheme] = useState(
     localStorage.getItem("app-theme") || "light"
   );
+
+  const [profileName, setProfileName] = useState("");
 
   useEffect(() => {
     document.documentElement.classList.remove("theme-light", "theme-dark");
@@ -47,6 +52,38 @@ const Topbar = ({ onToggleSidebar, onToggleRight, onLogout }) => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+  
+  useEffect(() => {
+    //console.log("EMPLOYEE_ID:", peg_id);
+    //console.log("TOKEN:", token);
+
+    const fetchProfile = async () => {
+      if (!peg_id) {
+        console.log("peg_id kosong");
+        return;
+      }
+
+      try {
+        const res = await API.get(
+          "/api/rswj-inv/auth/profile-detail",
+          {
+            params: { peg_id }, 
+            headers: { Authorization: `Bearer ${token}` }
+          }
+        );
+
+        const data = res.data;
+
+        //console.log("PROFILE: ", data);
+
+        setProfileName(data?.employee_nm || "");
+      } catch (err) {
+        console.error("Failed to fetch profile:", err);
+      }
+    };
+
+    fetchProfile();
+  }, [peg_id]);
 
   return (
     <div
@@ -115,7 +152,7 @@ const Topbar = ({ onToggleSidebar, onToggleRight, onLogout }) => {
               <i className="fas fa-fw fa-user"></i>
               {!isMobile && (
                 <>
-                  {formatRole(username)} ({formatRole(role)})
+                  {formatRole(profileName || username)} ({formatRole(role)})
                 </>
               )}
 
@@ -139,14 +176,14 @@ const Topbar = ({ onToggleSidebar, onToggleRight, onLogout }) => {
                 style={{ minWidth: "220px", borderRadius: "4px" }}
               >
                 {isMobile && (
-                  <>
-                    <div className="text-center p-2">
-                      <i className="fas fa-fw fa-user"></i>
-                      {formatRole(username)} ({formatRole(role)})
-                    </div>
-                    <hr style={{ margin: "4px 0" }} />
-                  </>
-                )}
+                <>
+                  <div className="text-center p-2">
+                    <i className="fas fa-fw fa-user me-1"></i>
+                    {profileName || username || "Loading..."} ({formatRole(role)})
+                  </div>
+                  <hr style={{ margin: "4px 0" }} />
+                </>
+              )}
 
                 {/* Switch Role */}
                 {roles &&

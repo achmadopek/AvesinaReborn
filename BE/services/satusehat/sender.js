@@ -30,7 +30,7 @@ const sendSatuSehat = async (data, orgId) => {
     // =========================
     // 1. IMAGING STUDY
     // =========================
-    const imagingPayload = buildImagingStudy(normalized, uid, orgId);
+    /*const imagingPayload = buildImagingStudy(normalized, uid, orgId);
 
     logSection("IMAGING STUDY PAYLOAD");
     logJSON("Payload", imagingPayload);
@@ -86,16 +86,16 @@ const sendSatuSehat = async (data, orgId) => {
     } catch (err) {
       logError("DIAGNOSTIC ERROR", err);
       throw err;
-    }
+    }*/
 
     logSection("SELESAI");
-    console.log("✅ Semua resource berhasil dikirim");
+    console.log("Semua resource berhasil dikirim");
 
     return {
       success: true,
     };
   } catch (err) {
-    console.log("\n🔥 FINAL ERROR");
+    console.log("\nFINAL ERROR");
     logError("SEND SATUSEHAT FAILED", err);
     throw err;
   }

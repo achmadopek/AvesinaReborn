@@ -1,11 +1,22 @@
-export const formatSatuSehatDate = (date) => {
+const formatSatuSehatDate = (date) => {
   const d = new Date(date);
 
-  // paksa ke WIB
-  const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
-  const wib = new Date(utc + (7 * 60 * 60 * 1000));
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false
+  });
 
-  const pad = (n) => String(n).padStart(2, "0");
+  const parts = Object.fromEntries(
+    formatter.formatToParts(d).map(({ type, value }) => [type, value])
+  );
 
-  return `${wib.getFullYear()}-${pad(wib.getMonth() + 1)}-${pad(wib.getDate())}T${pad(wib.getHours())}:${pad(wib.getMinutes())}:${pad(wib.getSeconds())}+07:00`;
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}+07:00`;
 };
+
+module.exports = { formatSatuSehatDate };
