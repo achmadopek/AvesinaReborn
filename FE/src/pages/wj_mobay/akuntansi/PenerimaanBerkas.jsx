@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { formatSortDate } from "../../../utils/FormatDate";
+import { formatSortDateTime, formatDate } from "../../../utils/FormatDate";
 import { formatCurrency } from "../../../utils/FormatNumber";
 import {
   fetchSuratPengantar,
@@ -280,9 +280,9 @@ const PenerimaanBerkas = () => {
                     <tr>
                       <td className="text-center">{i + 1}</td>
                       <td>{surat.no_surat}</td>
-                      <td>{formatSortDate(surat.tanggal_surat)}</td>
-                      <td>{formatSortDate(surat.invoice_consolidated_dt)}</td>
-                      <td>{formatSortDate(surat.invoice_submitted_dt)}</td>
+                      <td>{formatDate(surat.tanggal_surat)}</td>
+                      <td>{formatSortDateTime(surat.invoice_consolidated_dt)}</td>
+                      <td>{formatSortDateTime(surat.invoice_submitted_dt)}</td>
                       <td>{surat.prvdr_str}</td>
                       <td>{surat.total_invoice}</td>
                       <td>{formatCurrency(surat.total_diajukan)}</td>

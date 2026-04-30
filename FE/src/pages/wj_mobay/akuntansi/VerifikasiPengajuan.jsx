@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { formatSortDate } from "../../../utils/FormatDate";
+import { formatDate, formatSortDateTime } from "../../../utils/FormatDate";
 import { formatNumber, formatCurrency } from "../../../utils/FormatNumber";
 import {
   fetchPaginatedDataPengajuanPembayaran,
@@ -24,7 +24,6 @@ const VerifikasiPengajuan = () => {
   // -----------------------
   // STATE
   // -----------------------
-
   const { peg_id } = useAuth();
 
   const [data, setData] = useState([]);
@@ -47,7 +46,16 @@ const VerifikasiPengajuan = () => {
   const [invoice, setInvoice] = useState("");
   const [drug, setDrug] = useState("");
 
-  const [verifikasiData, setVerifikasiData] = useState(null);
+  const [verifikasiData, setVerifikasiData] = useState({
+    surat_id: null,
+    po_acce_id: null,
+    items: [],
+    status_validasi: "",
+    status_pengolahan: "",
+    catatan_verifikasi: "",
+    total_tagihan: 0,
+    total_diajukan: 0,
+  });
   const [showVerifikasiModal, setShowVerifikasiModal] = useState(false);
 
   const handleMulaiVerifikasi = async (surat) => {
@@ -64,11 +72,11 @@ const VerifikasiPengajuan = () => {
   };
 
   const handleExpandSurat = (id) => {
-    setExpandedSurat(prev => prev === id ? null : id);
+    setExpandedSurat(prev => (prev === id ? null : id));
   };
 
   const toggleDetail = (id) => {
-    setExpandedInvoice(prev => prev === id ? null : id);
+    setExpandedInvoice(prev => (prev === id ? null : id));
   };
 
   const getStatusBadgeClass = (status) => {
@@ -93,6 +101,16 @@ const VerifikasiPengajuan = () => {
         return "bg-dark";
     }
   };
+
+  const [showChecklistModal, setShowChecklistModal] = useState(false);
+  const [checklist, setChecklist] = useState({
+    kwitansi: false,
+    invoice: false,
+    sp: false,
+    bast: false,
+    rba: false,
+    dokumentasi: false
+  });
 
   // -----------------------
   // LOAD DATA
@@ -149,7 +167,7 @@ const VerifikasiPengajuan = () => {
       const matchDrug =
         !drug ||
         (inv.items || []).some((it) =>
-          normalize(it.item_name).includes(normalize(drug))
+          normalize(it.drug_nm).includes(normalize(drug))
         );
 
       return matchProvider && matchInvoice && matchDrug;
@@ -171,8 +189,9 @@ const VerifikasiPengajuan = () => {
   const handleProsesVerifikasi = (inv, surat_id) => {
     setVerifikasiData({
       po_acce_id: inv.po_acce_id,
-      surat_id: surat_id,
+      surat_id,
       status_validasi: "Tidak Valid",
+      status_pengolahan: "Terverifikasi",
       catatan_verifikasi: "",
       total_tagihan: inv.total_tagihan || 0,
       total_diajukan: inv.total_diajukan || 0,
@@ -182,22 +201,21 @@ const VerifikasiPengajuan = () => {
     setShowVerifikasiModal(true);
   };
 
-  const isAllInvoiceValidatedLocal = () => {
-    const surat = data.find(s => s.surat_id === verifikasiData.surat_id);
+  const isAllInvoiceValidatedLocal = (surat_id) => {
+    if (!surat_id) return false;
+
+    const surat = data.find(s => s.surat_id === surat_id);
     if (!surat) return false;
 
-    const allInvoices = Object.values(surat.provider)
-      .flatMap(p => p.invoices);
+    const allInvoices = Object.values(surat.provider || {})
+      .flatMap(p => p.invoices || []);
 
-    return allInvoices.every(inv => {
-      // invoice yg barusan divalidasi → paksa dianggap sudah
-      if (inv.po_acce_id === verifikasiData.po_acce_id) return true;
+    if (allInvoices.length === 0) return false;
 
-      return (
-        inv.status_validasi === "Valid" ||
-        inv.status_validasi === "Tidak Valid"
-      );
-    });
+    return allInvoices.every(inv =>
+      inv.status_validasi === "Valid" ||
+      inv.status_validasi === "Tidak Valid"
+    );
   };
 
   const handleSubmitValidasi = async () => {
@@ -205,89 +223,9 @@ const VerifikasiPengajuan = () => {
       await prosesValidasiPembayaran({
         po_acce_id: verifikasiData.po_acce_id,
         status_validasi: verifikasiData.status_validasi,
+        status_pengolahan: verifikasiData.status_pengolahan,
         catatan_verifikasi: verifikasiData.catatan_verifikasi,
       });
-
-      toast.success("Invoice berhasil divalidasi");
-
-      // cek langsung TANPA nunggu reload
-      const selesaiSemua = isAllInvoiceValidatedLocal();
-
-      if (selesaiSemua) {
-
-        try {
-          // 1. tampilkan loading dulu
-          Swal.fire({
-            title: "Generating PDF...",
-            allowOutsideClick: false,
-            didOpen: () => {
-              Swal.showLoading();
-            }
-          });
-
-          // 2. generate PDF
-          const res = await cetakVerifikasi({
-            surat_id: verifikasiData.surat_id
-          });
-
-          // bikin blob
-          const url = window.URL.createObjectURL(new Blob([res.data]));
-          const link = document.createElement("a");
-          link.href = url;
-
-          // =======================
-          // ambil filename dari BE
-          // =======================
-          const disposition = res.headers["content-disposition"];
-
-          let fileName = "Lembar_Verifikasi.pdf";
-
-          if (disposition) {
-            const match = disposition.match(/filename="(.+)"/);
-            if (match) {
-              fileName = match[1];
-            }
-          } else {
-            // =======================
-            // fallback dari FE
-            // =======================
-            const safeNo = (verifikasiData?.no_verifikasi || "NO")
-              .replace(/[\/\\]/g, "-");
-
-            fileName = `Lembar_Verifikasi_${safeNo}.pdf`;
-          }
-
-          // set download
-          link.setAttribute("download", fileName);
-
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
-          window.URL.revokeObjectURL(url);
-
-          // 3. tutup loading
-          Swal.close();
-
-          // 4. tampilkan sukses
-          Swal.fire({
-            icon: "success",
-            title: "Berhasil",
-            text: "PDF berhasil didownload",
-            timer: 1500,
-            showConfirmButton: false
-          });
-
-        } catch (err) {
-
-          Swal.close();
-
-          Swal.fire({
-            icon: "error",
-            title: "Gagal",
-            text: "Gagal generate PDF"
-          });
-        }
-      }
 
       // baru reload data setelah semua proses
       await loadData(startDate, endDate, filterDateType);
@@ -296,6 +234,153 @@ const VerifikasiPengajuan = () => {
 
     } catch (err) {
       toast.error("Gagal validasi invoice");
+    }
+  };
+
+  const handleFinalVerifikasi = (surat_id) => {
+    const selesaiSemua = isAllInvoiceValidatedLocal(surat_id);
+
+    if (!selesaiSemua) {
+      toast.warning("Masih ada invoice yang belum divalidasi");
+      return;
+    }
+
+    Swal.fire({
+      icon: "question",
+      title: "Finalisasi Verifikasi?",
+      text: "Data akan dicetak dan diproses ke pembayaran",
+      showCancelButton: true,
+    }).then((result) => {
+      if (result.isConfirmed) {
+        setVerifikasiData((prev) => ({
+          ...prev,
+          surat_id,
+          items: prev.items || []
+        }));
+        setShowChecklistModal(true);
+      }
+    });
+  };
+
+  const resetChecklist = () => {
+    setChecklist({
+      kwitansi: false,
+      invoice: false,
+      sp: false,
+      bast: false,
+      rba: false,
+      dokumentasi: false
+    });
+  };
+
+  const generatePdfWithChecklist = async () => {
+    try {
+      // ===============================
+      // 1. VALIDASI AWAL
+      // ===============================
+      if (!verifikasiData?.surat_id) {
+        toast.error("Surat tidak valid");
+        return;
+      }
+
+      // ===============================
+      // 2. LOADING
+      // ===============================
+      Swal.fire({
+        title: "Generating PDF...",
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      // ===============================
+      // 3. CALL API
+      // ===============================
+      const res = await cetakVerifikasi({
+        surat_id: verifikasiData.surat_id,
+        checklist
+      });
+
+      // ===============================
+      // 4. VALIDASI RESPONSE
+      // ===============================
+      if (!res || !res.data) {
+        throw new Error("Response kosong dari server");
+      }
+
+      // optional: cek content-type
+      const contentType = res.headers?.["content-type"];
+      if (!contentType?.includes("application/pdf")) {
+        throw new Error("Response bukan PDF");
+      }
+
+      // ===============================
+      // 5. HANDLE FILE DOWNLOAD
+      // ===============================
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+
+      // ===============================
+      // 6. AMBIL FILENAME
+      // ===============================
+      let fileName = "Lembar_Verifikasi.pdf";
+
+      const disposition = res.headers?.["content-disposition"];
+
+      if (disposition) {
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        if (match?.[1]) {
+          fileName = match[1];
+        }
+      } else {
+        // fallback FE
+        const safeNo = (verifikasiData?.no_verifikasi || "NO")
+          .replace(/[\/\\]/g, "-");
+
+        fileName = `Lembar_Verifikasi_${safeNo}.pdf`;
+      }
+
+      link.setAttribute("download", fileName);
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      window.URL.revokeObjectURL(url);
+
+      // ===============================
+      // 7. SUCCESS UX
+      // ===============================
+      Swal.close();
+
+      Swal.fire({
+        icon: "success",
+        title: "Berhasil",
+        text: "PDF berhasil didownload",
+        timer: 1500,
+        showConfirmButton: false
+      });
+
+      await loadData(startDate, endDate, filterDateType);
+
+      // ===============================
+      // 8. RESET STATE
+      // ===============================
+      resetChecklist();
+      setShowChecklistModal(false);
+
+    } catch (err) {
+      console.error("PDF ERROR:", err);
+
+      Swal.close();
+
+      Swal.fire({
+        icon: "error",
+        title: "Gagal generate PDF",
+        text: err.message || "Terjadi kesalahan saat generate PDF"
+      });
     }
   };
 
@@ -403,7 +488,7 @@ const VerifikasiPengajuan = () => {
                 </tr>
               </thead>
               <tbody>
-                {verifikasiData?.items.map((it, i) => (
+                {(verifikasiData?.items || []).map((it, i) => (
                   <tr
                     key={it.drug_equi_id || i}
                     className={!it.is_checked ? "table-secondary" : ""}
@@ -518,6 +603,54 @@ const VerifikasiPengajuan = () => {
           </Button>
         </Modal.Footer>
       </Modal>
+
+      {/* ================= MODAL CENTANG KELANGKAPAN ================= */}
+      <Modal show={showChecklistModal} onHide={() => setShowChecklistModal(false)} centered>
+      <Modal.Header closeButton>
+        <Modal.Title>Kelengkapan Dokumen</Modal.Title>
+      </Modal.Header>
+
+      <Modal.Body>
+        {[
+          ["kwitansi", "Kwitansi"],
+          ["invoice", "Invoice dari Sistem"],
+          ["sp", "Surat Pesanan dari Sistem"],
+          ["bast", "BAST dari Sistem"],
+          ["rba", "Fotokopi RBA"],
+          ["dokumentasi", "Dokumentasi Kegiatan"],
+        ].map(([key, label]) => (
+          <div key={key} className="form-check">
+            <input
+              type="checkbox"
+              className="form-check-input"
+              checked={checklist[key]}
+              onChange={(e) =>
+                setChecklist(prev => ({
+                  ...prev,
+                  [key]: e.target.checked
+                }))
+              }
+            />
+            <label className="form-check-label ms-2">{label}</label>
+          </div>
+        ))}
+      </Modal.Body>
+
+      <Modal.Footer>
+        <Button variant="secondary" onClick={() => setShowChecklistModal(false)}>
+          Batal
+        </Button>
+
+        <Button
+          variant="success"
+          onClick={async () => {
+            await generatePdfWithChecklist();
+          }}
+        >
+          Cetak PDF
+        </Button>
+      </Modal.Footer>
+    </Modal>
 
       {/* ================= CARD ================= */}
       <div className="card shadow-sm card-theme">
@@ -646,13 +779,13 @@ const VerifikasiPengajuan = () => {
                       {/* ===== ROW SURAT ===== */}
                       <tr>
                         <td className="text-center">{i + 1}</td>
-                        <td>{surat.no_surat}</td>
-                        <td>{surat.no_verifikasi}</td>
-                        <td>{formatSortDate(surat.tgl_surat)}</td>
-                        <td>{formatSortDate(surat.tgl_konsolidasi)}</td>
-                        <td>{formatSortDate(surat.tgl_pengajuan)}</td>
-                        <td>{formatSortDate(surat.tgl_terima)}</td>
-                        <td>{formatSortDate(surat.tgl_verifikasi)}</td>
+                        <td>{surat.no_surat || "-"}</td>
+                        <td>{surat.no_verifikasi || "-"}</td>
+                        <td>{formatDate(surat.tgl_surat) || "-"}</td>
+                        <td>{formatSortDateTime(surat.tgl_konsolidasi) || "-"}</td>
+                        <td>{formatSortDateTime(surat.tgl_pengajuan) || "-"}</td>
+                        <td>{formatSortDateTime(surat.tgl_terima) || "-"}</td>
+                        <td>{formatSortDateTime(surat.tgl_verifikasi) || "-"}</td>
                         <td>
                           {Object.values(surat.provider).map((p) => (
                             <div key={p.prvdr_id}>
@@ -687,7 +820,7 @@ const VerifikasiPengajuan = () => {
                             className="btn btn-sm btn-primary"
                             onClick={() => handleExpandSurat(surat.surat_id)}
                           >
-                            Detail
+                            {expandedSurat === surat.surat_id ? "Tutup" : "Detail"}
                           </button>
 
                           {Object.values(surat.provider || {}).some((p) =>
@@ -695,13 +828,30 @@ const VerifikasiPengajuan = () => {
                               (inv) => inv.status_pengolahan === "Berkas Diterima"
                             )
                           ) && (
+                            <>
                               <button
-                                className="btn btn-sm btn-success ms-2"
+                                className="btn btn-sm btn-success ms-2 m-1"
                                 onClick={() => handleMulaiVerifikasi(surat)}
                               >
                                 Mulai Verifikasi
                               </button>
-                            )}
+                            </>
+                          )}
+
+                          {Object.values(surat.provider || {}).some((p) =>
+                            p.invoices.some(
+                              (inv) => inv.status_pengolahan === "Terverifikasi" || inv.status_pengolahan === "Proses Revisi"
+                            )
+                          ) && (
+                            <>
+                              <button
+                                className="btn btn-sm btn-danger ms-2 m-1"
+                                onClick={() => handleFinalVerifikasi(surat.surat_id)}
+                              >
+                                Selesai & Cetak
+                              </button>
+                            </>
+                          )}
                         </td>
                       </tr>
 

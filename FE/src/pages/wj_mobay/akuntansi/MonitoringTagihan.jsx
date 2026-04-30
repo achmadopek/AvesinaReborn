@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { formatDateInput, formatSortDate } from "../../../utils/FormatDate";
+import { formatDateInput, formatSortDateTime } from "../../../utils/FormatDate";
 import { formatNumber, formatCurrency } from "../../../utils/FormatNumber";
 import {
   fetchPaginatedMonitoringData
@@ -156,6 +156,21 @@ const MonitoringTagihan = () => {
     loadData(startDate, endDate, filterDateType);
   };
 
+  const CellDateAmount = ({ date, amount }) => {
+    if (!date && !amount) return "-";
+
+    return (
+      <div className="text-center">
+        <div className="small text-muted">
+          {date ? formatSortDateTime(date) : "-"}
+        </div>
+        <div className="fw-semibold">
+          {formatCurrency(amount || 0)}
+        </div>
+      </div>
+    );
+  };
+
   // -----------------------
   // RENDER
   // -----------------------
@@ -254,14 +269,15 @@ const MonitoringTagihan = () => {
               <thead>
                 <tr>
                   <th>No</th>
-                  <th>Tgl Pengajuan</th>
-                  <th>Tgl Pengiriman</th>
                   <th>Provider</th>
-                  <th>Jumlah Invoice</th>
-                  <th>Total Tagihan</th>
-                  <th>Total Diajukan</th>
-                  <th>Total Dibayarkan</th>
-                  <th>Status</th>
+                  <th>Jml Faktur</th>
+                  <th>Tagihan</th>
+                  <th>Diajukan</th>
+                  <th>Pengiriman</th>
+                  <th>Penerimaan</th>
+                  <th>Verifikasi</th>
+                  <th>Pembayaran</th>
+                  <th>Rincian</th>
                 </tr>
               </thead>
               <tbody>
@@ -283,13 +299,53 @@ const MonitoringTagihan = () => {
                       {/* ================= ROW SURAT ================= */}
                       <tr>
                         <td>{i + 1}</td>
-                        <td>{formatSortDate(surat.tgl_pengajuan)}</td>
-                        <td>{formatSortDate(surat.tgl_pengiriman)}</td>
-                        <td>{surat.prvdr_str}</td>
+                        <td>
+                            <strong>{surat.prvdr_str}</strong>
+                            <br/>
+                            <span className="small">{surat.prvdr_address}</span>
+                        </td>
                         <td className="text-center">{surat.total_invoice}</td>
-                        <td className="text-end">{formatCurrency(surat.total_tagihan)}</td>
-                        <td className="text-end">{formatCurrency(surat.total_diajukan)}</td>
-                        <td className="text-end">{formatCurrency(surat.total_bayar)}</td>
+                        <td>
+                          <CellDateAmount
+                            date={surat.tgl_pengajuan}
+                            amount={surat.total_tagihan}
+                          />
+                        </td>
+
+                        <td>
+                          <CellDateAmount
+                            date={surat.tgl_pengajuan}
+                            amount={surat.total_diajukan}
+                          />
+                        </td>
+
+                        <td>
+                          <CellDateAmount
+                            date={surat.tgl_pengiriman}
+                            amount={surat.total_diajukan}
+                          />
+                        </td>
+
+                        <td>
+                          <CellDateAmount
+                            date={surat.tgl_pengiriman}
+                            amount={surat.total_tagihan}
+                          />
+                        </td>
+
+                        <td>
+                          <CellDateAmount
+                            date={surat.tgl_pengajuan}
+                            amount={surat.total_diajukan}
+                          />
+                        </td>
+
+                        <td>
+                          <CellDateAmount
+                            date={surat.tgl_pengiriman}
+                            amount={surat.total_bayar}
+                          />
+                        </td>
                         <td className="text-center">
                           <button
                             className="btn btn-sm btn-primary"

@@ -263,7 +263,8 @@ exports.createPengiriman = async (req, res) => {
     // ================= UPDATE STATUS PO (FIX DISINI) =================
     await conn.query(`
       UPDATE mobay_mirror_po
-      SET status_pengolahan = 'Proses Pengantaran'
+      SET status_pengolahan = 'Proses Pengantaran',
+      invoice_sent_dt = NOW()
       WHERE pengajuan_id IN (?)
     `, [pengajuan_ids]);
 

@@ -99,8 +99,7 @@ exports.getData = async (req, res) => {
         ON sp.id = h.pengajuan_id
 
       WHERE 
-        (h.status_pengolahan = 'Berkas Diterima' 
-        OR h.status_pengolahan = 'Proses Verifikasi')
+        h.status_pengolahan IN ('Berkas Diterima','Proses Verifikasi','Terverifikasi')
         AND ${column} BETWEEN ? AND ?
 
       ORDER BY h.po_dt DESC
@@ -306,6 +305,7 @@ exports.validasiPembayaran = async (req, res) => {
     const {
       po_acce_id,
       status_validasi,
+      status_pengolahan,
       catatan_verifikasi
     } = req.body;
 
@@ -314,11 +314,6 @@ exports.validasiPembayaran = async (req, res) => {
         message: "po_acce_id dan status_validasi wajib diisi",
       });
     }
-
-    const status_pengolahan =
-      status_validasi === "Valid"
-        ? "Proses Pembayaran"
-        : "Proses Revisi";
 
     // update status utama
     await mirrorService.updateMirrorStatus(
@@ -344,7 +339,7 @@ exports.validasiPembayaran = async (req, res) => {
 
 exports.cetakVerifikasi = async (req, res) => {
   try {
-    const { surat_id } = req.body;
+    const { surat_id, checklist = {} } = req.body;
 
     if (!surat_id) {
       return res.status(400).json({ message: "surat_id wajib" });
@@ -359,7 +354,14 @@ exports.cetakVerifikasi = async (req, res) => {
       return res.status(500).json({ message: "Gagal ambil data surat" });
     }
 
-    generatePDF(res, data);
+    //UPDATE STATUS KE PEMBAYARAN
+    await db.promise().query(`
+      UPDATE mobay_mirror_po
+      SET status_pengolahan = 'Proses Pembayaran'
+      WHERE pengajuan_id = ?
+    `, [surat_id]);
+
+    generatePDF(res, data, checklist);
 
   } catch (err) {
     console.error("ERROR cetakVerifikasi:", err);
@@ -367,7 +369,7 @@ exports.cetakVerifikasi = async (req, res) => {
   }
 };
 
-const generatePDF = (res, payload) => {
+const generatePDF = (res, payload, checklist = {}) => {
   const {
     no_surat,
     no_verifikasi,
@@ -407,6 +409,14 @@ const generatePDF = (res, payload) => {
 
   const formatTanggalIndo = (tgl) =>
     new Date(tgl).toLocaleDateString("id-ID");
+  
+  const formatTanggalPanjang = (tgl) => {
+    return new Date(tgl).toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  };
 
   let y = 50;
   let isFirstPage = true;
@@ -446,18 +456,26 @@ const generatePDF = (res, payload) => {
     doc.text("Kelengkapan dokumen :", 50, y);
     y += 20;
 
-    const checklist = [
-      "Kwitansi",
-      "Invoice dari Sistem",
-      "Surat Pesanan dari Sistem",
-      "BAST dari Sistem",
-      "Fotokopi RBA",
-      "Dokumentasi Kegiatan",
+    const checklistItems = [
+      { key: "kwitansi", label: "Kwitansi" },
+      { key: "invoice", label: "Invoice dari Sistem" },
+      { key: "sp", label: "Surat Pesanan dari Sistem" },
+      { key: "bast", label: "BAST dari Sistem" },
+      { key: "rba", label: "Fotokopi RBA" },
+      { key: "dokumentasi", label: "Dokumentasi Kegiatan" },
     ];
 
-    checklist.forEach((item, index) => {
+    checklistItems.forEach((item, index) => {
+      const isChecked = checklist?.[item.key];
+
       doc.rect(60, y - 2, 12, 12).stroke();
-      doc.text(`${index + 1}. ${item}`, 80, y);
+
+      if (isChecked) {
+        doc.font("Helvetica-Bold").text("V", 62, y - 1);
+        doc.font("Helvetica");
+      }
+
+      doc.text(`${index + 1}. ${item.label}`, 80, y);
       y += 20;
     });
 
@@ -467,7 +485,7 @@ const generatePDF = (res, payload) => {
     y += 18;
     doc.text("Pejabat Penatausahaan Keuangan", 50, y);
 
-    doc.text(`Kraksaan, ${formatTanggalIndo(tanggal_surat)}`, 350, y - 18);
+    doc.text(`Kraksaan, ${formatTanggalPanjang(tanggal_surat)}`, 350, y - 18);
     doc.text("Petugas Verifikasi,", 350, y);
 
     y += 60;

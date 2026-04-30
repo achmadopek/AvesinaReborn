@@ -636,6 +636,9 @@ input[type="number"]::-webkit-outer-spin-button {
   border-color: #4da3ff;
 }
 
+.form-check-input::after
+.form-check-input::before
+
 /* ========================================================
    DATE / NUMBER SPIN BUTTON FIX
 ======================================================== */

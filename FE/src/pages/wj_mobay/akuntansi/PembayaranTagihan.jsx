@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { formatSortDate } from "../../../utils/FormatDate";
+import { formatSortDateTime, formatDate } from "../../../utils/FormatDate";
 import { formatNumber, formatCurrency } from "../../../utils/FormatNumber";
 import {
   fetchPaginatedDataPengajuanPembayaran,
@@ -379,11 +379,11 @@ const PembayaranTagihan = () => {
                       <tr>
                         <td className="text-center">{i + 1}</td>
                         <td>{surat.no_surat}</td>
-                        <td>{formatSortDate(surat.tgl_surat)}</td>
-                        <td>{formatSortDate(surat.tgl_konsolidasi)}</td>
-                        <td>{formatSortDate(surat.tgl_pengajuan)}</td>
-                        <td>{formatSortDate(surat.tgl_terima)}</td>
-                        <td>{formatSortDate(surat.tgl_verifikasi)}</td>
+                        <td>{formatDate(surat.tgl_surat)}</td>
+                        <td>{formatSortDateTime(surat.tgl_konsolidasi)}</td>
+                        <td>{formatSortDateTime(surat.tgl_pengajuan)}</td>
+                        <td>{formatSortDateTime(surat.tgl_terima)}</td>
+                        <td>{formatSortDateTime(surat.tgl_verifikasi)}</td>
 
                         <td>
                           {Object.values(surat.provider || {}).map((p) => (

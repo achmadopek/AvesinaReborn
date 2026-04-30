@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { formatDate } from "../../../utils/FormatDate";
+import { formatDate, formatSortDateTime } from "../../../utils/FormatDate";
 import { formatNumber, formatCurrency } from "../../../utils/FormatNumber";
 import {
   fetchRekapPembayaranBahanMedis,
@@ -219,10 +219,10 @@ const RekapPembayaranBahanMedis = () => {
           rekap.invoice_no || "-",
           rekap.srvc_unit_nm || "-",
           rekap.prvdr_str || "-",
-          formatDate(rekap.po_dt) || "-",
+          formatSortDateTime(rekap.po_dt) || "-",
           formatCurrency(rekap.total_invoice || 0),
           rekap.status_pengolahan || "Belum Proses",
-          formatDate(rekap.invoice_paid_dt) || "-",
+          formatSortDateTime(rekap.invoice_paid_dt) || "-",
           formatCurrency(rekap.total_lunas || 0),
           formatCurrency(rekap.total_hutang || 0),
         ]);
@@ -651,28 +651,28 @@ const RekapPembayaranBahanMedis = () => {
                             {inv.prvdr_str}
                           </td>
                           <td>
-                            {formatDate(inv.po_dt)} <br />
+                            {formatSortDateTime(inv.po_dt)} <br />
                             {inv.po_code || "-"}
                           </td>
                           <td>
                             {inv.invoice_no} <br />
-                            {formatDate(inv.invoice_dt) || "-"}
+                            {formatSortDateTime(inv.invoice_dt) || "-"}
                           </td>
                           <td>
-                            {formatDate(inv.invoice_received_dt) || "-"} <br />
-                            {formatDate(inv.invoice_due_dt) || "-"}
+                            {formatSortDateTime(inv.invoice_received_dt) || "-"} <br />
+                            {formatSortDateTime(inv.invoice_due_dt) || "-"}
                           </td>
                           <td>
-                            {formatDate(inv.invoice_consolidated_dt) || "-"}<br />
-                            {formatDate(inv.invoice_submitted_dt) || "-"}
+                            {formatSortDateTime(inv.invoice_consolidated_dt) || "-"}<br />
+                            {formatSortDateTime(inv.invoice_submitted_dt) || "-"}
                           </td>
                           <td>
-                            {formatDate(inv.invoice_accepted_dt) || "-"}<br />
-                            {formatDate(inv.invoice_verified_dt) || "-"}
+                            {formatSortDateTime(inv.invoice_accepted_dt) || "-"}<br />
+                            {formatSortDateTime(inv.invoice_verified_dt) || "-"}
                           </td>
                           <td className="text-end">
                             {formatCurrency(inv.total_invoice)} <br />
-                            {formatDate(inv.invoice_paid_dt) || "-"}
+                            {formatSortDateTime(inv.invoice_paid_dt) || "-"}
                           </td>
                           <td className="text-end">
                             {inv.total_lunas > 0 ? (

@@ -226,7 +226,7 @@ async function getDataMirrorByTanggal(start, end, typeTglFilter) {
     FROM mobay_mirror_po po
     LEFT JOIN mobay_mirror_po_dtl d ON d.mirror_po_id = po.id
     WHERE ${field} BETWEEN ? AND ?
-    AND status_pengolahan in ('Konsolidasi', 'Proses Pengantaran','Proses Verifikasi','Proses Revisi','Proses Pembayaran')
+    AND status_pengolahan in ('Konsolidasi', 'Proses Pengantaran','Proses Verifikasi','Terverifikasi','Proses Revisi','Proses Pembayaran')
     ORDER BY po.po_acce_id, d.id
   `;
 
@@ -331,6 +331,7 @@ async function getMonitoringBySuratPengantar(start, end, typeTglFilter) {
       po.po_acce_id,
       po.invoice_no,
       po.prvdr_str,
+      po.prvdr_address,
       po.status_pengolahan,
 
       po.invoice_submitted_dt AS tgl_pengajuan,
@@ -372,6 +373,7 @@ async function getMonitoringBySuratPengantar(start, end, typeTglFilter) {
         tgl_pengajuan: r.tgl_pengajuan,
         tgl_pengiriman: r.tgl_pengiriman,
         prvdr_str: r.prvdr_str,
+        prvdr_address: r.prvdr_address,
 
         total_invoice: 0,
         total_tagihan: 0,

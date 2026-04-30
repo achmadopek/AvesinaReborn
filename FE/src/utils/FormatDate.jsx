@@ -26,8 +26,8 @@ export const formatDate = (dateStr) => {
 /**
  * Format tanggal ke format Indonesia: DD MMMM YYYY
  * @example
- * formatDate("2025-10-03") // "03 Oktober 2025"
- * formatDate("2023-01-15") // "15 Januari 2023"
+ * formatDate("2025-10-03") // "03 Oktober 2025 10:30"
+ * formatDate("2023-01-15") // "15 Januari 2023 23:12"
  */
 export const formatDateTime = (dateStr) => {
   if (!dateStr) return '';

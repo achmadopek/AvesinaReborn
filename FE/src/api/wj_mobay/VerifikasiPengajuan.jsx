@@ -33,6 +33,7 @@ export const mulaiVerifikasi = async (payload) => {
 export const prosesValidasiPembayaran = async ({
   po_acce_id,
   status_validasi,
+  status_pengolahan,
   catatan_verifikasi,
 }) => {
   const res = await API.put(
@@ -40,6 +41,7 @@ export const prosesValidasiPembayaran = async ({
     {
       po_acce_id,
       status_validasi,
+      status_pengolahan,
       catatan_verifikasi,
     }
   );

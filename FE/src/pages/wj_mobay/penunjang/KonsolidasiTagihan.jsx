@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { formatDateInput, formatSortDate } from "../../../utils/FormatDate";
+import { formatDateInput, formatSortDate, formatSortDateTime } from "../../../utils/FormatDate";
 import { formatNumber, formatCurrency } from "../../../utils/FormatNumber";
 import {
   fetchPaginatedDataPengajuanPembayaran,
@@ -722,19 +722,19 @@ const KonsolidasiTagihan = () => {
                                 {inv.po_acce_id}
                               </td>
                               <td>
-                                {formatSortDate(inv.po_dt)}
+                                {formatSortDateTime(inv.po_dt)}
                                 <br />
                                 {inv.po_code || "-"}
                               </td>
                               <td>
                                 {inv.invoice_no}
                                 <br />
-                                {formatSortDate(inv.invoice_dt) || "-"}
+                                {formatSortDateTime(inv.invoice_dt) || "-"}
                               </td>
                               <td>
-                                {formatSortDate(inv.invoice_received_dt) || "-"}
+                                {formatSortDateTime(inv.invoice_received_dt) || "-"}
                                 <br />
-                                {formatSortDate(inv.invoice_due_dt) || "-"}
+                                {formatSortDateTime(inv.invoice_due_dt) || "-"}
                               </td>
                               <td className="text-end">
                                 {formatCurrency(inv.total_tagihan)}
