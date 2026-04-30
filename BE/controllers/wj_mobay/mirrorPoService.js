@@ -403,6 +403,9 @@ async function getMonitoringBySuratPengantar(start, end, typeTglFilter) {
 
       surat.invoices.push(invoice);
       surat.total_invoice += 1;
+
+      surat.total_diajukan += Number(r.total_diajukan || 0);
+      surat.total_bayar += Number(r.total_bayar || 0);
     }
 
     // =========================
@@ -422,8 +425,6 @@ async function getMonitoringBySuratPengantar(start, end, typeTglFilter) {
     // AKUMULASI SURAT
     // =========================
     surat.total_tagihan += Number(r.subtotal || 0);
-    surat.total_diajukan += Number(r.total_diajukan || 0);
-    surat.total_bayar += Number(r.total_bayar || 0);
   }
 
   return Array.from(suratMap.values());
