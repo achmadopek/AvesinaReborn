@@ -6,7 +6,7 @@
     "@types/react": "^19.0.8",
     "axios": "^1.11.0",
     "bootstrap": "^5.3.3",
-    "exceljs": "^4.4.0",
+    "exceljs": "^3.4.0",
     "html2canvas": "^1.4.1",
     "html2pdf.js": "^0.14.0",
     "jspdf": "^4.2.0",
