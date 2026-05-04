@@ -1,5 +1,5 @@
-const bcrypt = require('bcrypt');
-const db = require('../../db/connection-lokal'); // Koneksi ke database lokal
+const bcrypt = require("bcryptjs");
+const db = require("../../db/connection-lokal"); // Koneksi ke database lokal
 
 // ==========================
 // GET Semua Pegawai (dengan paginasi) + Seacrh
@@ -9,20 +9,20 @@ exports.getData = (req, res) => {
   const limit = parseInt(req.query.limit) || 10;
   const offset = (page - 1) * limit;
 
-  const nik = req.query.nik || '';
-  const nama = req.query.nama || '';
-  const status = req.query.status || '';
+  const nik = req.query.nik || "";
+  const nama = req.query.nama || "";
+  const status = req.query.status || "";
 
-  let baseWhere = '';
+  let baseWhere = "";
   const whereValues = [];
 
   if (nik) {
-    baseWhere += (baseWhere ? ' AND' : ' WHERE') + ' nik LIKE ?';
+    baseWhere += (baseWhere ? " AND" : " WHERE") + " nik LIKE ?";
     whereValues.push(`%${nik}%`);
   }
 
   if (nama) {
-    baseWhere += (baseWhere ? ' AND' : ' WHERE') + ' employee_nm LIKE ?';
+    baseWhere += (baseWhere ? " AND" : " WHERE") + " employee_nm LIKE ?";
     whereValues.push(`%${nama}%`);
   }
 
@@ -45,8 +45,10 @@ exports.getData = (req, res) => {
   // Query total
   db.query(countQuery, whereValues, (err, countResult) => {
     if (err) {
-      console.error('Gagal ambil jumlah total pegawai:', err);
-      return res.status(500).json({ message: 'Gagal ambil total data pegawai' });
+      console.error("Gagal ambil jumlah total pegawai:", err);
+      return res
+        .status(500)
+        .json({ message: "Gagal ambil total data pegawai" });
     }
 
     const total = countResult[0].total;
@@ -54,8 +56,8 @@ exports.getData = (req, res) => {
     // Query data pegawai
     db.query(dataQuery, dataValues, (err, results) => {
       if (err) {
-        console.error('Gagal ambil data pegawai:', err);
-        return res.status(500).json({ message: 'Gagal ambil data pegawai' });
+        console.error("Gagal ambil data pegawai:", err);
+        return res.status(500).json({ message: "Gagal ambil data pegawai" });
       }
 
       res.json({
@@ -72,7 +74,7 @@ exports.getData = (req, res) => {
 // Cari Pegawai by Name
 // ==========================
 exports.getPegawaiSearch = (req, res) => {
-  const search = `%${req.query.nama || ''}%`;
+  const search = `%${req.query.nama || ""}%`;
   const sql = `
     SELECT id, employee_nm AS nama
     FROM sdm_pegawai
@@ -82,7 +84,8 @@ exports.getPegawaiSearch = (req, res) => {
   `;
 
   db.query(sql, [search], (err, result) => {
-    if (err) return res.status(500).json({ message: 'Gagal ambil data pegawai' });
+    if (err)
+      return res.status(500).json({ message: "Gagal ambil data pegawai" });
     res.json(result);
   });
 };
@@ -94,15 +97,15 @@ exports.checkNikExists = (req, res) => {
   const { nik } = req.params;
 
   if (!nik) {
-    return res.status(400).json({ message: 'NIK diperlukan' });
+    return res.status(400).json({ message: "NIK diperlukan" });
   }
 
-  const query = 'SELECT COUNT(*) AS count FROM sdm_pegawai WHERE nik = ?';
+  const query = "SELECT COUNT(*) AS count FROM sdm_pegawai WHERE nik = ?";
 
   db.query(query, [nik], (err, results) => {
     if (err) {
-      console.error('Gagal cek NIK:', err);
-      return res.status(500).json({ message: 'Gagal memeriksa NIK' });
+      console.error("Gagal cek NIK:", err);
+      return res.status(500).json({ message: "Gagal memeriksa NIK" });
     }
 
     const exists = results[0].count > 0;
@@ -115,9 +118,19 @@ exports.checkNikExists = (req, res) => {
 // ==========================
 exports.createPegawai = (req, res) => {
   const {
-    nik, employee_nm, birth_dt, place_of_birth, nip,
-    pangkat, golongan, mkg, npwp, education,
-    employee_sts, job_sts, doctor_sts
+    nik,
+    employee_nm,
+    birth_dt,
+    place_of_birth,
+    nip,
+    pangkat,
+    golongan,
+    mkg,
+    npwp,
+    education,
+    employee_sts,
+    job_sts,
+    doctor_sts,
   } = req.body;
 
   const query = `
@@ -128,17 +141,27 @@ exports.createPegawai = (req, res) => {
   `;
 
   const values = [
-    nik, employee_nm, birth_dt, place_of_birth, nip,
-    pangkat, golongan, mkg, npwp, education,
-    employee_sts, job_sts, doctor_sts
+    nik,
+    employee_nm,
+    birth_dt,
+    place_of_birth,
+    nip,
+    pangkat,
+    golongan,
+    mkg,
+    npwp,
+    education,
+    employee_sts,
+    job_sts,
+    doctor_sts,
   ];
 
   db.query(query, values, (err) => {
     if (err) {
-      console.error('Gagal tambah pegawai:', err);
-      return res.status(500).json({ error: 'Gagal menambahkan data pegawai' });
+      console.error("Gagal tambah pegawai:", err);
+      return res.status(500).json({ error: "Gagal menambahkan data pegawai" });
     }
-    res.json({ message: 'Data pegawai berhasil ditambahkan' });
+    res.json({ message: "Data pegawai berhasil ditambahkan" });
   });
 };
 
@@ -155,12 +178,14 @@ exports.getPegawaiById = (req, res) => {
   `;
 
   db.query(query, [id], (err, results) => {
-    if (err) return res.status(500).json({ message: 'Gagal ambil data pegawai' });
-    if (results.length === 0) return res.status(404).json({ message: 'Pegawai tidak ditemukan' });
+    if (err)
+      return res.status(500).json({ message: "Gagal ambil data pegawai" });
+    if (results.length === 0)
+      return res.status(404).json({ message: "Pegawai tidak ditemukan" });
 
     // Gabungkan data pegawai dengan data user (jika ada)
     const pegawai = {
-      ...results[0]
+      ...results[0],
     };
 
     res.json(pegawai);
@@ -173,9 +198,19 @@ exports.getPegawaiById = (req, res) => {
 exports.updatePegawai = (req, res) => {
   const { id } = req.params;
   const {
-    nik, employee_nm, birth_dt, place_of_birth, nip,
-    pangkat, golongan, mkg, npwp, education,
-    employee_sts, job_sts, doctor_sts
+    nik,
+    employee_nm,
+    birth_dt,
+    place_of_birth,
+    nip,
+    pangkat,
+    golongan,
+    mkg,
+    npwp,
+    education,
+    employee_sts,
+    job_sts,
+    doctor_sts,
   } = req.body;
 
   const query = `
@@ -187,18 +222,29 @@ exports.updatePegawai = (req, res) => {
   `;
 
   const values = [
-    nik, employee_nm, birth_dt, place_of_birth, nip,
-    pangkat, golongan, mkg, npwp, education,
-    employee_sts, job_sts, doctor_sts, id
+    nik,
+    employee_nm,
+    birth_dt,
+    place_of_birth,
+    nip,
+    pangkat,
+    golongan,
+    mkg,
+    npwp,
+    education,
+    employee_sts,
+    job_sts,
+    doctor_sts,
+    id,
   ];
 
   db.query(query, values, (err) => {
     if (err) {
-      console.error('Gagal update pegawai:', err);
-      return res.status(500).json({ error: 'Gagal memperbarui data pegawai' });
+      console.error("Gagal update pegawai:", err);
+      return res.status(500).json({ error: "Gagal memperbarui data pegawai" });
     }
 
-    res.json({ message: 'Data pegawai berhasil diperbarui' });
+    res.json({ message: "Data pegawai berhasil diperbarui" });
   });
 };
 
@@ -219,11 +265,13 @@ exports.verifyPegawai = (req, res) => {
 
   db.query(sql, [verified_by, verifiedAt, id], (err) => {
     if (err) {
-      console.error('Gagal update verifikasi:', err);
-      return res.status(500).json({ message: 'Gagal memverifikasi', error: err });
+      console.error("Gagal update verifikasi:", err);
+      return res
+        .status(500)
+        .json({ message: "Gagal memverifikasi", error: err });
     }
 
-    return res.json({ message: 'Verifikasi berhasil diperbarui' });
+    return res.json({ message: "Verifikasi berhasil diperbarui" });
   });
 };
 
@@ -244,10 +292,10 @@ exports.validityPegawai = (req, res) => {
 
   db.query(sql, [validated_by, validatedAt, id], (err) => {
     if (err) {
-      console.error('Gagal update validasi:', err);
-      return res.status(500).json({ message: 'Gagal memvalidasi', error: err });
+      console.error("Gagal update validasi:", err);
+      return res.status(500).json({ message: "Gagal memvalidasi", error: err });
     }
 
-    return res.json({ message: 'Validasi berhasil diperbarui' });
+    return res.json({ message: "Validasi berhasil diperbarui" });
   });
 };

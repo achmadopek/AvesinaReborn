@@ -1,6 +1,6 @@
-const bcrypt = require('bcrypt');
-const db = require('../../db/connection-lokal'); // Koneksi ke database lokal
-const { verify } = require('jsonwebtoken');
+const bcrypt = require("bcryptjs");
+const db = require("../../db/connection-lokal"); // Koneksi ke database lokal
+const { verify } = require("jsonwebtoken");
 
 // ==========================
 // GET Detail Pegawai by ID (beserta data rekening jika ada)
@@ -16,8 +16,10 @@ exports.getPegawaiById = (req, res) => {
   `;
 
   db.query(query, [id], (err, results) => {
-    if (err) return res.status(500).json({ message: 'Gagal mengambil data pegawai' });
-    if (results.length === 0) return res.status(404).json({ message: 'Pegawai tidak ditemukan' });
+    if (err)
+      return res.status(500).json({ message: "Gagal mengambil data pegawai" });
+    if (results.length === 0)
+      return res.status(404).json({ message: "Pegawai tidak ditemukan" });
 
     const pegawai = {
       ...results[0],
@@ -56,18 +58,20 @@ exports.updateRekening = (req, res) => {
   } = req.body;
 
   if (!rek_number || !rek_name || !bank_name || !bank_code) {
-    return res.status(400).json({ message: 'Data untuk update rekening tidak lengkap' });
+    return res
+      .status(400)
+      .json({ message: "Data untuk update rekening tidak lengkap" });
   }
 
-  const checkQuery = 'SELECT * FROM thp_rekening WHERE id = ?';
+  const checkQuery = "SELECT * FROM thp_rekening WHERE id = ?";
   db.query(checkQuery, [id], (err, result) => {
     if (err) {
-      console.error('Gagal memeriksa rekening:', err);
-      return res.status(500).json({ message: 'Gagal memeriksa rekening' });
+      console.error("Gagal memeriksa rekening:", err);
+      return res.status(500).json({ message: "Gagal memeriksa rekening" });
     }
 
     if (result.length === 0) {
-      return res.status(404).json({ message: 'Rekening tidak ditemukan' });
+      return res.status(404).json({ message: "Rekening tidak ditemukan" });
     }
 
     const verifiedByInt = verified_by ? parseInt(verified_by) : null;
@@ -99,16 +103,16 @@ exports.updateRekening = (req, res) => {
       ],
       (err, result) => {
         if (err) {
-          console.error('Gagal mengupdate rekening:', err);
-          return res.status(500).json({ message: 'Gagal mengupdate rekening' });
+          console.error("Gagal mengupdate rekening:", err);
+          return res.status(500).json({ message: "Gagal mengupdate rekening" });
         }
 
         if (result.affectedRows === 0) {
-          return res.status(404).json({ message: 'Rekening tidak ditemukan' });
+          return res.status(404).json({ message: "Rekening tidak ditemukan" });
         }
 
-        res.json({ message: 'Rekening berhasil diperbarui' });
-      }
+        res.json({ message: "Rekening berhasil diperbarui" });
+      },
     );
   });
 };
@@ -128,34 +132,42 @@ exports.createRekening = async (req, res) => {
   } = req.body;
 
   if (!peg_id || !rek_number || !rek_name || !bank_name) {
-    return res.status(400).json({ message: 'Data untuk create rekening tidak lengkap' });
+    return res
+      .status(400)
+      .json({ message: "Data untuk create rekening tidak lengkap" });
   }
 
   // Cek duplikasi nomor rekening
-  const checkRekQuery = 'SELECT * FROM thp_rekening WHERE rek_number = ?';
+  const checkRekQuery = "SELECT * FROM thp_rekening WHERE rek_number = ?";
   db.query(checkRekQuery, [rek_number], (err, existing) => {
     if (err) {
-      console.error('Gagal memeriksa nomor rekening:', err);
-      return res.status(500).json({ message: 'Gagal memeriksa nomor rekening' });
+      console.error("Gagal memeriksa nomor rekening:", err);
+      return res
+        .status(500)
+        .json({ message: "Gagal memeriksa nomor rekening" });
     }
 
     if (existing.length > 0) {
-      return res.status(400).json({ message: 'Nomor rekening sudah digunakan' });
+      return res
+        .status(400)
+        .json({ message: "Nomor rekening sudah digunakan" });
     }
 
     // Ambil NIK pegawai (hanya sebagai validasi, password tidak digunakan di sini)
-    const pegawaiQuery = 'SELECT nik FROM sdm_pegawai WHERE id = ?';
+    const pegawaiQuery = "SELECT nik FROM sdm_pegawai WHERE id = ?";
     db.query(pegawaiQuery, [peg_id], async (err, pegawaiResult) => {
       if (err) {
-        console.error('Gagal mengambil data pegawai:', err);
-        return res.status(500).json({ message: 'Gagal mengambil data pegawai' });
+        console.error("Gagal mengambil data pegawai:", err);
+        return res
+          .status(500)
+          .json({ message: "Gagal mengambil data pegawai" });
       }
 
       if (pegawaiResult.length === 0) {
-        return res.status(404).json({ message: 'Pegawai tidak ditemukan' });
+        return res.status(404).json({ message: "Pegawai tidak ditemukan" });
       }
 
-      const status = 'Aktif'; // Default status rekening
+      const status = "Aktif"; // Default status rekening
       const verifiedByInt = verified_by ? parseInt(verified_by) : null;
 
       const insertQuery = `
@@ -186,12 +198,14 @@ exports.createRekening = async (req, res) => {
         ],
         (err) => {
           if (err) {
-            console.error('Gagal menyimpan rekening:', err);
-            return res.status(500).json({ message: 'Gagal menyimpan rekening' });
+            console.error("Gagal menyimpan rekening:", err);
+            return res
+              .status(500)
+              .json({ message: "Gagal menyimpan rekening" });
           }
 
-          res.json({ message: 'Rekening berhasil ditambahkan' });
-        }
+          res.json({ message: "Rekening berhasil ditambahkan" });
+        },
       );
     });
   });
@@ -212,10 +226,10 @@ exports.validityRekening = (req, res) => {
 
   db.query(sql, [validated_by, validatedAt, id], (err) => {
     if (err) {
-      console.error('Gagal update validasi:', err);
-      return res.status(500).json({ message: 'Gagal memvalidasi', error: err });
+      console.error("Gagal update validasi:", err);
+      return res.status(500).json({ message: "Gagal memvalidasi", error: err });
     }
 
-    return res.json({ message: 'Validasi berhasil diperbarui' });
+    return res.json({ message: "Validasi berhasil diperbarui" });
   });
 };

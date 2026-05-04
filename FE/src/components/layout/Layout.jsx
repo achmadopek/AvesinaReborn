@@ -28,8 +28,8 @@ const Layout = ({ children }) => {
       );
       setShowRightContent(
         !mobile &&
-        applicationName !== "WJ-SIGMA" &&
-        applicationName !== "WJ-MOBAY"
+        applicationName !== "WJ-SIGMA"// &&
+        //applicationName !== "WJ-MOBAY"
       );
     };
     handleResize(); // initial call
@@ -42,8 +42,8 @@ const Layout = ({ children }) => {
     if (applicationName === "WJ-SIGMA") {
       setShowSidebar(false);
       setShowRightContent(false);
-    } else if (applicationName === "WJ-MOBAY") {
-      setShowRightContent(false);
+    //} else if (applicationName === "WJ-MOBAY") {
+      //setShowRightContent(false);
     }
   }, [role]);
 
@@ -58,7 +58,9 @@ const Layout = ({ children }) => {
 
   // === Toggle Rightbar ===
   const handleToggleRightContent = () => {
-    if (applicationName === "WJ-SIGMA" || applicationName === "WJ-MOBAY")
+    if (applicationName === "WJ-SIGMA" 
+      //|| applicationName === "WJ-MOBAY"
+      )
       return;
     setShowRightContent((prev) => {
       if (isMobile && !prev) setShowSidebar(false);

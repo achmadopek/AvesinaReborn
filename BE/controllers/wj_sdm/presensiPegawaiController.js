@@ -1,5 +1,5 @@
-const bcrypt = require('bcrypt');
-const db = require('../../db/connection-lokal'); // Koneksi ke database lokal
+const bcrypt = require("bcryptjs");
+const db = require("../../db/connection-lokal"); // Koneksi ke database lokal
 
 // ==========================
 // GET Data Presensi (dengan paginasi)
@@ -12,16 +12,18 @@ exports.getPresensi = (req, res) => {
   const pegId = req.query.peg_id || null;
   const periode = req.query.periode || null;
 
-  let whereClause = '';
+  let whereClause = "";
   const whereValues = [];
 
   if (pegId) {
-    whereClause += (whereClause ? ' AND' : ' WHERE') + ' sdm_presensi.peg_id = ?';
+    whereClause +=
+      (whereClause ? " AND" : " WHERE") + " sdm_presensi.peg_id = ?";
     whereValues.push(pegId);
   }
 
   if (periode) {
-    whereClause += (whereClause ? ' AND' : ' WHERE') + ' sdm_presensi.periode = ?';
+    whereClause +=
+      (whereClause ? " AND" : " WHERE") + " sdm_presensi.periode = ?";
     whereValues.push(periode);
   }
 
@@ -42,8 +44,10 @@ exports.getPresensi = (req, res) => {
   // Hitung total
   db.query(countQuery, whereValues, (err, countResult) => {
     if (err) {
-      console.error('Gagal menghitung total presensi:', err);
-      return res.status(500).json({ message: 'Gagal ambil total data presensi' });
+      console.error("Gagal menghitung total presensi:", err);
+      return res
+        .status(500)
+        .json({ message: "Gagal ambil total data presensi" });
     }
 
     const total = countResult[0].total;
@@ -51,8 +55,8 @@ exports.getPresensi = (req, res) => {
     // Ambil data
     db.query(dataQuery, dataValues, (err, results) => {
       if (err) {
-        console.error('Gagal ambil data presensi:', err);
-        return res.status(500).json({ message: 'Gagal ambil data presensi' });
+        console.error("Gagal ambil data presensi:", err);
+        return res.status(500).json({ message: "Gagal ambil data presensi" });
       }
 
       res.json({
@@ -70,14 +74,14 @@ exports.getHistoryPresensi = async (req, res) => {
   try {
     const { peg_id } = req.query;
     if (!peg_id) {
-      return res.status(400).json({ message: 'ID pegawai wajib diisi' });
+      return res.status(400).json({ message: "ID pegawai wajib diisi" });
     }
-    
+
     const conn = db.promise();
 
     // Ambil semua data THP milik pegawai ini
-   const [rows] = await conn.query(
-    `SELECT 
+    const [rows] = await conn.query(
+      `SELECT 
       id,
       periode,
       prosentase_alpha,
@@ -85,13 +89,15 @@ exports.getHistoryPresensi = async (req, res) => {
     FROM sdm_presensi
     WHERE peg_id = ?
     ORDER BY id DESC`,
-    [peg_id]
-  );
+      [peg_id],
+    );
 
     res.json(rows);
   } catch (err) {
-    console.error('Gagal ambil history Presensi:', err);
-    res.status(500).json({ message: 'Gagal ambil history Presensi', error: err });
+    console.error("Gagal ambil history Presensi:", err);
+    res
+      .status(500)
+      .json({ message: "Gagal ambil history Presensi", error: err });
   }
 };
 
@@ -116,12 +122,12 @@ exports.getPresensiById = (req, res) => {
 
   db.query(query, [id], (err, results) => {
     if (err) {
-      console.error('Gagal ambil data presensi:', err);
-      return res.status(500).json({ message: 'Gagal ambil data presensi' });
+      console.error("Gagal ambil data presensi:", err);
+      return res.status(500).json({ message: "Gagal ambil data presensi" });
     }
 
     if (results.length === 0) {
-      return res.status(404).json({ message: 'Data presensi tidak ditemukan' });
+      return res.status(404).json({ message: "Data presensi tidak ditemukan" });
     }
 
     const data = results[0];
@@ -139,16 +145,15 @@ exports.getPresensiById = (req, res) => {
       pegawai: {
         nama_pegawai: data.nama_pegawai,
         employee_sts: data.employee_sts,
-        pangkat: data.pangkat
+        pangkat: data.pangkat,
       },
       verified_by_name: data.verified_name,
-      validated_by_name: data.validated_name
+      validated_by_name: data.validated_name,
     };
 
     res.json(detail);
   });
 };
-
 
 // ==========================
 // CREATE Presensi
@@ -157,7 +162,7 @@ exports.createPresensi = (req, res) => {
   const { periode, prosentase_alpha, nilai, peg_id } = req.body;
 
   if (!periode || prosentase_alpha == null || nilai == null || !peg_id) {
-    return res.status(400).json({ message: 'Semua field wajib diisi' });
+    return res.status(400).json({ message: "Semua field wajib diisi" });
   }
 
   const query = `
@@ -167,11 +172,13 @@ exports.createPresensi = (req, res) => {
 
   db.query(query, [periode, prosentase_alpha, nilai, peg_id], (err, result) => {
     if (err) {
-      console.error('Gagal menyimpan presensi:', err);
-      return res.status(500).json({ message: 'Terjadi kesalahan saat menyimpan presensi' });
+      console.error("Gagal menyimpan presensi:", err);
+      return res
+        .status(500)
+        .json({ message: "Terjadi kesalahan saat menyimpan presensi" });
     }
 
-    res.status(201).json({ message: 'Presensi berhasil disimpan' });
+    res.status(201).json({ message: "Presensi berhasil disimpan" });
   });
 };
 
@@ -183,7 +190,7 @@ exports.updatePresensi = (req, res) => {
   const { periode, prosentase_alpha, nilai, peg_id } = req.body;
 
   if (!periode || prosentase_alpha == null || nilai == null || !peg_id) {
-    return res.status(400).json({ message: 'Semua field wajib diisi' });
+    return res.status(400).json({ message: "Semua field wajib diisi" });
   }
 
   const query = `
@@ -194,11 +201,11 @@ exports.updatePresensi = (req, res) => {
 
   db.query(query, [periode, prosentase_alpha, nilai, peg_id, id], (err) => {
     if (err) {
-      console.error('Gagal update presensi:', err);
-      return res.status(500).json({ message: 'Gagal update data presensi' });
+      console.error("Gagal update presensi:", err);
+      return res.status(500).json({ message: "Gagal update data presensi" });
     }
 
-    res.json({ message: 'Presensi berhasil diperbarui' });
+    res.json({ message: "Presensi berhasil diperbarui" });
   });
 };
 
@@ -219,11 +226,13 @@ exports.verifyPresensi = (req, res) => {
 
   db.query(sql, [verified_by, verifiedAt, id], (err) => {
     if (err) {
-      console.error('Gagal update verifikasi:', err);
-      return res.status(500).json({ message: 'Gagal memverifikasi', error: err });
+      console.error("Gagal update verifikasi:", err);
+      return res
+        .status(500)
+        .json({ message: "Gagal memverifikasi", error: err });
     }
 
-    return res.json({ message: 'Verifikasi berhasil diperbarui' });
+    return res.json({ message: "Verifikasi berhasil diperbarui" });
   });
 };
 
@@ -244,10 +253,10 @@ exports.validatePresensi = (req, res) => {
 
   db.query(sql, [validated_by, validatedAt, id], (err) => {
     if (err) {
-      console.error('Gagal update validasi:', err);
-      return res.status(500).json({ message: 'Gagal memvalidasi', error: err });
+      console.error("Gagal update validasi:", err);
+      return res.status(500).json({ message: "Gagal memvalidasi", error: err });
     }
 
-    return res.json({ message: 'Validasi berhasil diperbarui' });
+    return res.json({ message: "Validasi berhasil diperbarui" });
   });
 };

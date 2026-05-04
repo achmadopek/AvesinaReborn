@@ -1,21 +1,21 @@
-const bcrypt = require('bcrypt');
-const db_lokal = require('../../db/connection-lokal'); // Koneksi ke database inm
+const bcrypt = require("bcryptjs");
+const db_lokal = require("../../db/connection-lokal"); // Koneksi ke database inm
 
 // ==========================
 // GET Semua Unit (dengan paginasi)
 // ==========================
-exports.getData = (req, res) => {  
+exports.getData = (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
   const offset = (page - 1) * limit;
 
-  const nama = req.query.nama || '';
+  const nama = req.query.nama || "";
 
-  let baseWhere = '';
+  let baseWhere = "";
   const whereValues = [];
 
   if (nama) {
-    baseWhere += (baseWhere ? ' AND' : ' WHERE') + ' nama LIKE ?';
+    baseWhere += (baseWhere ? " AND" : " WHERE") + " nama LIKE ?";
     whereValues.push(`%${nama}%`);
   }
 
@@ -32,8 +32,8 @@ exports.getData = (req, res) => {
   // Query total
   db_lokal.query(countQuery, whereValues, (err, countResult) => {
     if (err) {
-      console.error('Gagal ambil jumlah total unit:', err);
-      return res.status(500).json({ message: 'Gagal ambil total data unit' });
+      console.error("Gagal ambil jumlah total unit:", err);
+      return res.status(500).json({ message: "Gagal ambil total data unit" });
     }
 
     const total = countResult[0].total;
@@ -41,8 +41,8 @@ exports.getData = (req, res) => {
     // Query data pegawai
     db_lokal.query(dataQuery, dataValues, (err, results) => {
       if (err) {
-        console.error('Gagal ambil data unit:', err);
-        return res.status(500).json({ message: 'Gagal ambil data unit' });
+        console.error("Gagal ambil data unit:", err);
+        return res.status(500).json({ message: "Gagal ambil data unit" });
       }
 
       res.json({
@@ -60,9 +60,19 @@ exports.getData = (req, res) => {
 // ==========================
 exports.createPegawai = (req, res) => {
   const {
-    nik, employee_nm, birth_dt, place_of_birth, nip,
-    pangkat, golongan, mkg, npwp, education,
-    employee_sts, job_sts, doctor_sts
+    nik,
+    employee_nm,
+    birth_dt,
+    place_of_birth,
+    nip,
+    pangkat,
+    golongan,
+    mkg,
+    npwp,
+    education,
+    employee_sts,
+    job_sts,
+    doctor_sts,
   } = req.body;
 
   const query = `
@@ -73,17 +83,27 @@ exports.createPegawai = (req, res) => {
   `;
 
   const values = [
-    nik, employee_nm, birth_dt, place_of_birth, nip,
-    pangkat, golongan, mkg, npwp, education,
-    employee_sts, job_sts, doctor_sts
+    nik,
+    employee_nm,
+    birth_dt,
+    place_of_birth,
+    nip,
+    pangkat,
+    golongan,
+    mkg,
+    npwp,
+    education,
+    employee_sts,
+    job_sts,
+    doctor_sts,
   ];
 
   db_lokal.query(query, values, (err) => {
     if (err) {
-      console.error('Gagal tambah pegawai:', err);
-      return res.status(500).json({ error: 'Gagal menambahkan data pegawai' });
+      console.error("Gagal tambah pegawai:", err);
+      return res.status(500).json({ error: "Gagal menambahkan data pegawai" });
     }
-    res.json({ message: 'Data pegawai berhasil ditambahkan' });
+    res.json({ message: "Data pegawai berhasil ditambahkan" });
   });
 };
 
@@ -100,12 +120,14 @@ exports.getPegawaiById = (req, res) => {
   `;
 
   db_lokal.query(query, [id], (err, results) => {
-    if (err) return res.status(500).json({ message: 'Gagal ambil data pegawai' });
-    if (results.length === 0) return res.status(404).json({ message: 'Pegawai tidak ditemukan' });
+    if (err)
+      return res.status(500).json({ message: "Gagal ambil data pegawai" });
+    if (results.length === 0)
+      return res.status(404).json({ message: "Pegawai tidak ditemukan" });
 
     // Gabungkan data pegawai dengan data user (jika ada)
     const pegawai = {
-      ...results[0]
+      ...results[0],
     };
 
     res.json(pegawai);
@@ -118,9 +140,19 @@ exports.getPegawaiById = (req, res) => {
 exports.updatePegawai = (req, res) => {
   const { id } = req.params;
   const {
-    nik, employee_nm, birth_dt, place_of_birth, nip,
-    pangkat, golongan, mkg, npwp, education,
-    employee_sts, job_sts, doctor_sts
+    nik,
+    employee_nm,
+    birth_dt,
+    place_of_birth,
+    nip,
+    pangkat,
+    golongan,
+    mkg,
+    npwp,
+    education,
+    employee_sts,
+    job_sts,
+    doctor_sts,
   } = req.body;
 
   const query = `
@@ -132,17 +164,28 @@ exports.updatePegawai = (req, res) => {
   `;
 
   const values = [
-    nik, employee_nm, birth_dt, place_of_birth, nip,
-    pangkat, golongan, mkg, npwp, education,
-    employee_sts, job_sts, doctor_sts, id
+    nik,
+    employee_nm,
+    birth_dt,
+    place_of_birth,
+    nip,
+    pangkat,
+    golongan,
+    mkg,
+    npwp,
+    education,
+    employee_sts,
+    job_sts,
+    doctor_sts,
+    id,
   ];
 
   db_lokal.query(query, values, (err) => {
     if (err) {
-      console.error('Gagal update pegawai:', err);
-      return res.status(500).json({ error: 'Gagal memperbarui data pegawai' });
+      console.error("Gagal update pegawai:", err);
+      return res.status(500).json({ error: "Gagal memperbarui data pegawai" });
     }
 
-    res.json({ message: 'Data pegawai berhasil diperbarui' });
+    res.json({ message: "Data pegawai berhasil diperbarui" });
   });
 };

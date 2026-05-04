@@ -1,5 +1,5 @@
-const bcrypt = require('bcrypt');
-const db = require('../../db/connection-avesina'); // Koneksi ke database lokal
+const bcrypt = require("bcryptjs");
+const db = require("../../db/connection-avesina"); // Koneksi ke database lokal
 
 // ==========================
 // GET Semua Pegawai (dengan paginasi) + Seacrh
@@ -10,11 +10,11 @@ exports.getData = (req, res) => {
   const offset = (page - 1) * limit;
 
   //const search = req.query.search || '';
-  let search = req.query.search || '';
+  let search = req.query.search || "";
   search = search.toString().trim().toLowerCase(); // buang spasi, newline, dll
-1
+  1;
 
-  let baseWhere = 'WHERE t.tanggal_periksa = CURDATE()'; // filter default
+  let baseWhere = "WHERE t.tanggal_periksa = CURDATE()"; // filter default
   const whereValues = [];
 
   if (search) {
@@ -26,7 +26,14 @@ exports.getData = (req, res) => {
       OR LOWER(p2.patient_nm) LIKE ? 
       OR LOWER(t.nama_poli) LIKE ?
     )`;
-    whereValues.push(`${search}`, `${search}`, `${search}`, `%${search}%`, `%${search}%`, `%${search}%`);
+    whereValues.push(
+      `${search}`,
+      `${search}`,
+      `${search}`,
+      `%${search}%`,
+      `%${search}%`,
+      `%${search}%`,
+    );
   }
 
   const countQuery = `SELECT COUNT(*) AS total FROM temp_antrian t 
@@ -57,8 +64,10 @@ exports.getData = (req, res) => {
   // Query total
   db.query(countQuery, whereValues, (err, countResult) => {
     if (err) {
-      console.error('Gagal ambil jumlah total antrian:', err);
-      return res.status(500).json({ message: 'Gagal ambil total data antrian' });
+      console.error("Gagal ambil jumlah total antrian:", err);
+      return res
+        .status(500)
+        .json({ message: "Gagal ambil total data antrian" });
     }
 
     const total = countResult[0].total;
@@ -66,8 +75,8 @@ exports.getData = (req, res) => {
     // Query data
     db.query(dataQuery, dataValues, (err, results) => {
       if (err) {
-        console.error('Gagal ambil data antrian:', err);
-        return res.status(500).json({ message: 'Gagal ambil data antrian' });
+        console.error("Gagal ambil data antrian:", err);
+        return res.status(500).json({ message: "Gagal ambil data antrian" });
       }
 
       res.json({
@@ -79,7 +88,6 @@ exports.getData = (req, res) => {
     });
   });
 };
-
 
 exports.getDataPoli = (req, res) => {
   const dataQuery = `
@@ -96,8 +104,8 @@ exports.getDataPoli = (req, res) => {
 
   db.query(dataQuery, (err, results) => {
     if (err) {
-      console.error('Gagal ambil data poli:', err);
-      return res.status(500).json({ message: 'Gagal ambil data poli' });
+      console.error("Gagal ambil data poli:", err);
+      return res.status(500).json({ message: "Gagal ambil data poli" });
     }
 
     res.json(results); // langsung array hasil
@@ -109,9 +117,19 @@ exports.getDataPoli = (req, res) => {
 // ==========================
 exports.createPegawai = (req, res) => {
   const {
-    nik, employee_nm, birth_dt, place_of_birth, nip,
-    pangkat, golongan, mkg, npwp, education,
-    employee_sts, job_sts, doctor_sts
+    nik,
+    employee_nm,
+    birth_dt,
+    place_of_birth,
+    nip,
+    pangkat,
+    golongan,
+    mkg,
+    npwp,
+    education,
+    employee_sts,
+    job_sts,
+    doctor_sts,
   } = req.body;
 
   const query = `
@@ -122,17 +140,27 @@ exports.createPegawai = (req, res) => {
   `;
 
   const values = [
-    nik, employee_nm, birth_dt, place_of_birth, nip,
-    pangkat, golongan, mkg, npwp, education,
-    employee_sts, job_sts, doctor_sts
+    nik,
+    employee_nm,
+    birth_dt,
+    place_of_birth,
+    nip,
+    pangkat,
+    golongan,
+    mkg,
+    npwp,
+    education,
+    employee_sts,
+    job_sts,
+    doctor_sts,
   ];
 
   db.query(query, values, (err) => {
     if (err) {
-      console.error('Gagal tambah pegawai:', err);
-      return res.status(500).json({ error: 'Gagal menambahkan data pegawai' });
+      console.error("Gagal tambah pegawai:", err);
+      return res.status(500).json({ error: "Gagal menambahkan data pegawai" });
     }
-    res.json({ message: 'Data pegawai berhasil ditambahkan' });
+    res.json({ message: "Data pegawai berhasil ditambahkan" });
   });
 };
 
@@ -150,8 +178,10 @@ exports.getPegawaiById = (req, res) => {
   `;
 
   db.query(query, [id], (err, results) => {
-    if (err) return res.status(500).json({ message: 'Gagal ambil data pegawai' });
-    if (results.length === 0) return res.status(404).json({ message: 'Pegawai tidak ditemukan' });
+    if (err)
+      return res.status(500).json({ message: "Gagal ambil data pegawai" });
+    if (results.length === 0)
+      return res.status(404).json({ message: "Pegawai tidak ditemukan" });
 
     // Gabungkan data pegawai dengan data user (jika ada)
     const pegawai = {
@@ -176,9 +206,19 @@ exports.getPegawaiById = (req, res) => {
 exports.updatePegawai = (req, res) => {
   const { id } = req.params;
   const {
-    nik, employee_nm, birth_dt, place_of_birth, nip,
-    pangkat, golongan, mkg, npwp, education,
-    employee_sts, job_sts, doctor_sts
+    nik,
+    employee_nm,
+    birth_dt,
+    place_of_birth,
+    nip,
+    pangkat,
+    golongan,
+    mkg,
+    npwp,
+    education,
+    employee_sts,
+    job_sts,
+    doctor_sts,
   } = req.body;
 
   const query = `
@@ -190,17 +230,28 @@ exports.updatePegawai = (req, res) => {
   `;
 
   const values = [
-    nik, employee_nm, birth_dt, place_of_birth, nip,
-    pangkat, golongan, mkg, npwp, education,
-    employee_sts, job_sts, doctor_sts, id
+    nik,
+    employee_nm,
+    birth_dt,
+    place_of_birth,
+    nip,
+    pangkat,
+    golongan,
+    mkg,
+    npwp,
+    education,
+    employee_sts,
+    job_sts,
+    doctor_sts,
+    id,
   ];
 
   db.query(query, values, (err) => {
     if (err) {
-      console.error('Gagal update pegawai:', err);
-      return res.status(500).json({ error: 'Gagal memperbarui data pegawai' });
+      console.error("Gagal update pegawai:", err);
+      return res.status(500).json({ error: "Gagal memperbarui data pegawai" });
     }
 
-    res.json({ message: 'Data pegawai berhasil diperbarui' });
+    res.json({ message: "Data pegawai berhasil diperbarui" });
   });
 };
