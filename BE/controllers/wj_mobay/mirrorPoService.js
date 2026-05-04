@@ -307,7 +307,7 @@ async function getAllMirrorItemsMap() {
 }
 
 /* ======================================================
- * 🟨 B.a. MONITORING DATA
+ * B.a. MONITORING DATA
  * ====================================================== */
 async function getMonitoringBySuratPengantar(start, end, typeTglFilter) {
   const dateFieldMap = {
@@ -334,13 +334,24 @@ async function getMonitoringBySuratPengantar(start, end, typeTglFilter) {
       po.prvdr_address,
       po.status_pengolahan,
 
+      -- TIMELINE
+      po.po_dt                AS tgl_po,
+      po.invoice_dt           AS tgl_invoice,
+      po.invoice_due_dt       AS tgl_jatuh_tempo,
+      po.invoice_received_dt  AS tgl_inv_datang,
+      po.invoice_consolidated_dt AS tgl_konsolidasi,
       po.invoice_submitted_dt AS tgl_pengajuan,
-      po.invoice_sent_dt AS tgl_pengiriman,
+      po.invoice_sent_dt      AS tgl_kirim,
+      po.invoice_accepted_dt  AS tgl_terima,
+      po.invoice_verified_dt  AS tgl_verifikasi,
+      po.invoice_paid_dt      AS tgl_bayar,
 
+      -- FINANCIAL
       po.total_tagihan,
       po.total_diajukan,
       po.total_bayar,
 
+      -- DETAIL
       d.drug_nm,
       d.qty,
       d.subtotal
@@ -363,17 +374,21 @@ async function getMonitoringBySuratPengantar(start, end, typeTglFilter) {
   const suratMap = new Map();
 
   for (const r of rows) {
-    // =========================
-    // LEVEL 1: SURAT
-    // =========================
+    // ================= SURAT =================
     if (!suratMap.has(r.pengajuan_id)) {
       suratMap.set(r.pengajuan_id, {
         pengajuan_id: r.pengajuan_id,
-        status_pengolahan: r.status_pengolahan,
-        tgl_pengajuan: r.tgl_pengajuan,
-        tgl_pengiriman: r.tgl_pengiriman,
         prvdr_str: r.prvdr_str,
         prvdr_address: r.prvdr_address,
+        status_pengolahan: r.status_pengolahan,
+
+        // timeline (ambil paling awal / representative)
+        tgl_konsolidasi: r.tgl_konsolidasi,
+        tgl_pengajuan: r.tgl_pengajuan,
+        tgl_kirim: r.tgl_kirim,
+        tgl_terima: r.tgl_terima,
+        tgl_verifikasi: r.tgl_verifikasi,
+        tgl_bayar: r.tgl_bayar,
 
         total_invoice: 0,
         total_tagihan: 0,
@@ -381,14 +396,13 @@ async function getMonitoringBySuratPengantar(start, end, typeTglFilter) {
         total_bayar: 0,
 
         invoices: [],
+        _invoiceSet: new Set(),
       });
     }
 
     const surat = suratMap.get(r.pengajuan_id);
 
-    // =========================
-    // LEVEL 2: INVOICE
-    // =========================
+    // ================= INVOICE =================
     let invoice = surat.invoices.find(
       (inv) => inv.po_acce_id === r.po_acce_id
     );
@@ -398,21 +412,24 @@ async function getMonitoringBySuratPengantar(start, end, typeTglFilter) {
         po_acce_id: r.po_acce_id,
         invoice_no: r.invoice_no,
         total_tagihan: 0,
-        total_diajukan: r.total_diajukan || 0,
-        total_bayar: r.total_bayar || 0,
+        total_diajukan: Number(r.total_diajukan || 0),
+        total_bayar: Number(r.total_bayar || 0),
         items: [],
       };
 
       surat.invoices.push(invoice);
-      surat.total_invoice += 1;
 
-      surat.total_diajukan += Number(r.total_diajukan || 0);
-      surat.total_bayar += Number(r.total_bayar || 0);
+      // hitung sekali saja
+      if (!surat._invoiceSet.has(r.po_acce_id)) {
+        surat.total_invoice += 1;
+        surat.total_diajukan += Number(r.total_diajukan || 0);
+        surat.total_bayar += Number(r.total_bayar || 0);
+
+        surat._invoiceSet.add(r.po_acce_id);
+      }
     }
 
-    // =========================
-    // LEVEL 3: ITEM
-    // =========================
+    // ================= ITEM =================
     if (r.drug_nm) {
       invoice.items.push({
         drug_nm: r.drug_nm,
@@ -421,20 +438,20 @@ async function getMonitoringBySuratPengantar(start, end, typeTglFilter) {
       });
 
       invoice.total_tagihan += Number(r.subtotal || 0);
+      surat.total_tagihan += Number(r.subtotal || 0);
     }
-
-    // =========================
-    // AKUMULASI SURAT
-    // =========================
-    surat.total_tagihan += Number(r.subtotal || 0);
   }
 
-  return Array.from(suratMap.values());
+  // cleanup internal field
+  return Array.from(suratMap.values()).map(s => {
+    delete s._invoiceSet;
+    return s;
+  });
 }
 
 
 /* ======================================================
- * 🟨 B. KONSOLIDASI → MIRROR ENTRY
+ * B. KONSOLIDASI → MIRROR ENTRY
  * Digunakan OLEH: SumberController
  * ====================================================== */
 

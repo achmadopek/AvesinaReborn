@@ -157,12 +157,19 @@ const MonitoringTagihan = () => {
   };
 
   const CellDateAmount = ({ date, amount }) => {
-    if (!date && !amount) return "-";
+    // kalau belum ada tanggal → anggap belum proses
+    if (!date) {
+      return (
+        <div className="text-center text-muted">
+          -
+        </div>
+      );
+    }
 
     return (
       <div className="text-center">
         <div className="small text-muted">
-          {date ? formatSortDateTime(date) : "-"}
+          {formatSortDateTime(date)}
         </div>
         <div className="fw-semibold">
           {formatCurrency(amount || 0)}
@@ -270,7 +277,7 @@ const MonitoringTagihan = () => {
                 <tr>
                   <th>No</th>
                   <th>Provider</th>
-                  <th>Jml Faktur</th>
+                  <th>Status</th>
                   <th>Tagihan</th>
                   <th>Diajukan</th>
                   <th>Pengiriman</th>
@@ -283,7 +290,7 @@ const MonitoringTagihan = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan="9" className="text-center">
+                    <td colSpan="10" className="text-center">
                       Memuat data...
                     </td>
                   </tr>
@@ -304,10 +311,19 @@ const MonitoringTagihan = () => {
                             <br/>
                             <span className="small">{surat.prvdr_address}</span>
                         </td>
-                        <td className="text-center">{surat.total_invoice}</td>
+
+                        <td className="text-center">
+                          Total {surat.total_invoice} faktur
+                          <div className="small">
+                            <span className={`badge ${getStatusBadgeClass(surat.status_pengolahan)}`}>
+                              {surat.status_pengolahan}
+                            </span>
+                          </div>
+                        </td>
+
                         <td>
                           <CellDateAmount
-                            date={surat.tgl_pengajuan}
+                            date={surat.tgl_konsolidasi}
                             amount={surat.total_tagihan}
                           />
                         </td>
@@ -321,31 +337,32 @@ const MonitoringTagihan = () => {
 
                         <td>
                           <CellDateAmount
-                            date={surat.tgl_pengiriman}
+                            date={surat.tgl_kirim}
                             amount={surat.total_diajukan}
                           />
                         </td>
 
                         <td>
                           <CellDateAmount
-                            date={surat.tgl_pengiriman}
-                            amount={surat.total_tagihan}
-                          />
-                        </td>
-
-                        <td>
-                          <CellDateAmount
-                            date={surat.tgl_pengajuan}
+                            date={surat.tgl_terima}
                             amount={surat.total_diajukan}
                           />
                         </td>
 
                         <td>
                           <CellDateAmount
-                            date={surat.tgl_pengiriman}
+                            date={surat.tgl_verifikasi}
+                            amount={surat.total_diajukan}
+                          />
+                        </td>
+
+                        <td>
+                          <CellDateAmount
+                            date={surat.tgl_bayar}
                             amount={surat.total_bayar}
                           />
                         </td>
+
                         <td className="text-center">
                           <button
                             className="btn btn-sm btn-primary"
@@ -365,7 +382,9 @@ const MonitoringTagihan = () => {
                       {/* ================= DETAIL SURAT ================= */}
                       {expandedSurat === surat.pengajuan_id && (
                         <tr>
-                          <td colSpan="9">
+                          <td>&nbsp;</td>
+                          <td>&nbsp;</td>
+                          <td colSpan="8">
                             <div className="p-2 bg-light">
 
                               <table className="table table-sm table-bordered mb-0">
@@ -374,7 +393,7 @@ const MonitoringTagihan = () => {
                                     <th>No</th>
                                     <th>Invoice</th>
                                     <th>Total Diajukan</th>
-                                    <th>Aksi</th>
+                                    <th className="text-center">Aksi</th>
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -390,7 +409,7 @@ const MonitoringTagihan = () => {
                                           <td className="text-end">
                                             {formatCurrency(inv.total_diajukan)}
                                           </td>
-                                          <td>
+                                          <td className="text-center">
                                             <button
                                               className="btn btn-sm btn-secondary"
                                               onClick={() =>
@@ -407,7 +426,8 @@ const MonitoringTagihan = () => {
                                         {/* ===== DETAIL ITEM ===== */}
                                         {isOpen && (
                                           <tr>
-                                            <td colSpan="4">
+                                            <td>&nbsp;</td>
+                                            <td colSpan="3">
                                               <table className="table table-sm table-bordered mb-0">
                                                 <thead>
                                                   <tr>
