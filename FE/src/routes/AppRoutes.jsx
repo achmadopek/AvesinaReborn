@@ -110,7 +110,7 @@ const AppRoutes = ({ setRightContent }) => {
                         "user_spm",
                         "verifikator_spm",
                         "user_bugarr",
-                        "user_sirad",
+                        "radiografer",
                     ]}>
                         {dashboard === "/" ? (
                             <HomeIndex setRightContent={setRightContent} />
@@ -486,7 +486,7 @@ const AppRoutes = ({ setRightContent }) => {
             <Route path="/sirad" element={<Navigate to="/sirad/MonitoringXRay" />} />
 
             <Route path="/sirad/MonitoringXRay" element={
-                <ProtectedRoute allowedRoles={["admin", "user_sirad", "dokter_sirad"]}>
+                <ProtectedRoute allowedRoles={["admin", "radiografer", "radiolog"]}>
                     <MonitoringXRay setRightContent={setRightContent} />
                 </ProtectedRoute>
             } />

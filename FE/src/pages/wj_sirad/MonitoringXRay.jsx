@@ -5,7 +5,9 @@ import {
   requestXRay,
   uploadXRay,
   saveHasilXRay,
-  sendSatuSehat,
+  sendImaging,
+  sendDiagnostic,
+  sendObservation,
 } from "../../api/wj_sirad/MonitoringXRay";
 import { toast } from "react-toastify";
 import { useAuth } from "../../context/AuthContext";
@@ -496,6 +498,70 @@ const MonitoringXRay = (
       setLoading(false);
     }
   };
+
+  // ========================
+// SATUSEHAT HANDLER BARU
+// ========================
+
+const handleSendImaging = async (row) => {
+  try {
+    setLoading(true);
+
+    const res = await sendImaging(row.registry_id);
+
+    if (res.success) {
+      toast.success("ImagingStudy berhasil dikirim");
+      loadData(currentPage, tanggal);
+    } else {
+      toast.error(res.message || "Gagal kirim ImagingStudy");
+    }
+  } catch (err) {
+    console.error(err);
+    toast.error(err?.response?.data?.message || "Error ImagingStudy");
+  } finally {
+    setLoading(false);
+  }
+};
+
+const handleSendDiagnostic = async (row) => {
+  try {
+    setLoading(true);
+
+    const res = await sendDiagnostic(row.registry_id);
+
+    if (res.success) {
+      toast.success("DiagnosticReport berhasil dikirim");
+      loadData(currentPage, tanggal);
+    } else {
+      toast.error(res.message || "Gagal kirim DiagnosticReport");
+    }
+  } catch (err) {
+    console.error(err);
+    toast.error(err?.response?.data?.message || "Error DiagnosticReport");
+  } finally {
+    setLoading(false);
+  }
+};
+
+const handleSendObservation = async (row) => {
+  try {
+    setLoading(true);
+
+    const res = await sendObservation(row.registry_id);
+
+    if (res.success) {
+      toast.success("Observation berhasil dikirim");
+      loadData(currentPage, tanggal);
+    } else {
+      toast.error(res.message || "Gagal kirim Observation");
+    }
+  } catch (err) {
+    console.error(err);
+    toast.error(err?.response?.data?.message || "Error Observation");
+  } finally {
+    setLoading(false);
+  }
+};
 
   // -----------------------
   // RENDER
@@ -1270,7 +1336,7 @@ const MonitoringXRay = (
             </div>
 
             {/* RADIOLOG */}
-            {role === "user_sirad" && (
+            {role === "radiografer" && (
               <div className="col-6 col-md-3">
                 <label className="form-label small mb-1">Radiolog</label>
                 <select
@@ -1304,10 +1370,14 @@ const MonitoringXRay = (
                   {!isMobile && <th>NRM / Nama</th>}
                   {!isMobile && <th>Pengirim (IHS) / Pemeriksa (IHS)</th>}
                   {!isMobile && <th>Tindakan / Mapping</th>}
-                  {!isMobile && <th>Status</th>}
-                  {!isMobile && <th>SatuSehat</th>}
+                  {!isMobile && <th className="text-center">ENC</th>}
+                  {!isMobile && <th className="text-center">REQ</th>}
+                  {!isMobile && <th className="text-center">IMG</th>}
+                  {!isMobile && <th className="text-center">REP</th>}
+                  {!isMobile && <th className="text-center">OBS</th>}
+                  {!isMobile && <th className="text-center">Status</th>}
 
-                  <th>Aksi</th>
+                  <th className="text-center">Aksi</th>
                 </tr>
               </thead>
 
@@ -1333,7 +1403,7 @@ const MonitoringXRay = (
                     satu_sehat = {},
                   } = row;
 
-                  //console.log(filteredData);
+                  console.log(filteredData);
 
                   const {
                     patient = false,
@@ -1367,17 +1437,22 @@ const MonitoringXRay = (
 
                   const canUpload = status === "ordered" && isNotFinal;
 
-                  const canBaca = status === "uploaded" && isNotFinal;
+                  // Imaging hanya kalau belum pernah kirim
+                  const canSendImaging =
+                    status === "uploaded" &&
+                    service_request &&
+                    !imaging;
 
-                  const canSimpan = isRead && isNotFinal;
+                  // Diagnostic hanya kalau sudah baca
+                  const canSendDiagnostic =
+                    status === "read" &&
+                    imaging &&
+                    !row.satu_sehat?.report;
 
-                  const canKirim =
-                    isRead &&
-                    //isNotFinal// &&
-                    encounter &&
-                    service_request// &&
-                    //imaging
-                    ;
+                  // Observation optional (boleh setelah read)
+                  const canSendObservation =
+                    status === "read" &&
+                    !row.satu_sehat?.observation;
 
                   return (
                     <tr key={row.unit_visit_id || i}>
@@ -1431,6 +1506,7 @@ const MonitoringXRay = (
                           </div>
                         </td>
                       )}
+
                       {!isMobile && (
                         <td>
                           <span
@@ -1511,6 +1587,51 @@ const MonitoringXRay = (
                           ))}
                         </td>
                       )}
+
+                      {!isMobile && (
+                        <td className="text-center">
+                          {row.satu_sehat?.encounter && (
+                            <span className="badge bg-secondary me-1">ENC</span>
+                          )}
+                        </td>
+                      )}
+
+                      {!isMobile && (
+                        <td className="text-center">
+                          {row.satu_sehat?.service_request && (
+                            <span className="badge bg-primary me-1">REQ</span>
+                          )}
+                        </td>
+                      )}
+
+                      {!isMobile && (
+                        <td className="text-center">
+                          {row.satu_sehat?.imaging && (
+                            <span className="badge bg-info text-dark me-1">
+                              IMG
+                            </span>
+                          )}
+                        </td>
+                      )}
+
+                      {!isMobile && (
+                        <td className="text-center">
+                          {row.satu_sehat?.report && (
+                            <span className="badge bg-warning text-dark me-1">
+                              REP
+                            </span>
+                          )}
+                        </td>
+                      )}
+
+                      {!isMobile && (
+                        <td className="text-center">
+                          {row.satu_sehat?.observation && (
+                            <span className="badge bg-dark">OBS</span>
+                          )}
+                        </td>
+                      )}
+
                       {!isMobile && (
                         <td className="text-center">
                           {row.is_final && (
@@ -1518,6 +1639,7 @@ const MonitoringXRay = (
                               Final Avesina
                             </span>
                           )}
+                          <br/>
                           {row.status === "none" && (
                             <span className="badge bg-secondary">
                               Belum Upload
@@ -1533,32 +1655,9 @@ const MonitoringXRay = (
                               Sudah Dibaca
                             </span>
                           )}
+                          <br/>
                           {row.status === "done" && (
                             <span className="badge bg-success">Selesai</span>
-                          )}
-                        </td>
-                      )}
-
-                      {!isMobile && (
-                        <td className="text-center">
-                          {row.satu_sehat?.encounter && (
-                            <span className="badge bg-secondary me-1">EC</span>
-                          )}
-                          {row.satu_sehat?.service_request && (
-                            <span className="badge bg-primary me-1">SR</span>
-                          )}
-                          {row.satu_sehat?.imaging && (
-                            <span className="badge bg-info text-dark me-1">
-                              IMG
-                            </span>
-                          )}
-                          {row.satu_sehat?.report && (
-                            <span className="badge bg-warning text-dark me-1">
-                              REP
-                            </span>
-                          )}
-                          {row.satu_sehat?.observation && (
-                            <span className="badge bg-dark">OBS</span>
                           )}
                         </td>
                       )}
@@ -1573,9 +1672,9 @@ const MonitoringXRay = (
 
                         {isMobile && <hr className="m-2" />}
 
-                        {role === "user_sirad" && (
+                        {role === "physician" && (
                           <button
-                            className="btn btn-sm btn-outline-primary"
+                            className="btn btn-sm btn-outline-success"
                             disabled={!canRequest}
                             onClick={() => handleProsesXRay(row)}
                             title={
@@ -1588,7 +1687,7 @@ const MonitoringXRay = (
                           </button>
                         )}
 
-                        {role === "user_sirad" && (
+                        {role === "radiografer" && (
                           <button
                             className="btn btn-sm btn-outline-success ms-1"
                             disabled={!canUpload}
@@ -1598,9 +1697,9 @@ const MonitoringXRay = (
                           </button>
                         )}
 
-                        {role === "dokter_sirad" && (
+                        {role === "radiolog" && (
                           <button
-                            className="btn btn-sm btn-outline-warning"
+                            className="btn btn-sm btn-outline-success"
                             disabled={!canBaca}
                             onClick={() => openModalBaca(row)}
                           >
@@ -1608,27 +1707,17 @@ const MonitoringXRay = (
                           </button>
                         )}
 
-                        {isMobile && role === "dokter_sirad" && (
+                        {isMobile && role === "radiolog" && (
                           <hr className="m-2" />
                         )}
 
-                        {role === "dokter_sirad" && (
+                        {role === "radiolog" && (
                           <button
-                            className={`btn btn-sm btn-outline-success ${!isMobile ? "ms-2" : ""}`}
+                            className={`btn btn-sm btn-outline-info ${!isMobile ? "ms-2" : ""}`}
                             disabled={!canSimpan}
                             onClick={() => openModalSimpanAvesina(row)}
                           >
-                            Simpan Avesina
-                          </button>
-                        )}
-
-                        {role === "user_sirad" && (
-                          <button
-                            className="btn btn-sm btn-outline-success ms-1"
-                            disabled={!canKirim}
-                            onClick={() => openModalSatuSehat(row)}
-                          >
-                            Kirim
+                            Observasi
                           </button>
                         )}
                       </td>
@@ -1657,10 +1746,10 @@ const MonitoringXRay = (
                   <span className="badge bg-danger me-1">SN/LN</span>
                   SNOMED/LOINC mapping sudah/belum tersedia
                   <br />
-                  <span className="badge bg-secondary me-1">EC</span>
+                  <span className="badge bg-secondary me-1">ENC</span>
                   Encounter pasien sudah tercatat
                   <br />
-                  <span className="badge bg-primary me-1">SR</span>
+                  <span className="badge bg-primary me-1">REQ</span>
                   ServiceRequest radiologi sudah dibuat
                 </div>
                 <div className="col-md-5 small">

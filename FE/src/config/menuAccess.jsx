@@ -39,7 +39,7 @@ export const roleAccess = {
   // Role 'user_bugarr' akses menu BUGARR
   user_bugarr: ['Beranda', 'Bugarr'],
 
-  // Role 'user_sirad' akses menu SIRAD
-  user_sirad: ['Beranda', 'Sirad'],
-  dokter_sirad: ['Beranda', 'Sirad'],
+  // Role 'radiografer' akses menu SIRAD
+  radiografer: ['Beranda', 'Sirad'],
+  radiolog: ['Beranda', 'Sirad'],
 };

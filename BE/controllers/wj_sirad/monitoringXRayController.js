@@ -11,7 +11,11 @@ const {
 const { satusehatClient } = require("../../services/satusehat/satusehatClient");
 
 const { generateUID } = require("../../services/satusehat/builders");
-const { sendSatuSehat } = require("../../services/satusehat/sender");
+const {
+  sendImaging,
+  sendObservation,
+  sendDiagnostic,
+} = require("../../services/satusehat/sender");
 
 // ==============================
 // HELPER: BUILD WHERE
@@ -25,7 +29,7 @@ const buildWhere = ({ tgl, role, expert_id }) => {
     params.push(tgl);
   }
 
-  if (role === "dokter_sirad" && expert_id) {
+  if (role === "radiolog" && expert_id) {
     conditions.push("xrh.expert = ?");
     params.push(expert_id);
   }
@@ -48,7 +52,7 @@ exports.getData = async (req, res) => {
     // ======================
     // MAP DOKTER LOGIN
     // ======================
-    if (role === "dokter_sirad") {
+    if (role === "radiolog") {
       const [[map]] = await dbLokal.promise().query(
         `SELECT employee_id 
          FROM sdm_pegawai 
@@ -1006,4 +1010,116 @@ exports.sendSatuSehat = async (req, res) => {
   } finally {
     connLokal.release();
   }
+};
+
+exports.sendImagingStudy = async (req, res) => {
+  try {
+    const { registry_id } = req.body;
+
+    const payload = await buildPayloadFromDB(registry_id);
+
+    const result = await sendImaging(
+      payload,
+      process.env.ORGANIZATION_ID
+    );
+
+    res.json({
+      success: true,
+      message: "ImagingStudy terkirim",
+      data: result,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+exports.sendObservation = async (req, res) => {
+  try {
+    const { registry_id } = req.body;
+
+    const payload = await buildPayloadFromDB(registry_id);
+
+    const result = await sendObservation(payload);
+
+    res.json({
+      success: true,
+      message: "Observation terkirim",
+      data: result,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+exports.sendDiagnostic = async (req, res) => {
+  try {
+    const { registry_id, observation_id, imaging_id } = req.body;
+
+    const payload = await buildPayloadFromDB(registry_id);
+
+    const result = await sendDiagnostic(
+      payload,
+      observation_id,
+      imaging_id,
+      process.env.ORGANIZATION_ID
+    );
+
+    res.json({
+      success: true,
+      message: "DiagnosticReport terkirim",
+      data: result,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+const buildPayloadFromDB = async (registry_id) => {
+  const [[utama]] = await dbUtama.promise().query(
+    `
+    SELECT 
+      r.registry_id,
+      xrd.photo_reading,
+      xrh.measured_dt,
+      xrh.expert
+    FROM registry r
+    JOIN unit_visit uv ON uv.registry_id = r.registry_id
+    JOIN x_ray_hdr xrh ON xrh.unit_visit_id = uv.unit_visit_id
+    JOIN x_ray_dtl xrd ON xrd.x_ray_id = xrh.x_ray_id
+    WHERE r.registry_id = ?
+    LIMIT 1
+  `,
+    [registry_id]
+  );
+
+  const [[ss]] = await dbERM.promise().query(
+    `SELECT patient_ihs_number, encounter_uuid 
+     FROM satusehat WHERE registry_id = ?`,
+    [registry_id]
+  );
+
+  const [[dokter]] = await dbUtama.promise().query(
+    `SELECT satusehat_ihs_number 
+     FROM employee WHERE employee_id = ?`,
+    [utama.expert]
+  );
+
+  return {
+    registry_id,
+    hasil_bacaan: utama.photo_reading,
+    measured_dt: utama.measured_dt,
+    patient_ihs: ss.patient_ihs_number,
+    encounter_uuid: ss.encounter_uuid,
+    practitioner_ihs: dokter.satusehat_ihs_number,
+  };
 };

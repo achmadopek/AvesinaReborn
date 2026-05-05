@@ -27,4 +27,8 @@ router.post("/save-hasil", dataController.saveHasil);
 router.post("/proses-xray", dataController.requestXRay);
 router.post("/send-satusehat", dataController.sendSatuSehat);
 
+router.post("/send-imaging", dataController.sendImagingStudy);
+router.post("/send-observation", dataController.sendObservation);
+router.post("/send-diagnostic", dataController.sendDiagnostic);
+
 module.exports = router;

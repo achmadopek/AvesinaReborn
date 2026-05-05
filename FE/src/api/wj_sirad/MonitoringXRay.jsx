@@ -49,3 +49,31 @@ export const sendSatuSehat = async (registry_id) => {
   });
   return res.data;
 };
+
+export const sendImaging = async (registry_id) => {
+  const res = await API.post(
+    "/api/sirad/MonitoringXRay/send-imaging",
+    { registry_id }
+  );
+  return res.data;
+};
+
+export const sendObservation = async (registry_id) => {
+  const res = await API.post(
+    "/api/sirad/MonitoringXRay/send-observation",
+    { registry_id }
+  );
+  return res.data;
+};
+
+export const sendDiagnostic = async ({
+  registry_id,
+  observation_id,
+  imaging_id,
+}) => {
+  const res = await API.post(
+    "/api/sirad/MonitoringXRay/send-diagnostic",
+    { registry_id, observation_id, imaging_id }
+  );
+  return res.data;
+};
