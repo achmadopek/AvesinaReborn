@@ -5,9 +5,9 @@ const dbLokal = require("../../db/connection-lokal");
 const fs = require("fs");
 const path = require("path");
 
-const {
-  buildServiceRequest,
-} = require("../../services/satusehat/builders/serviceRequestBuilder");
+const { buildServiceRequest } = require("../../services/satusehat/builders/serviceRequestBuilder");
+const { buildImagingStudy } = require("../../services/satusehat/builders/imagingStudyBuilder");
+
 const { satusehatClient } = require("../../services/satusehat/satusehatClient");
 
 const { generateUID } = require("../../services/satusehat/builders");
@@ -351,224 +351,6 @@ exports.getDetail = async (req, res) => {
   }
 };
 
-// ==============================
-// UPLOAD X-RAY (RADIOGRAFER)
-// ==============================
-exports.uploadXRay = async (req, res) => {
-  const conn = await dbLokal.promise().getConnection();
-
-  try {
-    const { registry_id, x_ray_id, keluhan, created_by } = req.body;
-
-    // CEK KE DB UTAMA
-    const [[cekUtama]] = await dbUtama.promise().query(
-      `
-      SELECT photo_reading 
-      FROM x_ray_dtl 
-      WHERE x_ray_id = ?
-      LIMIT 1
-    `,
-      [x_ray_id],
-    );
-
-    if (cekUtama?.photo_reading) {
-      throw new Error("Data sudah final dari Avesina");
-    }
-
-    const foto1 = req.files?.foto1?.[0]?.filename || null;
-    const foto2 = req.files?.foto2?.[0]?.filename || null;
-
-    await conn.beginTransaction();
-
-    const [existing] = await conn.query(
-      `SELECT * FROM sirad_xray WHERE registry_id = ? AND is_active = 1`,
-      [registry_id],
-    );
-
-    const uid = generateUID(process.env.ORGANIZATION_ID);
-
-    if (existing.length > 0) {
-      const old = existing[0];
-
-      // =========================
-      // HAPUS FILE LAMA
-      // =========================
-      const basePath = path.join(__dirname, "../../uploads/xray");
-
-      if (foto1 && old.foto1) {
-        const oldPath = path.join(basePath, old.foto1);
-        if (fs.existsSync(oldPath)) {
-          fs.unlinkSync(oldPath);
-        }
-      }
-
-      if (foto2 && old.foto2) {
-        const oldPath = path.join(basePath, old.foto2);
-        if (fs.existsSync(oldPath)) {
-          fs.unlinkSync(oldPath);
-        }
-      }
-
-      // =========================
-      // UPDATE DB
-      // =========================
-      await conn.query(
-        `
-        UPDATE sirad_xray
-        SET 
-          foto1 = COALESCE(?, foto1),
-          foto2 = COALESCE(?, foto2),
-          keluhan = ?,
-          created_by = ?,
-          status = 'uploaded',
-          updated_at = NOW()
-        WHERE registry_id = ?
-      `,
-        [foto1, foto2, keluhan, created_by, registry_id],
-      );
-    } else {
-      throw new Error("Data belum di-request (harus request dulu)");
-    }
-
-    await conn.commit();
-
-    res.json({
-      success: true,
-      message: "Upload X-Ray berhasil",
-    });
-  } catch (err) {
-    await conn.rollback();
-
-    console.error("UPLOAD X-RAY ERROR:", err);
-
-    res.status(500).json({
-      success: false,
-      message: "Gagal upload X-Ray",
-    });
-  } finally {
-    conn.release();
-  }
-};
-
-// ==============================
-// UPDATE HASIL X-RAY (RADIOLOG)
-// ==============================
-exports.saveHasil = async (req, res) => {
-  const conn = await dbLokal.promise().getConnection();
-
-  try {
-    await conn.beginTransaction();
-
-    const { registry_id, hasil_bacaan, read_by } = req.body;
-
-    // VALIDASI INPUT
-    if (!registry_id) {
-      throw new Error("registry_id wajib diisi");
-    }
-
-    if (!hasil_bacaan) {
-      throw new Error("hasil_bacaan wajib diisi");
-    }
-
-    // ==========================
-    // AMBIL x_ray_id DARI LOKAL
-    // ==========================
-    const [[lokalData]] = await conn.query(
-      `
-      SELECT x_ray_id
-      FROM sirad_xray
-      WHERE registry_id = ?
-      AND is_active = 1
-      LIMIT 1
-    `,
-      [registry_id],
-    );
-
-    if (!lokalData) {
-      throw new Error("Data lokal tidak ditemukan");
-    }
-
-    // ==========================
-    // CEK KE DB UTAMA
-    // ==========================
-    const [[cekUtama]] = await dbUtama.promise().query(
-      `
-      SELECT photo_reading 
-      FROM x_ray_dtl 
-      WHERE x_ray_id = ?
-      LIMIT 1
-    `,
-      [lokalData.x_ray_id],
-    );
-
-    if (cekUtama?.photo_reading) {
-      throw new Error("Hasil sudah final dari Avesina");
-    }
-
-    // CEK DATA LOKAL
-    const [existing] = await conn.query(
-      `SELECT id, status 
-       FROM sirad_xray 
-       WHERE registry_id = ? 
-       AND is_active = 1
-       LIMIT 1`,
-      [registry_id],
-    );
-
-    if (!existing.length) {
-      throw new Error("Data X-Ray belum diupload");
-    }
-
-    const data = existing[0];
-
-    if (data.status === "none") {
-      throw new Error("Foto belum diupload");
-    }
-
-    if (cekUtama?.photo_reading) {
-      throw new Error("Hasil sudah diisi");
-    }
-
-    // UPDATE
-    const [updateResult] = await conn.query(
-      `
-      UPDATE sirad_xray
-      SET 
-        hasil_bacaan = ?,
-        status = 'read',
-        updated_at = NOW(),
-        read_by = ?,
-        read_at = NOW()
-      WHERE registry_id = ?
-    `,
-      [hasil_bacaan, read_by, registry_id],
-    );
-
-    // VALIDASI UPDATE
-    if (updateResult.affectedRows === 0) {
-      throw new Error("Gagal update data");
-    }
-
-    await conn.commit();
-
-    res.json({
-      success: true,
-      message: "Hasil bacaan tersimpan",
-    });
-  } catch (err) {
-    await conn.rollback();
-
-    console.error("SAVE HASIL ERROR:", err);
-
-    res.status(400).json({
-      success: false,
-      message: err.message || "Gagal simpan hasil",
-    });
-  } finally {
-    conn.release();
-  }
-};
-
 exports.requestXRay = async (req, res) => {
   const connLokal = await dbLokal.promise().getConnection();
   const connERM = await dbERM.promise().getConnection();
@@ -750,6 +532,7 @@ exports.requestXRay = async (req, res) => {
       message: "ServiceRequest berhasil dibuat",
       service_request_id: serviceRequestUUID,
     });
+    
   } catch (err) {
     console.error("PROSES XRAY ERROR:", err.response?.data || err.message);
 
@@ -792,223 +575,379 @@ exports.requestXRay = async (req, res) => {
   }
 };
 
-exports.sendSatuSehat = async (req, res) => {
-  const connLokal = await dbLokal.promise().getConnection();
+// ==============================
+// UPLOAD X-RAY
+// ==============================
+exports.uploadXRay = async (req, res) => {
+  const conn = await dbLokal.promise().getConnection();
+  const connERM = await dbERM.promise().getConnection();
+
+  let inTransaction = false;
 
   try {
-    const { registry_id } = req.body;
+    const { registry_id, x_ray_id, keluhan, created_by } = req.body;
 
-    if (!registry_id) {
-      throw new Error("registry_id wajib");
+    // =========================
+    // 1. CEK FINAL AVESINA
+    // =========================
+    const [[cekUtama]] = await dbUtama.promise().query(
+      `
+      SELECT photo_reading 
+      FROM x_ray_dtl 
+      WHERE x_ray_id = ?
+      LIMIT 1
+    `,
+      [x_ray_id],
+    );
+
+    const isFinal = !!cekUtama?.photo_reading;
+
+    // =========================
+    // 2. AMBIL DATA LOKAL
+    // =========================
+    const [existing] = await conn.query(
+      `SELECT * FROM sirad_xray WHERE registry_id = ? AND is_active = 1`,
+      [registry_id],
+    );
+
+    if (existing.length === 0) {
+      throw new Error("Data belum di-request");
+    }
+
+    const data = existing[0];
+
+    // =========================
+    // 3. UPDATE FILE (JIKA BELUM FINAL)
+    // =========================
+    if (!isFinal) {
+      await conn.beginTransaction();
+      inTransaction = true;
+
+      const foto1 = req.files?.foto1?.[0]?.filename || null;
+      const foto2 = req.files?.foto2?.[0]?.filename || null;
+
+      const basePath = path.join(__dirname, "../../uploads/xray");
+
+      // hapus lama jika diganti
+      if (foto1 && data.foto1) {
+        const oldPath = path.join(basePath, data.foto1);
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+      }
+
+      if (foto2 && data.foto2) {
+        const oldPath = path.join(basePath, data.foto2);
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+      }
+
+      await conn.query(
+        `
+        UPDATE sirad_xray
+        SET 
+          foto1 = COALESCE(?, foto1),
+          foto2 = COALESCE(?, foto2),
+          keluhan = ?,
+          created_by = ?,
+          status = 'uploaded',
+          updated_at = NOW()
+        WHERE registry_id = ?
+      `,
+        [foto1, foto2, keluhan, created_by, registry_id],
+      );
+
+      await conn.commit();
+      inTransaction = false;
     }
 
     // =========================
-    // 1. AMBIL DATA UTAMA (SOURCE OF TRUTH)
+    // 4a. CEK SERVICE REQUEST
     // =========================
-    const [[utama]] = await dbUtama.promise().query(
+    const [[sr]] = await connERM.query(
+      `
+      SELECT service_request_uuid 
+      FROM satusehat_service_request
+      WHERE registry_id = ?
+      LIMIT 1
+    `,
+      [registry_id],
+    );
+
+    if (!sr) {
+      return res.status(400).json({
+        success: false,
+        message: "ServiceRequest belum dibuat",
+      });
+    }
+
+    // =========================
+    // 4b. CEK DETAIL XRAY
+    // =========================
+    const [[detail]] = await connERM.query(
       `
       SELECT 
         r.registry_id,
-        xrd.photo_reading,
         xrh.measured_dt,
-        xrh.expert AS pemeriksa_id
-      FROM registry r
-      JOIN unit_visit uv ON uv.registry_id = r.registry_id
-      JOIN x_ray_hdr xrh ON xrh.unit_visit_id = uv.unit_visit_id
-      JOIN x_ray_dtl xrd ON xrd.x_ray_id = xrh.x_ray_id
+        ss.patient_ihs_number AS patient_ihs,
+        ss.encounter_uuid,
+        e.satusehat_ihs_number AS practitioner_ihs
+      FROM avesina_wj.registry r
+      JOIN avesina_wj.unit_visit uv ON uv.registry_id = r.registry_id
+      JOIN avesina_wj.x_ray_hdr xrh ON xrh.unit_visit_id = uv.unit_visit_id
+      LEFT JOIN avesina_wj.employee e ON e.employee_id = xrh.expert
+      LEFT JOIN erm_rswj.satusehat ss ON ss.registry_id = r.registry_id
       WHERE r.registry_id = ?
       LIMIT 1
-    `,
+      `,
       [registry_id]
     );
 
-    if (!utama) {
-      throw new Error("Data utama tidak ditemukan");
+    if (!detail) {
+      throw new Error("Detail X-Ray tidak ditemukan");
+    }
+
+    if (
+      !detail.patient_ihs ||
+      !detail.encounter_uuid ||
+      !detail.practitioner_ihs ||
+      !detail.measured_dt
+    ) {
+      throw new Error("Data SatuSehat belum lengkap");
     }
 
     // =========================
-    // 2. AMBIL DATA LOKAL (FALLBACK)
+    // 5. BUILD IMAGING STUDY
     // =========================
-    const [[lokal]] = await dbLokal.promise().query(
+    const uid = generateUID(process.env.ORGANIZATION_ID);
+
+    const normalized = {
+      ...detail,
+      patient_id: detail.patient_ihs,
+      encounter_id: detail.encounter_uuid,
+      doctor_id: detail.practitioner_ihs,
+      service_request_id: sr.service_request_uuid,
+      no_reg: detail.registry_id,
+    };
+
+    const imagingPayload = buildImagingStudy(
+      normalized,
+      uid,
+      process.env.ORGANIZATION_ID,
+      sr.service_request_uuid
+    );
+
+    // =========================
+    // 6. HIT SATUSEHAT (DEBUG MODE SUPPORT)
+    // =========================
+    console.log("===== IMAGING STUDY (PROD) =====");
+    console.log("Registry ID:", registry_id);
+    console.log("Patient:", normalized.patient_id);
+    console.log("Encounter:", normalized.encounter_id);
+    console.log("ServiceRequest:", sr.service_request_uuid);
+    console.log("Measured Date:", normalized.measured_dt);
+
+    console.log("Payload:");
+    console.dir(imagingPayload, { depth: null });
+    console.log("================================");
+
+    let imagingUUID = null;
+    let imagingStatus = "available";
+
+    console.log("===== DEBUG IMAGING STUDY =====");
+    console.log("Registry ID:", registry_id);
+    console.log("Patient:", detail.patient_ihs);
+    console.log("Encounter:", detail.encounter_uuid);
+    console.log("ServiceRequest:", sr.service_request_uuid);
+    console.log("Measured Date:", detail.measured_dt);
+
+    console.log("Payload:");
+    console.dir(imagingPayload, { depth: null });
+    console.log("================================");
+
+    if (process.env.DEBUG_SATUSEHAT === "true") {
+      console.log("DEBUG MODE: Skip hit SATUSEHAT (ImagingStudy)");
+      imagingId = "DEBUG-" + Date.now();
+    } else {
+      const imagingRes = await satusehatClient.post("/ImagingStudy", payload);
+
+      imagingId = imagingRes.data.id;
+      imagingStatus = imagingRes.data.status || "available";
+    }
+
+    // =========================
+    // 7. SIMPAN KE ERM
+    // =========================
+    await connERM.query(
+    `
+      INSERT INTO satusehat_imaging_study
+      (registry_id, service_request_uuid, imaging_study_uuid, modality, status, created_at)
+      VALUES (?, ?, ?, ?, ?, NOW())
+      ON DUPLICATE KEY UPDATE
+        imaging_study_uuid = VALUES(imaging_study_uuid),
+        modality = VALUES(modality),
+        status = VALUES(status),
+        updated_at = NOW()
+    `,
+      [
+        registry_id,
+        sr.service_request_uuid,
+        imagingId,
+        "CR", // dari payload kamu
+        imagingStatus,
+      ]
+    );
+
+    // =========================
+    // 8. RESPONSE
+    // =========================
+    return res.json({
+      success: true,
+      is_final: isFinal,
+      message: isFinal
+        ? "Data sudah final, upload dilewati, ImagingStudy tetap dikirim"
+        : "Upload & kirim ImagingStudy berhasil",
+    });
+
+  } catch (err) {
+    if (inTransaction) await conn.rollback();
+
+    console.error("UPLOAD X-RAY ERROR:");
+
+    if (err.response) {
+      console.error("STATUS:", err.response.status);
+      console.error("DETAIL:");
+      console.dir(err.response.data, { depth: null });
+    } else {
+      console.error("ERROR:", err.message);
+    }
+
+    return res.status(500).json({
+      success: false,
+      message:
+        err.response?.data?.issue?.[0]?.diagnostics ||
+        err.message ||
+        "Gagal upload X-Ray",
+    });
+  } finally {
+    conn.release();
+    connERM.release();
+  }
+};
+
+// ==============================
+// UPDATE HASIL X-RAY (RADIOLOG)
+// ==============================
+exports.saveHasil = async (req, res) => {
+  const conn = await dbLokal.promise().getConnection();
+
+  try {
+    await conn.beginTransaction();
+
+    const { registry_id, hasil_bacaan, read_by } = req.body;
+
+    // VALIDASI INPUT
+    if (!registry_id) {
+      throw new Error("registry_id wajib diisi");
+    }
+
+    if (!hasil_bacaan) {
+      throw new Error("hasil_bacaan wajib diisi");
+    }
+
+    // ==========================
+    // AMBIL x_ray_id DARI LOKAL
+    // ==========================
+    const [[lokalData]] = await conn.query(
       `
-      SELECT hasil_bacaan, read_at, read_by
+      SELECT x_ray_id
       FROM sirad_xray
       WHERE registry_id = ?
       AND is_active = 1
       LIMIT 1
     `,
-      [registry_id]
+      [registry_id],
     );
 
-    // =========================
-    // 2b. AMBIL DATA REQUEST SERVICE
-    // =========================
-    const [[sr]] = await dbERM.promise().query(
-      `SELECT service_request_uuid 
-      FROM satusehat_service_request
-      WHERE registry_id = ?
-      LIMIT 1`,
-      [registry_id]
-    );
-
-    if (!sr?.service_request_uuid) {
-      throw new Error("ServiceRequest belum ada");
+    if (!lokalData) {
+      throw new Error("Data lokal tidak ditemukan");
     }
 
-    // =========================
-    // 3. MERGE DATA (CORE LOGIC)
-    // =========================
-    const hasil_bacaan = utama.photo_reading || lokal?.hasil_bacaan || null;
-
-    const measured_dt =
-      utama.measured_dt || lokal?.read_at || new Date();
-
-    const dokter_id =
-      utama.pemeriksa_id || lokal?.read_by || null;
-
-    // =========================
-    // 4. VALIDASI DATA MEDIS
-    // =========================
-    if (!hasil_bacaan) {
-      throw new Error("Hasil bacaan belum tersedia");
-    }
-
-    if (!dokter_id) {
-      throw new Error("Dokter pemeriksa belum ada");
-    }
-
-    // =========================
-    // 5. AMBIL DATA SATUSEHAT (ERM)
-    // =========================
-    const [[ss]] = await dbERM.promise().query(
+    // ==========================
+    // CEK KE DB UTAMA
+    // ==========================
+    const [[cekUtama]] = await dbUtama.promise().query(
       `
-      SELECT patient_ihs_number, encounter_uuid
-      FROM satusehat
-      WHERE registry_id = ?
+      SELECT photo_reading 
+      FROM x_ray_dtl 
+      WHERE x_ray_id = ?
       LIMIT 1
     `,
-      [registry_id]
+      [lokalData.x_ray_id],
     );
 
-    if (!ss?.patient_ihs_number) {
-      throw new Error("Patient belum punya IHS");
+    if (cekUtama?.photo_reading) {
+      throw new Error("Hasil sudah final dari Avesina");
     }
 
-    if (!ss?.encounter_uuid) {
-      throw new Error("Encounter belum ada");
-    }
-
-    // =========================
-    // 6. AMBIL IHS DOKTER
-    // =========================
-    const [[dokter]] = await dbUtama.promise().query(
-      `
-      SELECT satusehat_ihs_number
-      FROM employee
-      WHERE employee_id = ?
-      LIMIT 1
-    `,
-      [dokter_id]
+    // CEK DATA LOKAL
+    const [existing] = await conn.query(
+      `SELECT id, status 
+       FROM sirad_xray 
+       WHERE registry_id = ? 
+       AND is_active = 1
+       LIMIT 1`,
+      [registry_id],
     );
 
-    if (!dokter?.satusehat_ihs_number) {
-      throw new Error("Dokter belum punya IHS");
+    if (!existing.length) {
+      throw new Error("Data X-Ray belum diupload");
     }
 
-    // =========================
-    // 7. BUILD PAYLOAD
-    // =========================
-    const payloadData = {
-      registry_id,
+    const data = existing[0];
 
-      hasil_bacaan,
-      measured_dt,
+    if (data.status === "none") {
+      throw new Error("Foto belum diupload");
+    }
 
-      // mapping ke format builder
-      patient_id: ss.patient_ihs_number,
-      encounter_id: ss.encounter_uuid,
-      doctor_id: dokter.satusehat_ihs_number,
+    if (cekUtama?.photo_reading) {
+      throw new Error("Hasil sudah diisi");
+    }
 
-      // tetap simpan original (optional)
-      patient_ihs: ss.patient_ihs_number,
-      encounter_uuid: ss.encounter_uuid,
-      practitioner_ihs: dokter.satusehat_ihs_number,
-
-      service_request_id: sr.service_request_uuid,
-    };
-
-    console.log("===== SEND SATUSEHAT PAYLOAD =====");
-    console.dir(payloadData, { depth: null });
-
-    // =========================
-    // 8. HIT SATUSEHAT
-    // =========================
-    const result = await sendSatuSehat(
-      payloadData,
-      process.env.ORGANIZATION_ID
-    );
-
-    // =========================
-    // 9. UPDATE STATUS LOKAL (OPTIONAL)
-    // =========================
-    await connLokal.query(
+    // UPDATE
+    const [updateResult] = await conn.query(
       `
       UPDATE sirad_xray
       SET 
-        satusehat_status = 'done',
-        satusehat_response = ?,
-        updated_at = NOW()
+        hasil_bacaan = ?,
+        status = 'read',
+        updated_at = NOW(),
+        read_by = ?,
+        read_at = NOW()
       WHERE registry_id = ?
     `,
-      [JSON.stringify(result), registry_id]
+      [hasil_bacaan, read_by, registry_id],
     );
 
-    // =========================
-    // 10. RESPONSE
-    // =========================
+    // VALIDASI UPDATE
+    if (updateResult.affectedRows === 0) {
+      throw new Error("Gagal update data");
+    }
+
+    await conn.commit();
+
     res.json({
       success: true,
-      message: "Berhasil kirim ke SatuSehat",
+      message: "Hasil bacaan tersimpan",
     });
-
   } catch (err) {
-    console.error("SEND SATUSEHAT ERROR:", err?.response?.data || err.message);
+    await conn.rollback();
 
-    if (err.response) {
-      console.error("STATUS:", err.response.status);
-      console.error("DATA:");
-      console.dir(err.response.data, { depth: null });
-    } else {
-      console.error(err.message);
-    }
+    console.error("SAVE HASIL ERROR:", err);
 
-    // =========================
-    // UPDATE STATUS FAILED (NON-BLOCKING)
-    // =========================
-    try {
-      await dbLokal.promise().query(
-        `
-        UPDATE sirad_xray
-        SET satusehat_status = 'failed',
-            updated_at = NOW()
-        WHERE registry_id = ?
-      `,
-        [req.body.registry_id]
-      );
-    } catch (e) {
-      console.error("UPDATE FAILED STATUS ERROR:", e.message);
-    }
-
-    res.status(500).json({
+    res.status(400).json({
       success: false,
-      message:
-        err?.response?.data?.issue?.[0]?.diagnostics ||
-        err.message ||
-        "Gagal kirim ke SatuSehat",
+      message: err.message || "Gagal simpan hasil",
     });
-
   } finally {
-    connLokal.release();
+    conn.release();
   }
 };
 
@@ -1109,7 +1048,7 @@ const buildPayloadFromDB = async (registry_id) => {
   );
 
   const [[dokter]] = await dbUtama.promise().query(
-    `SELECT satusehat_ihs_number 
+    `SELECT satusehat_ihs_number s
      FROM employee WHERE employee_id = ?`,
     [utama.expert]
   );

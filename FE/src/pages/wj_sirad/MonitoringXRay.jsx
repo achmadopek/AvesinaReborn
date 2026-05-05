@@ -471,35 +471,7 @@ const MonitoringXRay = (
     setShowSatuSehatModal(true);
   };
 
-  const handleSendSatuSehat = async () => {
-    try {
-      if (!selectedDetail?.registry_id) {
-        toast.error("Data tidak valid");
-        return;
-      }
-
-      setLoading(true);
-
-      const res = await sendSatuSehat(selectedDetail.registry_id);
-
-      if (res.success) {
-        toast.success("Berhasil kirim ke SatuSehat");
-
-        setShowSatuSehatModal(false);
-        loadData(currentPage, tanggal);
-      } else {
-        toast.error(res.message || "Gagal kirim");
-      }
-
-    } catch (err) {
-      console.error(err);
-      toast.error(err?.response?.data?.message || "Gagal kirim ke SatuSehat");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ========================
+// ========================
 // SATUSEHAT HANDLER BARU
 // ========================
 
@@ -1094,132 +1066,6 @@ const handleSendObservation = async (row) => {
         </Modal.Footer>
       </Modal>
 
-      {/* ================= MODAL KIRIM SATUSEHAT ================= */}
-      <Modal
-        show={showSatuSehatModal}
-        onHide={() => setShowSatuSehatModal(false)}
-        size="lg"
-        centered
-      >
-        <Modal.Header closeButton>
-          <Modal.Title>Kirim ke SatuSehat</Modal.Title>
-        </Modal.Header>
-
-        <Modal.Body>
-          {!selectedDetail ? (
-            <div className="text-center py-4">Loading...</div>
-          ) : (
-            <>
-              <div className="row">
-                {/* ===================== */}
-                {/* INFO PASIEN */}
-                {/* ===================== */}
-                <div className="mb-3 col-md-6">
-                  <h6 className="fw-bold">Pasien</h6>
-                  <div>Nama: {selectedDetail.patient_nm}</div>
-                  <div>MR: {selectedDetail.mr_code}</div>
-                  <div>
-                    Tanggal: {formatDate(selectedDetail.measured_dt)}
-                  </div>
-                </div>
-
-                {/* ===================== */}
-                {/* INFO PEMERIKSAAN */}
-                {/* ===================== */}
-                <div className="mb-3 col-md-6">
-                  <h6 className="fw-bold">Pemeriksaan</h6>
-                  <div>Tindakan: {selectedDetail.tindakan}</div>
-                  <div>Pengirim: {selectedDetail.dr_pengirim}</div>
-                  <div>Pemeriksa: {selectedDetail.dr_pemeriksa}</div>
-                </div>
-              </div>
-
-              {/* ===================== */}
-              {/* HASIL BACAAN */}
-              {/* ===================== */}
-              <div className="mb-3">
-                <h6 className="fw-bold">Hasil Bacaan</h6>
-                <div className="border p-2 rounded bg-light">
-                  {selectedDetail.hasil_bacaan || "-"}
-                </div>
-              </div>
-
-              {/* ===================== */}
-              {/* STATUS SATUSEHAT */}
-              {/* ===================== */}
-              <div className="mb-3">
-                <h6 className="fw-bold">Status SatuSehat</h6>
-
-                <ul className="list-unstyled mb-0">
-                  <li>
-                    {selectedDetail?.satu_sehat?.patient ? "✅" : "❌"} Patient IHS
-                  </li>
-                  <li>
-                    {selectedDetail?.satu_sehat?.encounter ? "✅" : "❌"} Encounter
-                  </li>
-                  <li>
-                    {selectedDetail?.satu_sehat?.service_request ? "✅" : "❌"} Service Request
-                  </li>
-                  {/*<li>
-                    {selectedDetail?.satu_sehat?.imaging ? "✅" : "❌"} Imaging Study
-                  </li>
-                  <li>
-                    {selectedDetail?.satu_sehat?.report ? "✅" : "❌"} Diagnostic Report
-                  </li>
-                  <li>
-                    {selectedDetail?.satu_sehat?.observation ? "✅" : "❌"} Observation
-                  </li>*/}
-                </ul>
-              </div>
-
-              {/* ===================== */}
-              {/* VALIDATION WARNING */}
-              {/* ===================== */}
-              {(!selectedDetail?.hasil_bacaan ||
-                !selectedDetail?.satu_sehat?.patient ||
-                !selectedDetail?.satu_sehat?.encounter) && (
-                <div className="alert alert-warning">
-                  ⚠️ Data belum lengkap:
-                  <ul className="mb-0">
-                    {!selectedDetail?.hasil_bacaan && (
-                      <li>Hasil bacaan belum diisi</li>
-                    )}
-                    {!selectedDetail?.satu_sehat?.patient && (
-                      <li>Patient IHS belum ada</li>
-                    )}
-                    {!selectedDetail?.satu_sehat?.encounter && (
-                      <li>Encounter belum ada</li>
-                    )}
-                  </ul>
-                </div>
-              )}
-            </>
-          )}
-        </Modal.Body>
-
-        <Modal.Footer>
-          <Button
-            variant="secondary"
-            onClick={() => setShowSatuSehatModal(false)}
-          >
-            Batal
-          </Button>
-
-          <Button
-            variant="primary"
-            disabled={
-              loading ||
-              !selectedDetail?.hasil_bacaan ||
-              !selectedDetail?.satu_sehat?.patient ||
-              !selectedDetail?.satu_sehat?.encounter
-            }
-            onClick={handleSendSatuSehat}
-          >
-            {loading ? "Mengirim..." : "Kirim ke SatuSehat"}
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
       {/* ================= TOMBOL FILTER MOBILE ================= */}
       {isMobile && (
         <button
@@ -1403,7 +1249,7 @@ const handleSendObservation = async (row) => {
                     satu_sehat = {},
                   } = row;
 
-                  console.log(filteredData);
+                  //console.log(filteredData);
 
                   const {
                     patient = false,
@@ -1435,7 +1281,7 @@ const handleSendObservation = async (row) => {
                     //hasValidTindakan &&
                     !service_request;
 
-                  const canUpload = status === "ordered" && isNotFinal;
+                  const canUpload = true;//status === "ordered" && isNotFinal;
 
                   // Imaging hanya kalau belum pernah kirim
                   const canSendImaging =
@@ -1478,7 +1324,7 @@ const handleSendObservation = async (row) => {
                           </div>
                           <div>
                             {row.is_final && (
-                              <span className="badge bg-dark me-1">
+                              <span className="badge bg-dark">
                                 Final Avesina
                               </span>
                             )}
@@ -1488,7 +1334,9 @@ const handleSendObservation = async (row) => {
                               </span>
                             )}
                             {row.status === "ordered" && (
-                              <span className="badge bg-info">Ordered</span>
+                              <span className="badge bg-info">
+                                Sudah Diminta
+                              </span>
                             )}
                             {row.status === "uploaded" && (
                               <span className="badge bg-warning text-dark">
@@ -1590,44 +1438,50 @@ const handleSendObservation = async (row) => {
 
                       {!isMobile && (
                         <td className="text-center">
-                          {row.satu_sehat?.encounter && (
-                            <span className="badge bg-secondary me-1">ENC</span>
+                          {row.satu_sehat?.encounter ? (
+                            <span className="badge bg-secondary">ENC</span>
+                          ) : (
+                            <span className="badge bg-light text-muted border">ENC</span>
                           )}
                         </td>
                       )}
 
                       {!isMobile && (
                         <td className="text-center">
-                          {row.satu_sehat?.service_request && (
-                            <span className="badge bg-primary me-1">REQ</span>
+                          {row.satu_sehat?.service_request ? (
+                            <span className="badge bg-primary">REQ</span>
+                          ) : (
+                            <span className="badge bg-light text-muted border">REQ</span>
                           )}
                         </td>
                       )}
 
                       {!isMobile && (
                         <td className="text-center">
-                          {row.satu_sehat?.imaging && (
-                            <span className="badge bg-info text-dark me-1">
-                              IMG
-                            </span>
+                          {row.satu_sehat?.imaging ? (
+                            <span className="badge bg-info text-dark">IMG</span>
+                          ) : (
+                            <span className="badge bg-light text-muted border">IMG</span>
                           )}
                         </td>
                       )}
 
                       {!isMobile && (
                         <td className="text-center">
-                          {row.satu_sehat?.report && (
-                            <span className="badge bg-warning text-dark me-1">
-                              REP
-                            </span>
+                          {row.satu_sehat?.report ? (
+                            <span className="badge bg-warning text-dark">REP</span>
+                          ) : (
+                            <span className="badge bg-light text-muted border">REP</span>
                           )}
                         </td>
                       )}
 
                       {!isMobile && (
                         <td className="text-center">
-                          {row.satu_sehat?.observation && (
+                          {row.satu_sehat?.observation ? (
                             <span className="badge bg-dark">OBS</span>
+                          ) : (
+                            <span className="badge bg-light text-muted border">OBS</span>
                           )}
                         </td>
                       )}
@@ -1635,7 +1489,7 @@ const handleSendObservation = async (row) => {
                       {!isMobile && (
                         <td className="text-center">
                           {row.is_final && (
-                            <span className="badge bg-dark me-1">
+                            <span className="badge bg-dark">
                               Final Avesina
                             </span>
                           )}

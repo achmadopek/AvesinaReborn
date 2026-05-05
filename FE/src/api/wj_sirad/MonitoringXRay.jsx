@@ -6,14 +6,6 @@ export const fetchPaginatedDataXRay = async ({ tgl, role, peg_id }) => {
   });
   return res.data;
 };
-/*export const fetchPaginatedDataXRay = async ({ tgl, token }) => {
-  const res = await API.get("/api/sirad/MonitoringXRay/data", {
-    params: { tgl },
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  });
-};*/
 
 export const requestXRay = async ({ registry_id, pengirim_id, pemeriksa_id }) => {
   const res = await API.post("/api/sirad/MonitoringXRay/proses-xray", {
@@ -40,13 +32,6 @@ export const uploadXRay = async (formData) => {
 
 export const saveHasilXRay = async (payload) => {
   const res = await API.post("/api/sirad/MonitoringXRay/save-hasil", payload);
-  return res.data;
-};
-
-export const sendSatuSehat = async (registry_id) => {
-  const res = await API.post("/api/sirad/MonitoringXRay/send-satusehat", {
-    registry_id
-  });
   return res.data;
 };
 

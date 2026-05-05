@@ -25,7 +25,6 @@ router.post("/upload", (req, res, next) => {
 router.post("/save-hasil", dataController.saveHasil);
 
 router.post("/proses-xray", dataController.requestXRay);
-router.post("/send-satusehat", dataController.sendSatuSehat);
 
 router.post("/send-imaging", dataController.sendImagingStudy);
 router.post("/send-observation", dataController.sendObservation);

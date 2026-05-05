@@ -1,6 +1,12 @@
 import { formatSatuSehatDate } from "../../../utility/formatSatuSehatDate.js";
 
 export const buildImagingStudy = (data, uid, orgId) => {
+
+  if (!data.patient_id) throw new Error("patient_id kosong");
+  if (!data.encounter_id) throw new Error("encounter_id kosong");
+  if (!data.service_request_id) throw new Error("service_request_id kosong");
+  if (!data.measured_dt) throw new Error("measured_dt kosong");
+
   return {
     resourceType: "ImagingStudy",
     identifier: [
