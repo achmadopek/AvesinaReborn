@@ -33,8 +33,17 @@ const MonitoringXRay = (
   const [tanggal, setTanggal] = useState("");
 
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showRequestModal, setShowRequestModal] = useState(false);
   const [selectedDetail, setSelectedDetail] = useState(null);
-  const [showSimpanAvesinaModal, setshowSimpanAvesinaModal] = useState(false);
+  const [showKirimObservasiModal, setShowKirimDiagnosticReportModal] = useState(false);
+
+  const [selectedXray, setSelectedXray] = useState(null);
+
+  const [showObservationModal, setShowObservationModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+
+  const [selectedObservation, setSelectedObservation] = useState(null);
+  const [selectedReport, setSelectedReport] = useState(null);
 
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedUpload, setSelectedUpload] = useState(null);
@@ -167,10 +176,32 @@ const MonitoringXRay = (
     }
   };
 
+  const openModalRequest = async (row) => {
+    try {
+      const res = await fetchDetailXRay(row.registry_id);
+
+      if (res.success) {
+        setSelectedDetail(res.data);
+
+        // isi default keluhan kalau sudah ada
+        setKeluhan(res.data.keluhan || "");
+
+        setShowRequestModal(true);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Gagal memuat detail X-Ray");
+    }
+  };
+
   const openModalUpload = (row) => {
     setSelectedUpload(row);
+    
     setFoto1(null);
     setFoto2(null);
+    setPreview1(null);
+    setPreview2(null);
+
     setShowUploadModal(true);
   };
 
@@ -184,7 +215,6 @@ const MonitoringXRay = (
       if (foto1) formData.append("foto1", foto1);
       if (foto2) formData.append("foto2", foto2);
 
-      if (keluhan) formData.append("keluhan", keluhan);
       if (peg_id) formData.append("created_by", peg_id);
 
       setUploading(true);
@@ -219,40 +249,73 @@ const MonitoringXRay = (
     }
   };
 
-  const openModalSimpanAvesina = async (row) => {
-    try {
-      const res = await fetchDetailXRay(row.registry_id);
+  const openModalObservation = async (row) => {
+    const res = await fetchDetailXRay(row.registry_id);
 
-      if (res.success) {
-        setSelectedDetail(res.data);
-        setshowSimpanAvesinaModal(true);
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error("Gagal memuat detail X-Ray");
+    if (res.success) {
+      setSelectedObservation(res.data);
+      setShowObservationModal(true);
     }
   };
 
-  const handleSaveHasil = async () => {
+  const openModalReport = async (row) => {
+    const res = await fetchDetailXRay(row.registry_id);
+
+    if (res.success) {
+      setSelectedReport(res.data);
+      setShowReportModal(true);
+    }
+  };
+
+  const handleSaveAndSendObservation = async () => {
     try {
       setSaving(true);
 
+      // 1. simpan lokal
       await saveHasilXRay({
         registry_id: selectedBaca.registry_id,
         hasil_bacaan: hasilBacaan,
         read_by: peg_id,
       });
 
-      toast.success("Hasil bacaan tersimpan");
+      // 2. kirim Observation
+      const resObs = await sendObservation(selectedBaca.registry_id);
+
+      console.log("OBS:", resObs);
+
+      toast.success("Hasil & Observation berhasil dikirim");
 
       setShowBacaModal(false);
-
       loadData(currentPage, tanggal);
+
     } catch (err) {
       console.error(err);
-      toast.error("Gagal menyimpan hasil");
+      toast.error(err?.response?.data?.message || "Gagal kirim Observation");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSendDiagnosticReport = async () => {
+    try {
+      setLoading(true);
+
+      const res = await sendDiagnostic({
+        registry_id: selectedReport.registry_id,
+        observation_id: selectedReport.observation_id,
+        imaging_id: selectedReport.imaging_id,
+      });
+
+      toast.success("DiagnosticReport berhasil dikirim");
+
+      setShowReportModal(false);
+      loadData(currentPage, tanggal);
+
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.response?.data?.message || "Gagal kirim DiagnosticReport");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -446,16 +509,18 @@ const MonitoringXRay = (
   }, [isMobile]);
 
   // SATU SEHAT
-  const handleProsesXRay = async (row) => {
+  const handleProsesXRay = async () => {
     try {
       const res = await requestXRay({
-        registry_id: row.registry_id,
-        pengirim_id: row.pengirim_id,
-        pemeriksa_id: row.pemeriksa_id,
+        registry_id: selectedDetail.registry_id,
+        pengirim_id: selectedDetail.pengirim_id,
+        pemeriksa_id: selectedDetail.pemeriksa_id,
+        keluhan: keluhan,
       });
 
       if (res.success) {
         toast.success("Berhasil membuat order X-Ray");
+        setShowRequestModal(false);
         loadData(currentPage, tanggal);
       } else {
         toast.error(res.message || "Gagal proses X-Ray");
@@ -471,69 +536,69 @@ const MonitoringXRay = (
     setShowSatuSehatModal(true);
   };
 
-// ========================
-// SATUSEHAT HANDLER BARU
-// ========================
+  // ========================
+  // SATUSEHAT HANDLER BARU
+  // ========================
 
-const handleSendImaging = async (row) => {
-  try {
-    setLoading(true);
+  const handleSendImaging = async (row) => {
+    try {
+      setLoading(true);
 
-    const res = await sendImaging(row.registry_id);
+      const res = await sendImaging(row.registry_id);
 
-    if (res.success) {
-      toast.success("ImagingStudy berhasil dikirim");
-      loadData(currentPage, tanggal);
-    } else {
-      toast.error(res.message || "Gagal kirim ImagingStudy");
+      if (res.success) {
+        toast.success("ImagingStudy berhasil dikirim");
+        loadData(currentPage, tanggal);
+      } else {
+        toast.error(res.message || "Gagal kirim ImagingStudy");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.response?.data?.message || "Error ImagingStudy");
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error(err);
-    toast.error(err?.response?.data?.message || "Error ImagingStudy");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
-const handleSendDiagnostic = async (row) => {
-  try {
-    setLoading(true);
+  const handleSendDiagnostic = async (row) => {
+    try {
+      setLoading(true);
 
-    const res = await sendDiagnostic(row.registry_id);
+      const res = await sendDiagnostic(row.registry_id);
 
-    if (res.success) {
-      toast.success("DiagnosticReport berhasil dikirim");
-      loadData(currentPage, tanggal);
-    } else {
-      toast.error(res.message || "Gagal kirim DiagnosticReport");
+      if (res.success) {
+        toast.success("DiagnosticReport berhasil dikirim");
+        loadData(currentPage, tanggal);
+      } else {
+        toast.error(res.message || "Gagal kirim DiagnosticReport");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.response?.data?.message || "Error DiagnosticReport");
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error(err);
-    toast.error(err?.response?.data?.message || "Error DiagnosticReport");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
-const handleSendObservation = async (row) => {
-  try {
-    setLoading(true);
+  const handleSendObservation = async (row) => {
+    try {
+      setLoading(true);
 
-    const res = await sendObservation(row.registry_id);
+      const res = await sendObservation(row.registry_id);
 
-    if (res.success) {
-      toast.success("Observation berhasil dikirim");
-      loadData(currentPage, tanggal);
-    } else {
-      toast.error(res.message || "Gagal kirim Observation");
+      if (res.success) {
+        toast.success("Observation berhasil dikirim");
+        loadData(currentPage, tanggal);
+      } else {
+        toast.error(res.message || "Gagal kirim Observation");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.response?.data?.message || "Error Observation");
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error(err);
-    toast.error(err?.response?.data?.message || "Error Observation");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   // -----------------------
   // RENDER
@@ -581,9 +646,9 @@ const handleSendObservation = async (row) => {
                 {formatDate(selectedDetail?.measured_dt)}
               </strong>
               <br />
-              Keluhan | Pemeriksaan:
+              Pemeriksaan:
               <strong className="ms-1">
-                {selectedDetail?.keluhan} | {selectedDetail?.tindakan}
+                {selectedDetail?.tindakan}
               </strong>
               <br />
               Pengirim:
@@ -648,6 +713,121 @@ const handleSendObservation = async (row) => {
         </Modal.Footer>
       </Modal>
 
+      {/* ================= MODAL REQUEST ================= */}
+      <Modal
+        show={showRequestModal}
+        onHide={() => setShowRequestModal(false)}
+        centered
+        backdrop="static"
+        size="lg"
+        dialogClassName="modal-theme"
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Permintaan X-Ray</Modal.Title>
+          <span
+            className={`badge ${
+              selectedDetail?.status === "done"
+                ? "bg-success"
+                : selectedDetail?.status === "uploaded"
+                  ? "bg-warning text-dark"
+                  : "bg-secondary"
+            } ms-2 mt-1`}
+          >
+            {selectedDetail?.status}
+          </span>
+        </Modal.Header>
+
+        <Modal.Body>
+          <div className="row">
+            <div className="col-md-6">
+              <strong>NRM:</strong> {selectedDetail?.mr_code}
+              <br />
+              <strong>Nama:</strong> {selectedDetail?.patient_nm}
+              <br />
+              <strong>Radiolog:</strong> {selectedDetail?.radiolog}
+              <br />
+            </div>
+
+            <div className="col-md-6">
+              Tgl Periksa:
+              <strong className="ms-1">
+                {formatDate(selectedDetail?.measured_dt)}
+              </strong>
+              <br />
+              Pemeriksaan:
+              <strong className="ms-1">
+                {selectedDetail?.tindakan}
+              </strong>
+              <br />
+              Pengirim:
+              <strong className="ms-1">{selectedDetail?.pengirim}</strong>
+            </div>
+
+            <div className="col-md-6 mt-3 mb-3">
+              {selectedDetail?.foto1 && (
+                <img
+                  src={`${import.meta.env.VITE_API_URL}${selectedDetail.foto1}`}
+                  className="img-fluid rounded shadow-sm"
+                  style={{ cursor: "pointer", width: "100%" }}
+                  onClick={() =>
+                    window.open(
+                      `${import.meta.env.VITE_API_URL}${selectedDetail.foto1}`,
+                    )
+                  }
+                />
+              )}
+            </div>
+
+            <div className="col-md-6 mb-3">
+              {selectedDetail?.foto2 && (
+                <img
+                  src={`${import.meta.env.VITE_API_URL}${selectedDetail.foto2}`}
+                  className="img-fluid rounded shadow-sm"
+                  style={{ cursor: "pointer", width: "100%" }}
+                  onClick={() =>
+                    window.open(
+                      `${import.meta.env.VITE_API_URL}${selectedDetail.foto2}`,
+                    )
+                  }
+                />
+              )}
+            </div>
+
+            <div className="col-12">
+              <div>
+                <label className="fw-semibold">Keluhan</label>
+
+                <textarea
+                  className="form-control form-control-sm"
+                  rows={isMobile ? 1 : 3}
+                  value={keluhan}
+                  onChange={(e) => setKeluhan(e.target.value)}
+                  placeholder="Tulis keluhan..."
+                  style={{
+                    flex: isMobile ? 1 : "unset",
+                    resize: "none",
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </Modal.Body>
+
+        <Modal.Footer>
+          <Button
+            variant="success"
+            onClick={() => handleProsesXRay(selectedDetail)}
+            disabled={uploading && !keluhan}
+            className="ms-2"
+          >
+            {uploading ? "Mengirim..." : "Request & Kirim SatuSehat"}
+          </Button>
+          <Button variant="secondary" onClick={() => setShowRequestModal(false)}>
+            Tutup
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
       {/* ============= MODAL UPLOAD ============= */}
       <Modal
         show={showUploadModal}
@@ -686,10 +866,6 @@ const handleSendObservation = async (row) => {
               <i className="fw-semibold">
                 {formatDate(selectedUpload?.measured_dt)}
               </i>
-            </div>
-            <div className="col-6">
-              <span>Keluhan : </span>
-              <i className="fw-semibold">{selectedUpload?.keluhan}</i>
             </div>
             <div className="col-6">
               <span>Tindakan : </span>
@@ -731,13 +907,14 @@ const handleSendObservation = async (row) => {
             <textarea
               className="form-control form-control-sm"
               rows={isMobile ? 1 : 3}
-              value={keluhan}
+              value={selectedUpload?.keluhan}
               onChange={(e) => setKeluhan(e.target.value)}
               placeholder="Tulis keluhan..."
               style={{
                 flex: isMobile ? 1 : "unset",
                 resize: "none",
               }}
+              disabled
             />
           </div>
         </Modal.Body>
@@ -749,7 +926,7 @@ const handleSendObservation = async (row) => {
             disabled={uploading}
             className="ms-2"
           >
-            {uploading ? "Uploading..." : "Upload"}
+            {uploading ? "Uploading..." : "Upload & Kirim SatuSehat"}
           </Button>
 
           <Button variant="secondary" onClick={() => setShowUploadModal(false)}>
@@ -872,9 +1049,9 @@ const handleSendObservation = async (row) => {
             </div>
 
             <div>
-              <div className="text-muted">Keluhan | Tindakan:</div>
+              <div className="text-muted">Tindakan:</div>
               <div className="fw-semibold">
-                {selectedBaca?.keluhan} | {selectedBaca?.tindakan}
+                {selectedBaca?.tindakan}
               </div>
             </div>
           </div>
@@ -914,6 +1091,24 @@ const handleSendObservation = async (row) => {
                 zIndex: 1055,
               }}
             >
+
+              <div>
+                <label className="fw-semibold">Keluhan</label>
+
+                <textarea
+                  className="form-control form-control-sm"
+                  rows={isMobile ? 1 : 3}
+                  value={keluhan}
+                  onChange={(e) => setKeluhan(e.target.value)}
+                  placeholder="Tulis keluhan..."
+                  style={{
+                    flex: isMobile ? 1 : "unset",
+                    resize: "none",
+                  }}
+                  disabled
+                />
+              </div>
+
               <label className="fw-semibold small">Hasil Bacaan</label>
 
               <div
@@ -947,30 +1142,46 @@ const handleSendObservation = async (row) => {
                 {isMobile && (
                   <Button
                     variant="success"
-                    onClick={handleSaveHasil}
+                    onClick={handleSaveAndSendObservation}
                     disabled={saving}
-                    style={{
-                      whiteSpace: "nowrap",
-                    }}
                   >
-                    {saving ? "Menyimpan..." : "Simpan"}
+                    {saving ? "Menyimpan..." : "Simpan & Kirim Observation"}
                   </Button>
                 )}
               </div>
             </div>
           ) : (
-            <div>
-              <label>
-                <strong>Hasil Bacaan</strong>
-              </label>
-              <textarea
-                className="form-control form-control-sm"
-                rows={5}
-                value={hasilBacaan}
-                onChange={(e) => setHasilBacaan(e.target.value)}
-                placeholder="Tulis hasil interpretasi radiologi..."
-              />
-            </div>
+            <>
+              <div>
+                <label className="fw-semibold">Keluhan</label>
+
+                <textarea
+                  className="form-control form-control-sm"
+                  rows={isMobile ? 1 : 3}
+                  value={keluhan}
+                  onChange={(e) => setKeluhan(e.target.value)}
+                  placeholder="Tulis keluhan..."
+                  style={{
+                    flex: isMobile ? 1 : "unset",
+                    resize: "none",
+                  }}
+                  disabled
+                />
+              </div>
+              
+              <div>
+                <label>
+                  <strong>Hasil Bacaan</strong>
+                </label>
+                <textarea
+                  className="form-control form-control-sm"
+                  rows={5}
+                  value={hasilBacaan}
+                  onChange={(e) => setHasilBacaan(e.target.value)}
+                  placeholder="Tulis hasil interpretasi radiologi..."
+                />
+              </div>
+            </>
           )}
         </Modal.Body>
 
@@ -978,10 +1189,10 @@ const handleSendObservation = async (row) => {
           <Modal.Footer>
             <Button
               variant="success"
-              onClick={handleSaveHasil}
+              onClick={handleSaveAndSendObservation}
               disabled={saving}
             >
-              {saving ? "Menyimpan..." : "Simpan"}
+              {saving ? "Menyimpan..." : "Simpan & Kirim Observation"}
             </Button>
 
             <Button variant="secondary" onClick={() => setShowBacaModal(false)}>
@@ -991,76 +1202,37 @@ const handleSendObservation = async (row) => {
         )}
       </Modal>
 
-      {/* ================= MODAL SIMPAN AVESINA ================= */}
+      {/* ================= MODAL KIRIM LAPORAN ================= */}
       <Modal
-        show={showSimpanAvesinaModal}
-        onHide={() => setshowSimpanAvesinaModal(false)}
+        show={showReportModal}
+        onHide={() => setShowReportModal(false)}
         centered
-        backdrop="static"
-        size="lg"
-        dialogClassName="modal-theme"
       >
         <Modal.Header closeButton>
-          <Modal.Title>Simpan Avesina Hasil X-Ray</Modal.Title>
-          <span
-            className={`badge ${
-              selectedDetail?.status === "done"
-                ? "bg-success"
-                : selectedDetail?.status === "uploaded"
-                  ? "bg-warning text-dark"
-                  : "bg-secondary"
-            } ms-2 mt-1`}
-          >
-            {selectedDetail?.status}
-          </span>
+          <Modal.Title>Kirim DiagnosticReport</Modal.Title>
         </Modal.Header>
 
         <Modal.Body>
-          <div className="row">
-            <div className="col-md-6">
-              <p>
-                <strong>NRM:</strong> {selectedDetail?.mr_code}
-                <br />
-                <strong>Nama:</strong> {selectedDetail?.patient_nm}
-                <br />
-              </p>
-            </div>
+          <p><strong>NRM:</strong> {selectedReport?.mr_code}</p>
+          <p><strong>Nama:</strong> {selectedReport?.patient_nm}</p>
 
-            <div className="col-md-6">
-              <strong>Tgl Periksa:</strong>{" "}
-              {formatDate(selectedDetail?.measured_dt)}
-            </div>
-
-            <div className="col-md-6">
-              <strong>Keluhan:</strong> {selectedDetail?.keluhan}
-              <br />
-              <strong>Tindakan:</strong> {selectedDetail?.tindakan}
-              <br />
-            </div>
-
-            <div className="col-12 mt-2">
-              <label>
-                <strong>Hasil Bacaan</strong>
-              </label>
-              <textarea
-                className="form-control form-control-sm"
-                rows={4}
-                value={selectedDetail?.hasil_bacaan || ""}
-                disabled
-              />
-            </div>
-          </div>
+          <textarea
+            className="form-control"
+            value={selectedReport?.hasil_bacaan || ""}
+            disabled
+          />
         </Modal.Body>
 
         <Modal.Footer>
-          <Button variant="success" disabled>
-            Simpan Avesina [belum bisa dilakukan, menunggu konfirmasi]
+          <Button
+            variant="success"
+            onClick={handleSendDiagnosticReport}
+            disabled={loading}
+          >
+            {loading ? "Mengirim..." : "Kirim DiagnosticReport"}
           </Button>
 
-          <Button
-            variant="secondary"
-            onClick={() => setshowSimpanAvesinaModal(false)}
-          >
+          <Button variant="secondary" onClick={() => setShowReportModal(false)}>
             Tutup
           </Button>
         </Modal.Footer>
@@ -1219,8 +1391,8 @@ const handleSendObservation = async (row) => {
                   {!isMobile && <th className="text-center">ENC</th>}
                   {!isMobile && <th className="text-center">REQ</th>}
                   {!isMobile && <th className="text-center">IMG</th>}
-                  {!isMobile && <th className="text-center">REP</th>}
                   {!isMobile && <th className="text-center">OBS</th>}
+                  {!isMobile && <th className="text-center">REP</th>}
                   {!isMobile && <th className="text-center">Status</th>}
 
                   <th className="text-center">Aksi</th>
@@ -1249,7 +1421,7 @@ const handleSendObservation = async (row) => {
                     satu_sehat = {},
                   } = row;
 
-                  //console.log(filteredData);
+                  console.log(filteredData);
 
                   const {
                     patient = false,
@@ -1261,9 +1433,9 @@ const handleSendObservation = async (row) => {
                   const isNotFinal = !is_final;
                   const isRead = status === "read";
 
-                  // minimal 1 tindakan valid
+                  // semua tindakan harus valid
                   const hasValidTindakan = tindakan_mapping.some(
-                    (t) => t.snomed_code || t.loinc_code,
+                    (t) => t.snomed_code && t.loinc_code
                   );
 
                   // dokter pengirim ada
@@ -1278,10 +1450,26 @@ const handleSendObservation = async (row) => {
                     encounter &&
                     hasPengirim &&
                     hasPemeriksa &&
-                    //hasValidTindakan &&
+                    hasValidTindakan &&
                     !service_request;
 
-                  const canUpload = true;//status === "ordered" && isNotFinal;
+                  const canUpload = 
+                    //isNotFinal &&
+                    status === "ordered" || 
+                    status === "read" &&
+                    service_request &&
+                    hasValidTindakan &&
+                    !imaging;
+                  
+                  // bisa baca kalau sudah upload & belum final
+                  const canBaca =
+                    //isNotFinal &&
+                    status === "uploaded";
+
+                  // bisa simpan (Observasi / Avesina) kalau sudah dibaca
+                  const canSimpan =
+                    //isNotFinal;
+                    status === "read";
 
                   // Imaging hanya kalau belum pernah kirim
                   const canSendImaging =
@@ -1298,6 +1486,7 @@ const handleSendObservation = async (row) => {
                   // Observation optional (boleh setelah read)
                   const canSendObservation =
                     status === "read" &&
+                    row.satu_sehat?.report && 
                     !row.satu_sehat?.observation;
 
                   return (
@@ -1468,20 +1657,20 @@ const handleSendObservation = async (row) => {
 
                       {!isMobile && (
                         <td className="text-center">
-                          {row.satu_sehat?.report ? (
-                            <span className="badge bg-warning text-dark">REP</span>
+                          {row.satu_sehat?.observation ? (
+                            <span className="badge bg-dark">OBS</span>
                           ) : (
-                            <span className="badge bg-light text-muted border">REP</span>
+                            <span className="badge bg-light text-muted border">OBS</span>
                           )}
                         </td>
                       )}
 
                       {!isMobile && (
                         <td className="text-center">
-                          {row.satu_sehat?.observation ? (
-                            <span className="badge bg-dark">OBS</span>
+                          {row.satu_sehat?.report ? (
+                            <span className="badge bg-warning text-dark">REP</span>
                           ) : (
-                            <span className="badge bg-light text-muted border">OBS</span>
+                            <span className="badge bg-light text-muted border">REP</span>
                           )}
                         </td>
                       )}
@@ -1530,10 +1719,10 @@ const handleSendObservation = async (row) => {
                           <button
                             className="btn btn-sm btn-outline-success"
                             disabled={!canRequest}
-                            onClick={() => handleProsesXRay(row)}
+                            onClick={() => openModalRequest(row)}
                             title={
-                              !canRequest
-                                ? "Butuh Patient & Encounter di SatuSehat"
+                              !hasValidTindakan
+                                ? "Mapping SNOMED & LOINC belum lengkap"
                                 : ""
                             }
                           >
@@ -1567,11 +1756,11 @@ const handleSendObservation = async (row) => {
 
                         {role === "radiolog" && (
                           <button
-                            className={`btn btn-sm btn-outline-info ${!isMobile ? "ms-2" : ""}`}
-                            disabled={!canSimpan}
-                            onClick={() => openModalSimpanAvesina(row)}
+                            className="btn btn-sm btn-outline-info ms-1"
+                            disabled={!canSendDiagnostic}
+                            onClick={() => openModalReport(row)}
                           >
-                            Observasi
+                            Report
                           </button>
                         )}
                       </td>
@@ -1610,11 +1799,11 @@ const handleSendObservation = async (row) => {
                   <span className="badge bg-info text-dark me-1">IMG</span>
                   ImagingStudy X-Ray sudah dikirim (mini-PACS non-DICOM)
                   <br />
-                  <span className="badge bg-warning text-dark me-1">REP</span>
-                  DiagnosticReport hasil bacaan radiologi sudah dikirim
-                  <br />
                   <span className="badge bg-dark me-1">OBS</span>
                   Observation hasil bacaan (temuan medis) sudah dikirim
+                  <br />
+                  <span className="badge bg-warning text-dark me-1">REP</span>
+                  DiagnosticReport hasil bacaan radiologi sudah dikirim
                 </div>
               </div>
             </div>

@@ -42,7 +42,7 @@ export const buildImagingStudy = (data, uid, orgId) => {
     numberOfInstances: data.foto2 ? 2 : 1,
     series: [
       {
-        uid: `urn:oid:${uid.series}`,
+        uid: uid.series,
         number: 1,
         modality: {
           system: "http://dicom.nema.org/resources/ontology/DCM",
@@ -51,7 +51,7 @@ export const buildImagingStudy = (data, uid, orgId) => {
         numberOfInstances: data.foto2 ? 2 : 1,
         instance: [
           {
-            uid: `urn:oid:${uid.instance1}`,
+            uid: uid.instance1,
             sopClass: {
               system: "urn:ietf:rfc:3986",
               code: "urn:oid:1.2.840.10008.5.1.4.1.1.1",

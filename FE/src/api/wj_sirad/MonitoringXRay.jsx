@@ -7,11 +7,12 @@ export const fetchPaginatedDataXRay = async ({ tgl, role, peg_id }) => {
   return res.data;
 };
 
-export const requestXRay = async ({ registry_id, pengirim_id, pemeriksa_id }) => {
+export const requestXRay = async ({ registry_id, pengirim_id, pemeriksa_id, keluhan }) => {
   const res = await API.post("/api/sirad/MonitoringXRay/proses-xray", {
     registry_id,
     pengirim_id,
-    pemeriksa_id
+    pemeriksa_id,
+    keluhan
   });
   return res.data;
 };

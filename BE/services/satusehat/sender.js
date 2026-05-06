@@ -47,7 +47,7 @@ const sendImaging = async (data, orgId) => {
 // ==========================
 // 2. OBSERVATION
 // ==========================
-const sendObservation = async (data) => {
+const sendObservationToSatuSehat = async (data) => {
   try {
     const normalized = normalize(data);
 
@@ -105,6 +105,6 @@ const sendDiagnostic = async (
 
 module.exports = {
   sendImaging,
-  sendObservation,
+  sendObservationToSatuSehat,
   sendDiagnostic,
 };
