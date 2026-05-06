@@ -18,6 +18,8 @@ import { useMediaQuery } from "react-responsive";
 import Cropper from "react-easy-crop";
 import ZoomImage from "../../components/ZoomImage";
 
+import DicomViewer from "../../components/DicomViewer";
+
 const MonitoringXRay = (
   setRightContent = false,
   defaultRightContent = false,
@@ -50,6 +52,9 @@ const MonitoringXRay = (
 
   const [foto1, setFoto1] = useState(null);
   const [foto2, setFoto2] = useState(null);
+  
+  const [dicomFile, setDicomFile] = useState(null);
+
   const [keluhan, setKeluhan] = useState("");
   const [uploading, setUploading] = useState(false);
 
@@ -202,30 +207,53 @@ const MonitoringXRay = (
     setPreview1(null);
     setPreview2(null);
 
+    setDicomFile(null);
+
     setShowUploadModal(true);
+  };
+
+  const handleDicomChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+  
+    if (!file.name.toLowerCase().endsWith(".dcm")) {
+      toast.warn("File harus format DICOM (.dcm)");
+      return;
+    }
+  
+    setDicomFile(file);
   };
 
   const handleUpload = async () => {
     try {
       const formData = new FormData();
-
+  
       formData.append("registry_id", selectedUpload.registry_id);
       formData.append("x_ray_id", selectedUpload.x_ray_id);
-
-      if (foto1) formData.append("foto1", foto1);
-      if (foto2) formData.append("foto2", foto2);
-
+  
+      // WAJIB DICOM
+      if (!dicomFile) {
+        toast.warn("File DICOM wajib diupload");
+        return;
+      }
+  
+      formData.append("dicom", dicomFile);
+  
+      // JPG lama (DISABLE dulu)
+      // if (foto1) formData.append("foto1", foto1);
+      // if (foto2) formData.append("foto2", foto2);
+  
       if (peg_id) formData.append("created_by", peg_id);
-
+  
       setUploading(true);
-
+  
       await uploadXRay(formData);
-
-      toast.success("Upload berhasil");
-
+  
+      toast.success("Upload DICOM berhasil");
+  
       setShowUploadModal(false);
-
       loadData(currentPage, tanggal);
+  
     } catch (err) {
       console.error(err);
       toast.error("Upload gagal");
@@ -237,6 +265,9 @@ const MonitoringXRay = (
   const openModalBaca = async (row) => {
     try {
       const res = await fetchDetailXRay(row.registry_id);
+
+      const dicomUrl = `${import.meta.env.VITE_API_URL}${selectedBaca?.dicom_path}`;
+      const imageId = `wadouri:${dicomUrl}`;
 
       if (res.success) {
         setSelectedBaca(res.data);
@@ -518,35 +549,6 @@ const MonitoringXRay = (
     }
   };
 
-  const openModalSatuSehat = (row) => {
-    setSelectedDetail(row);
-    setShowSatuSehatModal(true);
-  };
-
-  // ========================
-  // SATUSEHAT HANDLER BARU
-  // ========================
-
-  const handleSendImaging = async (row) => {
-    try {
-      setLoading(true);
-
-      const res = await sendImaging(row.registry_id);
-
-      if (res.success) {
-        toast.success("ImagingStudy berhasil dikirim");
-        loadData(currentPage, tanggal);
-      } else {
-        toast.error(res.message || "Gagal kirim ImagingStudy");
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error(err?.response?.data?.message || "Error ImagingStudy");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // -----------------------
   // RENDER
   // -----------------------
@@ -820,7 +822,35 @@ const MonitoringXRay = (
             </div>
           </div>
 
-          <div className="mt-3 row">
+          {/* ================= DICOM UPLOAD (PRIMARY) ================= */}
+          <div className="mt-3">
+            <label className="fw-semibold">Upload File DICOM (.dcm)</label>
+
+            <input
+              type="file"
+              className="form-control form-control-sm"
+              accept=".dcm,application/dicom"
+              onChange={handleDicomChange}
+            />
+
+            <div className="small text-muted mt-1">
+              Wajib upload file DICOM asli dari PACS (bukan screenshot)
+            </div>
+
+            {dicomFile && (
+              <div className="mt-2 text-success small">
+                ✔ File dipilih: {dicomFile.name}
+              </div>
+            )}
+          </div>
+
+          <div className="alert alert-warning mt-3 py-2 small">
+            Mode upload gambar (JPG) dinonaktifkan. 
+            Gunakan file DICOM untuk kirim SatuSehat dan kualitas pembacaan terbaik.
+          </div>
+            
+          {/* ================= LEGACY JPG UPLOAD (DISABLED) ================= */}
+          {/*<div className="mt-3 row">
             {[1, 2].map((num) => {
               const preview = num === 1 ? preview1 : preview2;
 
@@ -847,6 +877,7 @@ const MonitoringXRay = (
               );
             })}
           </div>
+          */}
 
           <div>
             <label className="fw-semibold">Keluhan</label>
@@ -953,7 +984,7 @@ const MonitoringXRay = (
         show={showBacaModal}
         onHide={() => setShowBacaModal(false)}
         centered
-        size="lg"
+        size="xl"
       >
         <Modal.Header closeButton>
           <Modal.Title>Baca X-Ray</Modal.Title>
@@ -1003,7 +1034,7 @@ const MonitoringXRay = (
             </div>
           </div>
 
-          <div className="row mt-1 g-2">
+          {/*<div className="row mt-1 g-2">
             <div className="col-md-6">
               {selectedBaca?.foto1 && (
                 <ZoomImage
@@ -1023,6 +1054,22 @@ const MonitoringXRay = (
                 />
               )}
             </div>
+          </div>*/}
+          <div className="mt-3">
+            {selectedBaca?.dicom_path ? (
+              <DicomViewer
+                imageId={`wadouri:${import.meta.env.VITE_API_URL}${selectedBaca.dicom_path}`}
+              />
+            ) : selectedBaca?.foto1 ? (
+              <ZoomImage
+                src={`${import.meta.env.VITE_API_URL}${selectedBaca.foto1}`}
+                isMobile={isMobile}
+              />
+            ) : (
+              <div className="text-muted small">
+                Tidak ada file
+              </div>
+            )}
           </div>
 
           {isMobile ? (
@@ -1368,7 +1415,7 @@ const MonitoringXRay = (
                     satu_sehat = {},
                   } = row;
 
-                  console.log(filteredData);
+                  //console.log(filteredData);
 
                   const {
                     patient = false,

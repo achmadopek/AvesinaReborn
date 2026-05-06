@@ -35,14 +35,15 @@ const storage = multer.diskStorage({
 // FILE FILTER (WAJIB BIAR AMAN)
 // ==========================
 const fileFilter = (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|webp/;
     const ext = path.extname(file.originalname).toLowerCase();
-    const mime = file.mimetype;
 
-    if (allowedTypes.test(ext) && allowedTypes.test(mime)) {
+    const isImage = /\.(jpg|jpeg|png|webp)$/.test(ext);
+    const isDicom = ext === ".dcm";
+
+    if (isImage || isDicom) {
         cb(null, true);
     } else {
-        cb(new Error("File harus berupa gambar (jpg/png/webp)"));
+        cb(new Error("File harus JPG/PNG atau DICOM (.dcm)"));
     }
 };
 
@@ -52,7 +53,7 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
     storage,
     limits: {
-        fileSize: 5 * 1024 * 1024 // 5MB
+        fileSize: 50 * 1024 * 1024 // 50MB minimal
     },
     fileFilter
 });
@@ -61,6 +62,7 @@ const upload = multer({
 // EXPORT (PENTING)
 // ==========================
 module.exports = upload.fields([
-    { name: "foto1", maxCount: 1 },
+    { name: "dicom", maxCount: 1 }, // DCM
+    { name: "foto1", maxCount: 1 }, // optional legacy
     { name: "foto2", maxCount: 1 }
 ]);

@@ -17,6 +17,9 @@ const {
   sendDiagnosticToSatuSehat,
 } = require("../../services/satusehat/sender");
 
+const { parseDicomUID } = require("../../utility/dicomParser");
+const { dicomToJpg } = require("../../utility/dicomToJpg");
+
 // ==============================
 // HELPER: BUILD WHERE
 // ==============================
@@ -325,14 +328,20 @@ exports.getDetail = async (req, res) => {
     );
 
     const isRead = !!utama.photo_reading;
+    const isDicom = lokal?.foto1?.toLowerCase().endsWith(".dcm");
 
     res.json({
       success: true,
       data: {
         ...utama,
 
+        dicom_path: lokal?.dicom_path
+        ? `/uploads/xray/${lokal.dicom_path}`
+        : null,
+      
         foto1: lokal?.foto1 ? `/uploads/xray/${lokal.foto1}` : null,
         foto2: lokal?.foto2 ? `/uploads/xray/${lokal.foto2}` : null,
+
         keluhan: lokal?.keluhan ? lokal.keluhan : "-",
         // fallback
         hasil_bacaan: utama.photo_reading || lokal?.hasil_bacaan || null,
@@ -588,6 +597,9 @@ exports.uploadXRay = async (req, res) => {
 
   try {
     const { registry_id, x_ray_id, created_by } = req.body;
+    
+    console.log("BODY:", req.body);
+    console.log("FILES:", req.files);
 
     // =========================
     // 1. CEK FINAL AVESINA
@@ -680,13 +692,48 @@ exports.uploadXRay = async (req, res) => {
       await conn.beginTransaction();
       inTransaction = true;
 
-      const foto1 = req.files?.foto1?.[0]?.filename || null;
-      const foto2 = req.files?.foto2?.[0]?.filename || null;
+      //const foto1 = req.files?.foto1?.[0]?.filename || null;
+      //const foto2 = req.files?.foto2?.[0]?.filename || null;
+
+      const dicom = req.files?.dicom?.[0];
+
+      if (!dicom) {
+        throw new Error("File DICOM tidak diterima");
+      }
+
+      const dicomPath = dicom.path;
+
+      // ==========================
+      // GENERATE THUMBNAIL
+      // ==========================
+      const thumbName = `thumb_${Date.now()}.jpg`;
+      const thumbFullPath = path.join(__dirname, "../../uploads/xray", thumbName);
+
+      const thumb = dicomToJpg(dicomPath, thumbFullPath);
+
+      if (!thumb.success) {
+        console.warn("Thumbnail gagal:", thumb.message);
+      }
 
       const basePath = path.join(__dirname, "../../uploads/xray");
 
+      // DICOM PARSER
+      /*let dicomMeta = null;
+      if (foto1) {
+        const filePath = path.join(basePath, foto1);
+        dicomMeta = parseDicomUID(filePath);
+        console.log("DICOM META:", dicomMeta);
+      }*/
+      const dicomMeta = parseDicomUID(dicomPath);
+
+      console.log("DICOM META:", dicomMeta);
+
+      if (!dicomMeta?.studyUID) {
+        throw new Error("File bukan DICOM valid / UID tidak ditemukan");
+      }
+
       // hapus lama jika diganti
-      if (foto1 && data.foto1) {
+      /*if (foto1 && data.foto1) {
         const oldPath = path.join(basePath, data.foto1);
         if (fs.existsSync(oldPath)) {
           fs.unlink(oldPath, (err) => {
@@ -702,20 +749,25 @@ exports.uploadXRay = async (req, res) => {
             if (err) console.error("Gagal hapus file:", err);
           });
         }
-      }
+      }*/
 
       await conn.query(
         `
         UPDATE sirad_xray
         SET 
-          foto1 = COALESCE(?, foto1),
-          foto2 = COALESCE(?, foto2),
+          dicom_path = ?, 
+          foto1 = ?, 
           created_by = ?,
           status = 'uploaded',
           updated_at = NOW()
         WHERE registry_id = ?
       `,
-        [foto1, foto2, created_by, registry_id],
+        [
+          dicom.filename,
+          thumb.success ? thumbName : null,
+          created_by,
+          registry_id,
+        ]
       );
 
       await conn.commit();
@@ -758,7 +810,39 @@ exports.uploadXRay = async (req, res) => {
     // =========================
     // 5. BUILD IMAGING STUDY
     // =========================
-    const uid = generateUID(process.env.ORGANIZATION_ID);
+
+    // SEMENTARA DIMATIKAN GENERATE UID
+    //const uid = generateUID(process.env.ORGANIZATION_ID);
+
+    if (!dicomMeta?.studyUID) {
+      throw new Error("DICOM UID tidak ditemukan");
+    }
+    
+    const uid = {
+      study: dicomMeta.studyUID,
+      series: dicomMeta.seriesUID,
+      instance: dicomMeta.sopUID,
+    };
+
+    // ==========================
+    // SIMPAN UID KE DB
+    // ==========================
+    await conn.query(
+      `
+      UPDATE sirad_xray
+      SET 
+        uid_study = ?,
+        uid_series = ?,
+        uid_instance1 = ?
+      WHERE registry_id = ?
+    `,
+      [
+        uid.study,
+        uid.series,
+        uid.instance1,
+        registry_id,
+      ]
+    );
 
     const normalized = {
       ...detail,
