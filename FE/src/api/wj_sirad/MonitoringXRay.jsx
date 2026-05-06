@@ -52,14 +52,10 @@ export const sendObservation = async (registry_id) => {
   return res.data;
 };
 
-export const sendDiagnostic = async ({
-  registry_id,
-  observation_id,
-  imaging_id,
-}) => {
+export const sendDiagnostic = async (registry_id) => {
   const res = await API.post(
     "/api/sirad/MonitoringXRay/send-diagnostic",
-    { registry_id, observation_id, imaging_id }
+    { registry_id }
   );
   return res.data;
 };

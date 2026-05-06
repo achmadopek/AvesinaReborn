@@ -12,9 +12,9 @@ const { satusehatClient } = require("../../services/satusehat/satusehatClient");
 
 const { generateUID } = require("../../services/satusehat/builders");
 const {
-  sendImaging,
+  sendImagingStudyToSatuSehat,
   sendObservationToSatuSehat,
-  sendDiagnostic,
+  sendDiagnosticToSatuSehat,
 } = require("../../services/satusehat/sender");
 
 // ==============================
@@ -874,7 +874,7 @@ exports.sendImagingStudy = async (req, res) => {
 
     const payload = await buildPayloadFromDB(registry_id);
 
-    const result = await sendImaging(
+    const result = await sendImagingStudyToSatuSehat(
       payload,
       process.env.ORGANIZATION_ID
     );
@@ -1031,8 +1031,8 @@ exports.saveHasil = async (req, res) => {
       await connERM.query(
         `
         INSERT INTO satusehat_observation
-        (registry_id, observation_uuid, code, display, value_text, issued_at, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, NOW())
+        (registry_id, service_request_uuid, observation_uuid, code, display, value_text, issued_at, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
         ON DUPLICATE KEY UPDATE
           observation_uuid = VALUES(observation_uuid),
           code = VALUES(code),
@@ -1043,6 +1043,7 @@ exports.saveHasil = async (req, res) => {
         `,
         [
           registry_id,
+          payload.service_request_id,
           result.id,
           map?.loinc_code || "30745-4",
           map?.loinc_display || "Chest X-ray study",
@@ -1083,6 +1084,20 @@ exports.saveHasil = async (req, res) => {
 exports.sendObservation = async (req, res) => {
   try {
     const { registry_id } = req.body;
+
+    // =========================
+    // 0. GUARD AGAR TIDAK KIRIM LAGI
+    // =========================
+    const [[cek]] = await dbERM.promise().query(
+      `SELECT observation_uuid 
+       FROM satusehat_observation 
+       WHERE registry_id = ? LIMIT 1`,
+      [registry_id]
+    );
+    
+    if (cek?.observation_uuid) {
+      throw new Error("Observation sudah pernah dikirim");
+    }
 
     const payload = await buildPayloadFromDB(registry_id);
 
@@ -1134,28 +1149,162 @@ exports.sendObservation = async (req, res) => {
 };
 
 exports.sendDiagnostic = async (req, res) => {
+  const connERM = await dbERM.promise().getConnection();
+  const connLokal = await dbLokal.promise().getConnection();
+  
   try {
-    const { registry_id, observation_id, imaging_id } = req.body;
+    const { registry_id } = req.body;
 
+    if (!registry_id) {
+      throw new Error("registry_id wajib");
+    }
+
+    // =========================
+    // 0. GUARD AGAR TIDAK KIRIM LAGI
+    // =========================
+    const [[cek]] = await dbERM.promise().query(
+      `SELECT diagnostic_report_uuid 
+       FROM satusehat_diagnostic_report 
+       WHERE registry_id = ? LIMIT 1`,
+      [registry_id]
+    );
+    
+    if (cek?.diagnostic_report_uuid) {
+      return res.status(400).json({
+        success: false,
+        message: "DiagnosticReport sudah pernah dikirim",
+      });
+    }
+
+    // =========================
+    // 1. AMBIL PAYLOAD UTAMA
+    // =========================
     const payload = await buildPayloadFromDB(registry_id);
 
-    const result = await sendDiagnostic(
-      payload,
-      observation_id,
-      imaging_id,
-      process.env.ORGANIZATION_ID
+    // =========================
+    // 2. AMBIL UUID RELASI
+    // =========================
+    const [[obs]] = await dbERM.promise().query(
+      `
+      SELECT observation_uuid 
+      FROM satusehat_observation
+      WHERE registry_id = ?
+      LIMIT 1
+      `,
+      [registry_id]
     );
 
+    const [[img]] = await dbERM.promise().query(
+      `
+      SELECT imaging_study_uuid 
+      FROM satusehat_imaging_study
+      WHERE registry_id = ?
+      LIMIT 1
+      `,
+      [registry_id]
+    );
+
+    // =========================
+    // 3. VALIDASI
+    // =========================
+    if (!obs?.observation_uuid) {
+      throw new Error("Observation belum tersedia");
+    }
+
+    if (!img?.imaging_study_uuid) {
+      throw new Error("ImagingStudy belum tersedia");
+    }
+
+    if (!payload.service_request_id) {
+      throw new Error("ServiceRequest belum tersedia");
+    }
+
+    console.log("===== DIAGNOSTIC DEBUG =====");
+    console.log("Registry:", registry_id);
+    console.log("Observation:", obs.observation_uuid);
+    console.log("Imaging:", img.imaging_study_uuid);
+    console.log("ServiceRequest:", payload.service_request_id);
+    console.log("================================");
+
+    let result;
+
+    if (process.env.DEBUG_SATUSEHAT === "true") {
+      console.log("DEBUG MODE: Skip DiagnosticReport API");
+
+      result = {
+        id: "DEBUG-" + Date.now(),
+        status: "final",
+      };
+    } else {
+      result = await sendDiagnosticToSatuSehat(
+        payload,
+        obs.observation_uuid,
+        img.imaging_study_uuid,
+        process.env.ORGANIZATION_ID
+      );
+    }
+
+    // ==========================
+    // SIMPAN KE ERM
+    // ==========================
+    await connERM.query(
+      `
+      INSERT INTO satusehat_diagnostic_report
+      (registry_id, service_request_uuid, diagnostic_report_uuid, status, conclusion, created_at)
+      VALUES (?, ?, ?, ?, ?, NOW())
+      ON DUPLICATE KEY UPDATE
+        diagnostic_report_uuid = VALUES(diagnostic_report_uuid),
+        status = VALUES(status),
+        conclusion = VALUES(conclusion),
+        updated_at = NOW()
+      `,
+      [
+        registry_id,
+        payload.service_request_id,
+        result.id,
+        result.status || "final",
+        payload.hasil_bacaan,
+      ]
+    );
+
+    console.log("DiagnosticReport tersimpan:", result.id);
+
+    // ==========================
+    // UPDATE STATUS LOKAL → DONE
+    // ==========================
+    await connLokal.query(
+      `
+      UPDATE sirad_xray
+      SET status = 'done',
+          updated_at = NOW()
+      WHERE registry_id = ?
+      `,
+      [registry_id]
+    );
+
+    console.log("Status sirad_xray → DONE");
+
+    // ==========================
+    // RESPONSE
+    // ==========================
     res.json({
       success: true,
-      message: "DiagnosticReport terkirim",
+      message: "DiagnosticReport berhasil & status DONE",
       data: result,
     });
+
   } catch (err) {
-    res.status(500).json({
+    console.error("DIAGNOSTIC ERROR:", err.response?.data || err.message);
+
+    return res.status(500).json({
       success: false,
-      message: err.message,
+      message:
+        err.response?.data?.issue?.[0]?.diagnostics ||
+        err.message,
     });
+  } finally {
+    connERM.release();
+    connLokal.release();
   }
 };
 
@@ -1184,12 +1333,10 @@ const buildPayloadFromDB = async (registry_id) => {
     [registry_id]
   );
 
-  if (!utama) {
-    throw new Error("Data utama tidak ditemukan");
-  }
+  if (!utama) throw new Error("Data utama tidak ditemukan");
 
   // =========================
-  // 2. DATA SATUSEHAT
+  // 2. SATUSEHAT (PATIENT + ENCOUNTER)
   // =========================
   const [[ss]] = await dbERM.promise().query(
     `
@@ -1201,12 +1348,27 @@ const buildPayloadFromDB = async (registry_id) => {
     [registry_id]
   );
 
-  if (!ss) {
-    throw new Error("Data SatuSehat tidak ditemukan");
+  if (!ss) throw new Error("Data SatuSehat tidak ditemukan");
+
+  // =========================
+  // 3. SERVICE REQUEST
+  // =========================
+  const [[sr]] = await dbERM.promise().query(
+    `
+    SELECT service_request_uuid
+    FROM satusehat_service_request
+    WHERE registry_id = ?
+    LIMIT 1
+    `,
+    [registry_id]
+  );
+
+  if (!sr?.service_request_uuid) {
+    throw new Error("ServiceRequest tidak ditemukan");
   }
 
   // =========================
-  // 3. DATA DOKTER (PRACTITIONER)
+  // 4. PRACTITIONER
   // =========================
   const [[dokter]] = await dbUtama.promise().query(
     `
@@ -1223,7 +1385,7 @@ const buildPayloadFromDB = async (registry_id) => {
   }
 
   // =========================
-  // 4. VALIDASI WAJIB
+  // 5. VALIDASI
   // =========================
   if (!ss.patient_ihs_number) {
     throw new Error("Patient IHS tidak ditemukan");
@@ -1238,17 +1400,17 @@ const buildPayloadFromDB = async (registry_id) => {
   }
 
   // =========================
-  // 5. RETURN PAYLOAD
+  // 6. RETURN
   // =========================
   return {
     registry_id,
-
     hasil_bacaan: utama.photo_reading || null,
     measured_dt: utama.measured_dt,
 
     patient_ihs: ss.patient_ihs_number,
     encounter_uuid: ss.encounter_uuid,
-
     practitioner_ihs: dokter.satusehat_ihs_number,
+
+    service_request_id: sr.service_request_uuid,
   };
 };

@@ -249,15 +249,6 @@ const MonitoringXRay = (
     }
   };
 
-  const openModalObservation = async (row) => {
-    const res = await fetchDetailXRay(row.registry_id);
-
-    if (res.success) {
-      setSelectedObservation(res.data);
-      setShowObservationModal(true);
-    }
-  };
-
   const openModalReport = async (row) => {
     const res = await fetchDetailXRay(row.registry_id);
 
@@ -299,18 +290,14 @@ const MonitoringXRay = (
   const handleSendDiagnosticReport = async () => {
     try {
       setLoading(true);
-
-      const res = await sendDiagnostic({
-        registry_id: selectedReport.registry_id,
-        observation_id: selectedReport.observation_id,
-        imaging_id: selectedReport.imaging_id,
-      });
-
+  
+      const res = await sendDiagnostic(selectedReport.registry_id);
+  
       toast.success("DiagnosticReport berhasil dikirim");
-
+  
       setShowReportModal(false);
       loadData(currentPage, tanggal);
-
+  
     } catch (err) {
       console.error(err);
       toast.error(err?.response?.data?.message || "Gagal kirim DiagnosticReport");
@@ -555,46 +542,6 @@ const MonitoringXRay = (
     } catch (err) {
       console.error(err);
       toast.error(err?.response?.data?.message || "Error ImagingStudy");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSendDiagnostic = async (row) => {
-    try {
-      setLoading(true);
-
-      const res = await sendDiagnostic(row.registry_id);
-
-      if (res.success) {
-        toast.success("DiagnosticReport berhasil dikirim");
-        loadData(currentPage, tanggal);
-      } else {
-        toast.error(res.message || "Gagal kirim DiagnosticReport");
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error(err?.response?.data?.message || "Error DiagnosticReport");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSendObservation = async (row) => {
-    try {
-      setLoading(true);
-
-      const res = await sendObservation(row.registry_id);
-
-      if (res.success) {
-        toast.success("Observation berhasil dikirim");
-        loadData(currentPage, tanggal);
-      } else {
-        toast.error(res.message || "Gagal kirim Observation");
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error(err?.response?.data?.message || "Error Observation");
     } finally {
       setLoading(false);
     }

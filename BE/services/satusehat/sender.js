@@ -21,7 +21,7 @@ const normalize = (data) => ({
 // ==========================
 // 1. IMAGING STUDY
 // ==========================
-const sendImaging = async (data, orgId) => {
+const sendImagingStudyToSatuSehat = async (data, orgId) => {
   try {
     validatePayload(data);
 
@@ -70,7 +70,7 @@ const sendObservationToSatuSehat = async (data) => {
 // ==========================
 // 3. DIAGNOSTIC REPORT
 // ==========================
-const sendDiagnostic = async (
+const sendDiagnosticToSatuSehat = async (
   data,
   observationId,
   imagingId,
@@ -104,7 +104,7 @@ const sendDiagnostic = async (
 };
 
 module.exports = {
-  sendImaging,
+  sendImagingStudyToSatuSehat,
   sendObservationToSatuSehat,
-  sendDiagnostic,
+  sendDiagnosticToSatuSehat,
 };

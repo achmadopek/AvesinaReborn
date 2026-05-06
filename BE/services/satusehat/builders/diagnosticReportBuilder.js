@@ -41,6 +41,11 @@ export const buildDiagnosticReport = (
     encounter: {
       reference: `Encounter/${data.encounter_id}`,
     },
+    basedOn: [
+      {
+        reference: `ServiceRequest/${data.service_request_id}`,
+      },
+    ],
     effectiveDateTime: formatSatuSehatDate(data.measured_dt),
     issued: formatSatuSehatDate(new Date()),
     result: [
