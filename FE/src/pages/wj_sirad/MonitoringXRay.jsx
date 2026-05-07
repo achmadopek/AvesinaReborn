@@ -985,215 +985,100 @@ const MonitoringXRay = (
         onHide={() => setShowBacaModal(false)}
         centered
         size="xl"
+        fullscreen={isMobile}   // ← Fullscreen di HP
       >
         <Modal.Header closeButton>
-          <Modal.Title>Baca X-Ray</Modal.Title>
-          <span
-            className={`badge ${
-              selectedBaca?.status === "done"
-                ? "bg-success"
-                : selectedBaca?.status === "uploaded"
-                  ? "bg-warning text-dark"
-                  : "bg-secondary"
-            } ms-2 mt-1`}
-          >
+          <Modal.Title>Baca X-Ray - {selectedBaca?.patient_nm}</Modal.Title>
+          <span className={`badge ms-2 ${selectedBaca?.status === "done" ? "bg-success" : selectedBaca?.status === "uploaded" ? "bg-warning text-dark" : "bg-secondary"}`}>
             {selectedBaca?.status}
           </span>
         </Modal.Header>
 
-        <Modal.Body
-          style={{
-            maxHeight: "70vh",
-            overflowY: "auto",
-            paddingBottom: isMobile ? "80px" : "",
-          }}
-        >
-          <div className="row g-2 lh-sm">
-            <div className="col-2">
-              <div className="text-muted">NRM</div>
-              <div className="fw-semibold">{selectedBaca?.mr_code}</div>
+        <Modal.Body style={{ padding: isMobile ? "10px" : "20px" }}>
+          {/* Info Pasien */}
+          <div className="row g-3 mb-4">
+            <div className="col-6 col-md-3">
+              <div className="text-muted small">NRM</div>
+              <div className="fw-bold">{selectedBaca?.mr_code}</div>
             </div>
-
-            <div className="col-4">
-              <div className="text-muted">Nama</div>
-              <div className="fw-semibold">{selectedBaca?.patient_nm}</div>
+            <div className="col-6 col-md-3">
+              <div className="text-muted small">Nama</div>
+              <div className="fw-bold">{selectedBaca?.patient_nm}</div>
             </div>
-
-            <div className="col-6">
-              <div className="text-muted">Tgl Pemeriksaan:</div>
-              <div className="fw-semibold">
-                {formatDate(selectedBaca?.measured_dt)}
-              </div>
+            <div className="col-6 col-md-3">
+              <div className="text-muted small">Tanggal</div>
+              <div className="fw-bold">{formatDate(selectedBaca?.measured_dt)}</div>
             </div>
-
-            <div>
-              <div className="text-muted">Tindakan:</div>
-              <div className="fw-semibold">
-                {selectedBaca?.tindakan}
-              </div>
+            <div className="col-6 col-md-3">
+              <div className="text-muted small">Tindakan</div>
+              <div className="fw-bold">{selectedBaca?.tindakan}</div>
             </div>
           </div>
 
-          {/*<div className="row mt-1 g-2">
-            <div className="col-md-6">
-              {selectedBaca?.foto1 && (
-                <ZoomImage
-                  src={`${import.meta.env.VITE_API_URL}${selectedBaca?.foto1}`}
-                  isMobile={isMobile}
-                  showHint
+          {/* Gambar */}
+          <div className="row g-3">
+            {selectedBaca?.dicom_path && (
+              <div className="col-lg-7">
+                <h6 className="mb-2">DICOM Viewer</h6>
+                <DicomViewer
+                  imageId={`wadouri:${import.meta.env.VITE_API_URL}${selectedBaca.dicom_path}`}
                 />
-              )}
-            </div>
+              </div>
+            )}
 
-            <div className="col-md-6">
-              {selectedBaca?.foto2 && (
+            {selectedBaca?.foto1 && (
+              <div className="col-lg-5">
+                <h6 className="mb-2">Foto JPEG</h6>
                 <ZoomImage
-                  src={`${import.meta.env.VITE_API_URL}${selectedBaca?.foto2}`}
+                  src={`${import.meta.env.VITE_API_URL}${selectedBaca.foto1}`}
                   isMobile={isMobile}
-                  showHint
                 />
-              )}
-            </div>
-          </div>*/}
-          <div className="mt-3">
-            {selectedBaca?.dicom_path ? (
-              <DicomViewer
-                imageId={`wadouri:${import.meta.env.VITE_API_URL}${selectedBaca.dicom_path}`}
-              />
-            ) : selectedBaca?.foto1 ? (
-              <ZoomImage
-                src={`${import.meta.env.VITE_API_URL}${selectedBaca.foto1}`}
-                isMobile={isMobile}
-              />
-            ) : (
-              <div className="text-muted small">
-                Tidak ada file
               </div>
             )}
           </div>
 
-          {isMobile ? (
-            <div
+          {/* Form Hasil Bacaan */}
+          <div className="mt-2">
+            <label className="fw-semibold">Keluhan</label>
+            <textarea
+              className="form-control form-control-sm"
+              rows={isMobile ? 1 : 3}
+              value={keluhan}
+              onChange={(e) => setKeluhan(e.target.value)}
+              placeholder="Tulis keluhan..."
               style={{
-                position: "fixed",
-                bottom: keyboardOffset,
-                left: 0,
-                width: "100%",
-                background: "#fff",
-                padding: "8px 10px env(safe-area-inset-bottom)",
-                borderTop: "1px solid #ddd",
-                zIndex: 1055,
+                flex: isMobile ? 1 : "unset",
+                resize: "none",
               }}
-            >
+              disabled
+            />
+          </div>
 
-              <div>
-                <label className="fw-semibold">Keluhan</label>
-
-                <textarea
-                  className="form-control form-control-sm"
-                  rows={isMobile ? 1 : 3}
-                  value={keluhan}
-                  onChange={(e) => setKeluhan(e.target.value)}
-                  placeholder="Tulis keluhan..."
-                  style={{
-                    flex: isMobile ? 1 : "unset",
-                    resize: "none",
-                  }}
-                  disabled
-                />
-              </div>
-
-              <label className="fw-semibold small">Hasil Bacaan</label>
-
-              <div
-                style={{
-                  display: isMobile ? "flex" : "block",
-                  gap: "8px",
-                  alignItems: "center",
-                }}
-              >
-                <textarea
-                  className="form-control form-control-sm"
-                  rows={isMobile ? 1 : 3}
-                  value={hasilBacaan}
-                  onChange={(e) => setHasilBacaan(e.target.value)}
-                  placeholder="Tulis hasil..."
-                  style={{
-                    flex: isMobile ? 1 : "unset",
-                    resize: "none",
-                  }}
-                  autoFocus
-                  onFocus={(e) => {
-                    setTimeout(() => {
-                      e.target.scrollIntoView({
-                        behavior: "smooth",
-                        block: "center",
-                      });
-                    }, 300);
-                  }}
-                />
-
-                {isMobile && (
-                  <Button
-                    variant="success"
-                    onClick={handleSaveAndSendObservation}
-                    disabled={saving}
-                  >
-                    {saving ? "Menyimpan..." : "Simpan & Kirim Observation"}
-                  </Button>
-                )}
-              </div>
-            </div>
-          ) : (
-            <>
-              <div>
-                <label className="fw-semibold">Keluhan</label>
-
-                <textarea
-                  className="form-control form-control-sm"
-                  rows={isMobile ? 1 : 3}
-                  value={keluhan}
-                  onChange={(e) => setKeluhan(e.target.value)}
-                  placeholder="Tulis keluhan..."
-                  style={{
-                    flex: isMobile ? 1 : "unset",
-                    resize: "none",
-                  }}
-                  disabled
-                />
-              </div>
-              
-              <div>
-                <label>
-                  <strong>Hasil Bacaan</strong>
-                </label>
-                <textarea
-                  className="form-control form-control-sm"
-                  rows={5}
-                  value={hasilBacaan}
-                  onChange={(e) => setHasilBacaan(e.target.value)}
-                  placeholder="Tulis hasil interpretasi radiologi..."
-                />
-              </div>
-            </>
-          )}
+          {/* Form Hasil Bacaan */}
+          <div className="mt-1">
+            <label className="fw-semibold">Hasil Bacaan Radiologi</label>
+            <textarea
+              className="form-control"
+              rows={isMobile ? 4 : 6}
+              value={hasilBacaan}
+              onChange={(e) => setHasilBacaan(e.target.value)}
+              placeholder="Tulis interpretasi dan kesimpulan..."
+            />
+          </div>
         </Modal.Body>
 
-        {!isMobile && (
-          <Modal.Footer>
-            <Button
-              variant="success"
-              onClick={handleSaveAndSendObservation}
-              disabled={saving}
-            >
-              {saving ? "Menyimpan..." : "Simpan & Kirim Observation"}
-            </Button>
-
-            <Button variant="secondary" onClick={() => setShowBacaModal(false)}>
-              Batal
-            </Button>
-          </Modal.Footer>
-        )}
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowBacaModal(false)}>
+            Tutup
+          </Button>
+          <Button
+            variant="success"
+            onClick={handleSaveAndSendObservation}
+            disabled={saving}
+          >
+            {saving ? "Menyimpan..." : "Simpan & Kirim ke SatuSehat"}
+          </Button>
+        </Modal.Footer>
       </Modal>
 
       {/* ================= MODAL KIRIM LAPORAN ================= */}

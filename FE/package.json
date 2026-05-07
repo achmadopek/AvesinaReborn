@@ -43,6 +43,7 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@originjs/vite-plugin-commonjs": "^1.0.3",
     "@vitejs/plugin-react": "^5.0.2",
     "vite": "^7.2.7"
   }

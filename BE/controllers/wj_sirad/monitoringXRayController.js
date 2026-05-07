@@ -80,6 +80,7 @@ exports.getData = async (req, res) => {
       SELECT 
         r.registry_id,
         xrh.x_ray_id,
+        xrd.x_ray_dtl_id,
         r.registry_dt,
         xrh.measured_dt,
 
@@ -524,15 +525,15 @@ exports.requestXRay = async (req, res) => {
     await connLokal.query(
       `
       INSERT INTO sirad_xray
-      (registry_id, x_ray_id, service_request_id, status, ordered_by, ordered_at, created_at, keluhan)
-      VALUES (?, ?, ?, 'ordered', ?, NOW(), NOW(), ?)
+      (registry_id, x_ray_id, x_ray_dtl_id, service_request_id, status, ordered_by, ordered_at, created_at, keluhan)
+      VALUES (?, ?, ?, ?, 'ordered', ?, NOW(), NOW(), ?)
       ON DUPLICATE KEY UPDATE
         service_request_id = VALUES(service_request_id),
         status = 'ordered',
         ordered_by = VALUES(ordered_by),
         ordered_at = NOW()
     `,
-      [registry_id, utama.x_ray_id, serviceRequestUUID, pengirim_id, keluhan],
+      [registry_id, utama.x_ray_id, utama.x_ray_dtl_id, serviceRequestUUID, pengirim_id, keluhan],
     );
 
     await connLokal.commit();

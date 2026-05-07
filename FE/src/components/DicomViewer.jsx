@@ -1,14 +1,15 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 
-import dicomParser from "dicom-parser";
-
+// Core
 import {
   init as csInit,
   RenderingEngine,
   Enums as csEnums,
   getRenderingEngine,
+  imageLoader,
 } from "@cornerstonejs/core";
 
+// Tools
 import {
   init as toolsInit,
   ToolGroupManager,
@@ -19,133 +20,109 @@ import {
   addTool,
 } from "@cornerstonejs/tools";
 
-import {
-  init as dicomInit,
-  wadouri,
-} from "@cornerstonejs/dicom-image-loader";
+import { init as dicomInit } from "@cornerstonejs/dicom-image-loader";
 
-// ======================
-// INIT ONCE
-// ======================
+// ====================== GLOBAL INIT (Sekali saja) ======================
 csInit();
 toolsInit();
 dicomInit();
 
-const renderingEngineId = "engine1";
-const viewportId = "viewport1";
-const toolGroupId = "toolGroup1";
+// Register Tools (PENTING!)
+addTool(WindowLevelTool);
+addTool(PanTool);
+addTool(ZoomTool);
 
 const DicomViewer = ({ imageId }) => {
   const elementRef = useRef(null);
   const toolGroupRef = useRef(null);
+  const [activeTool, setActiveTool] = useState("WindowLevelTool");
 
-  useEffect(() => {
-    const element = elementRef.current;
-    if (!element || !imageId) return;
+  const initializeViewer = useCallback(async () => {
+    if (!imageId || !elementRef.current) return;
 
-    let renderingEngine = getRenderingEngine(renderingEngineId);
+    try {
+      const image = await imageLoader.loadImage(imageId);
 
-    if (!renderingEngine) {
-      renderingEngine = new RenderingEngine(renderingEngineId);
-    }
-
-    // ======================
-    // ENABLE ELEMENT (IMPORTANT)
-    // ======================
-    renderingEngine.enableElement({
-      viewportId,
-      element,
-      type: csEnums.ViewportType.STACK,
-    });
-
-    // ⚠️ ALWAYS GET FRESH VIEWPORT
-    const viewport = renderingEngine.getViewport(viewportId);
-
-    // ======================
-    // TOOL INIT
-    // ======================
-    addTool(ZoomTool);
-    addTool(PanTool);
-    addTool(WindowLevelTool);
-
-    if (!toolGroupRef.current) {
-      const toolGroup =
-        ToolGroupManager.createToolGroup(toolGroupId);
-
-      toolGroup.addTool(WindowLevelTool.toolName);
-      toolGroup.addTool(PanTool.toolName);
-      toolGroup.addTool(ZoomTool.toolName);
-
-      toolGroup.setToolActive(WindowLevelTool.toolName, {
-        bindings: [
-          { mouseButton: toolEnums.MouseBindings.Primary },
-        ],
-      });
-
-      toolGroup.setToolActive(PanTool.toolName, {
-        bindings: [
-          { mouseButton: toolEnums.MouseBindings.Auxiliary },
-        ],
-      });
-
-      toolGroup.setToolActive(ZoomTool.toolName, {
-        bindings: [
-          { mouseButton: toolEnums.MouseBindings.Secondary },
-        ],
-      });
-
-      toolGroup.addViewport(viewportId, renderingEngineId);
-
-      toolGroupRef.current = toolGroup;
-    }
-
-    // ======================
-    // LOAD IMAGE (FIXED SAFE)
-    // ======================
-    const load = async () => {
-      try {
-        console.log("LOADING:", imageId);
-    
-        // 1. LOAD IMAGE PROPERLY
-        const image = await wadouri.loadImage(imageId);
-    
-        console.log("IMAGE RESULT:", image);
-    
-        // 2. GET VIEWPORT FRESH
-        const viewport = renderingEngine.getViewport(viewportId);
-    
-        // 3. SET STACK DARI IMAGE OBJECT (INI FIX UTAMA)
-        viewport.setStack([image.imageId], 0);
-    
-        viewport.resetCamera();
-        viewport.render();
-
-        console.log("IMAGE OBJECT:", image);
-      console.log("IMAGE ID REAL:", image.imageId);
-    
-      } catch (e) {
-        console.error("LOAD ERROR:", e);
+      let renderingEngine = getRenderingEngine("engine1");
+      if (!renderingEngine) {
+        renderingEngine = new RenderingEngine("engine1");
       }
-    };
 
-    load();
+      renderingEngine.enableElement({
+        viewportId: "viewport1",
+        element: elementRef.current,
+        type: csEnums.ViewportType.STACK,
+      });
 
-    // ======================
-    // CLEANUP PROPERLY
-    // ======================
-    return () => {
-      try {
-        renderingEngine.disableElement(viewportId);
-      } catch {}
-    };
+      const viewport = renderingEngine.getViewport("viewport1");
+
+      // ==================== TOOL GROUP ====================
+      if (!toolGroupRef.current) {
+        const toolGroup = ToolGroupManager.createToolGroup("toolGroup1");
+
+        toolGroup.addTool(WindowLevelTool.toolName);
+        toolGroup.addTool(PanTool.toolName);
+        toolGroup.addTool(ZoomTool.toolName);
+
+        // Set default tool
+        toolGroup.setToolActive(WindowLevelTool.toolName, {
+          bindings: [{ mouseButton: toolEnums.MouseBindings.Primary }],
+        });
+
+        toolGroup.addViewport("viewport1", "engine1");
+        toolGroupRef.current = toolGroup;
+      }
+
+      // Load Image
+      await viewport.setStack([image.imageId], 0);
+
+      // Default Window Level X-Ray
+      viewport.setProperties({
+        voiRange: csEnums.VOIRange.fromWindowLevel(1600, 600),
+      });
+
+      viewport.resetCamera();
+      viewport.render();
+
+      console.log("✅ DICOM Viewer Loaded Successfully");
+    } catch (err) {
+      console.error("DICOM Error:", err);
+    }
   }, [imageId]);
 
-  const setTool = (tool) => {
-    toolGroupRef.current?.setToolActive(tool, {
-      bindings: [
-        { mouseButton: toolEnums.MouseBindings.Primary },
-      ],
+  useEffect(() => {
+    const timer = setTimeout(initializeViewer, 400); // Tunggu modal terbuka
+    return () => {
+      clearTimeout(timer);
+      const engine = getRenderingEngine("engine1");
+      if (engine) engine.disableElement("viewport1");
+    };
+  }, [initializeViewer]);
+
+  // ==================== AKTIFKAN TOOL ====================
+  const activateTool = (toolName) => {
+    if (!toolGroupRef.current) return;
+
+    // Matikan semua
+    toolGroupRef.current.setToolPassive(WindowLevelTool.toolName);
+    toolGroupRef.current.setToolPassive(PanTool.toolName);
+    toolGroupRef.current.setToolPassive(ZoomTool.toolName);
+
+    // Aktifkan yang dipilih
+    toolGroupRef.current.setToolActive(toolName, {
+      bindings: [{ mouseButton: toolEnums.MouseBindings.Primary }],
     });
+
+    setActiveTool(toolName);
+  };
+
+  const resetView = () => {
+    const viewport = getRenderingEngine("engine1")?.getViewport("viewport1");
+    if (viewport) {
+      viewport.resetCamera();
+      viewport.resetProperties();
+      viewport.render();
+    }
   };
 
   return (
@@ -154,22 +131,43 @@ const DicomViewer = ({ imageId }) => {
         ref={elementRef}
         style={{
           width: "100%",
-          height: "400px",
-          background: "black",
+          height: "520px",
+          background: "#000",
+          borderRadius: "8px",
+          border: "1px solid #444",
         }}
       />
 
-      <div style={{ marginTop: 10 }}>
-        <button onClick={() => setTool(WindowLevelTool.toolName)}>
-          Window
+      <div className="mt-3 d-flex gap-2 flex-wrap">
+        <button
+          className={`btn ${activeTool === WindowLevelTool.toolName ? "btn-primary" : "btn-outline-primary"}`}
+          onClick={() => activateTool(WindowLevelTool.toolName)}
+        >
+          🔧 Kontras (Window/Level)
         </button>
-        <button onClick={() => setTool(PanTool.toolName)}>
-          Pan
+
+        <button
+          className={`btn ${activeTool === PanTool.toolName ? "btn-success" : "btn-outline-success"}`}
+          onClick={() => activateTool(PanTool.toolName)}
+        >
+          ✋ Geser Gambar
         </button>
-        <button onClick={() => setTool(ZoomTool.toolName)}>
-          Zoom
+
+        <button
+          className={`btn ${activeTool === ZoomTool.toolName ? "btn-info" : "btn-outline-info"}`}
+          onClick={() => activateTool(ZoomTool.toolName)}
+        >
+          🔍 Zoom
+        </button>
+
+        <button className="btn btn-secondary" onClick={resetView}>
+          ↺ Reset View
         </button>
       </div>
+
+      <small className="text-muted d-block mt-2">
+        Klik tombol tool terlebih dahulu, lalu drag mouse kiri di gambar
+      </small>
     </div>
   );
 };

@@ -171,7 +171,16 @@ app.use("/api/bugarr/MonitoringBugarr", require("./routes/wj_bugarr/MonitoringBu
 // SIRAD
 app.use("/api/sirad/MonitoringXRay", require("./routes/wj_sirad/MonitoringXRayRoutes"));
 
-app.use("/uploads", express.static("uploads"));
+//app.use("/uploads", express.static("uploads"));
+app.use("/uploads", express.static("uploads", {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.dcm')) {
+      res.setHeader('Content-Type', 'application/dicom');
+    }
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+}));
 
 // ==========================
 // JALANKAN SERVER + WEBSOCKET
