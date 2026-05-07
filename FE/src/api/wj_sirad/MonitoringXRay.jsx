@@ -1,5 +1,6 @@
 import API from "../axiosInstance";
 
+// ==================== API CALLS ====================
 export const fetchPaginatedDataXRay = async ({ tgl, role, peg_id }) => {
   const res = await API.get("/api/sirad/MonitoringXRay/data", {
     params: { tgl, role, peg_id }
@@ -7,26 +8,23 @@ export const fetchPaginatedDataXRay = async ({ tgl, role, peg_id }) => {
   return res.data;
 };
 
-export const requestXRay = async ({ registry_id, pengirim_id, pemeriksa_id, keluhan }) => {
-  const res = await API.post("/api/sirad/MonitoringXRay/proses-xray", {
-    registry_id,
-    pengirim_id,
-    pemeriksa_id,
-    keluhan
-  });
+// WAJIB: Terima 2 parameter
+export const fetchDetailXRay = async (registry_id, x_ray_dtl_id) => {
+  if (!registry_id || !x_ray_dtl_id) {
+    throw new Error("registry_id dan x_ray_dtl_id diperlukan");
+  }
+  const res = await API.get(`/api/sirad/MonitoringXRay/detail/${registry_id}/${x_ray_dtl_id}`);
   return res.data;
 };
 
-export const fetchDetailXRay = async (registry_id) => {
-  const res = await API.get(`/api/sirad/MonitoringXRay/detail/${registry_id}`);
+export const requestXRay = async (payload) => {
+  const res = await API.post("/api/sirad/MonitoringXRay/proses-xray", payload);
   return res.data;
 };
 
 export const uploadXRay = async (formData) => {
   const res = await API.post("/api/sirad/MonitoringXRay/upload", formData, {
-    headers: {
-      "Content-Type": "multipart/form-data"
-    }
+    headers: { "Content-Type": "multipart/form-data" }
   });
   return res.data;
 };
@@ -36,26 +34,19 @@ export const saveHasilXRay = async (payload) => {
   return res.data;
 };
 
-export const sendImaging = async (registry_id) => {
-  const res = await API.post(
-    "/api/sirad/MonitoringXRay/send-imaging",
-    { registry_id }
-  );
+// Tidak lagi digunakan jika saveHasil sudah menangani Observation
+export const sendObservation = async (registry_id, x_ray_dtl_id) => {
+  const res = await API.post("/api/sirad/MonitoringXRay/send-observation", { 
+    registry_id, 
+    x_ray_dtl_id 
+  });
   return res.data;
 };
 
-export const sendObservation = async (registry_id) => {
-  const res = await API.post(
-    "/api/sirad/MonitoringXRay/send-observation",
-    { registry_id }
-  );
-  return res.data;
-};
-
-export const sendDiagnostic = async (registry_id) => {
-  const res = await API.post(
-    "/api/sirad/MonitoringXRay/send-diagnostic",
-    { registry_id }
-  );
+export const sendDiagnostic = async (registry_id, x_ray_dtl_id) => {
+  const res = await API.post("/api/sirad/MonitoringXRay/send-diagnostic", { 
+    registry_id, 
+    x_ray_dtl_id 
+  });
   return res.data;
 };

@@ -5,9 +5,7 @@ import {
   requestXRay,
   uploadXRay,
   saveHasilXRay,
-  sendImaging,
   sendDiagnostic,
-  sendObservation,
 } from "../../api/wj_sirad/MonitoringXRay";
 import { toast } from "react-toastify";
 import { useAuth } from "../../context/AuthContext";
@@ -169,8 +167,7 @@ const MonitoringXRay = (
   // -----------------------
   const openModalDetail = async (row) => {
     try {
-      const res = await fetchDetailXRay(row.registry_id);
-
+      const res = await fetchDetailXRay(row.registry_id, row.x_ray_dtl_id);
       if (res.success) {
         setSelectedDetail(res.data);
         setShowDetailModal(true);
@@ -183,19 +180,14 @@ const MonitoringXRay = (
 
   const openModalRequest = async (row) => {
     try {
-      const res = await fetchDetailXRay(row.registry_id);
-
+      const res = await fetchDetailXRay(row.registry_id, row.x_ray_dtl_id);
       if (res.success) {
         setSelectedDetail(res.data);
-
-        // isi default keluhan kalau sudah ada
         setKeluhan(res.data.keluhan || "");
-
         setShowRequestModal(true);
       }
     } catch (err) {
-      console.error(err);
-      toast.error("Gagal memuat detail X-Ray");
+      toast.error("Gagal memuat data request");
     }
   };
 
@@ -225,37 +217,26 @@ const MonitoringXRay = (
   };
 
   const handleUpload = async () => {
+    if (!dicomFile) {
+      toast.warn("File DICOM wajib diupload");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("registry_id", selectedUpload.registry_id);
+    formData.append("x_ray_id", selectedUpload.x_ray_id);
+    formData.append("x_ray_dtl_id", selectedUpload.x_ray_dtl_id);   // ← WAJIB
+    formData.append("dicom", dicomFile);
+
+    if (peg_id) formData.append("created_by", peg_id);
+
+    setUploading(true);
     try {
-      const formData = new FormData();
-  
-      formData.append("registry_id", selectedUpload.registry_id);
-      formData.append("x_ray_id", selectedUpload.x_ray_id);
-  
-      // WAJIB DICOM
-      if (!dicomFile) {
-        toast.warn("File DICOM wajib diupload");
-        return;
-      }
-  
-      formData.append("dicom", dicomFile);
-  
-      // JPG lama (DISABLE dulu)
-      // if (foto1) formData.append("foto1", foto1);
-      // if (foto2) formData.append("foto2", foto2);
-  
-      if (peg_id) formData.append("created_by", peg_id);
-  
-      setUploading(true);
-  
       await uploadXRay(formData);
-  
       toast.success("Upload DICOM berhasil");
-  
       setShowUploadModal(false);
       loadData(currentPage, tanggal);
-  
     } catch (err) {
-      console.error(err);
       toast.error("Upload gagal");
     } finally {
       setUploading(false);
@@ -264,10 +245,7 @@ const MonitoringXRay = (
 
   const openModalBaca = async (row) => {
     try {
-      const res = await fetchDetailXRay(row.registry_id);
-
-      const dicomUrl = `${import.meta.env.VITE_API_URL}${selectedBaca?.dicom_path}`;
-      const imageId = `wadouri:${dicomUrl}`;
+      const res = await fetchDetailXRay(row.registry_id, row.x_ray_dtl_id);
 
       if (res.success) {
         setSelectedBaca(res.data);
@@ -276,43 +254,48 @@ const MonitoringXRay = (
       }
     } catch (err) {
       console.error(err);
-      toast.error("Gagal memuat data");
+      toast.error("Gagal memuat data baca X-Ray");
     }
   };
 
   const openModalReport = async (row) => {
-    const res = await fetchDetailXRay(row.registry_id);
-
-    if (res.success) {
-      setSelectedReport(res.data);
-      setShowReportModal(true);
+    try {
+      const res = await fetchDetailXRay(row.registry_id, row.x_ray_dtl_id);
+      if (res.success) {
+        setSelectedReport(res.data);
+        setShowReportModal(true);
+      }
+    } catch (err) {
+      toast.error("Gagal memuat data report");
     }
   };
 
   const handleSaveAndSendObservation = async () => {
+    if (saving) return;
+    if (!hasilBacaan?.trim()) {
+      toast.warn("Hasil bacaan tidak boleh kosong");
+      return;
+    }
+
     try {
       setSaving(true);
 
-      // 1. simpan lokal
       await saveHasilXRay({
         registry_id: selectedBaca.registry_id,
+        x_ray_dtl_id: selectedBaca.x_ray_dtl_id,     // ← WAJIB
         hasil_bacaan: hasilBacaan,
         read_by: peg_id,
       });
 
-      // 2. kirim Observation
-      const resObs = await sendObservation(selectedBaca.registry_id);
-
-      console.log("OBS:", resObs);
-
-      toast.success("Hasil & Observation berhasil dikirim");
+      toast.success("Hasil bacaan berhasil disimpan & dikirim ke SatuSehat");
 
       setShowBacaModal(false);
+      setHasilBacaan("");
       loadData(currentPage, tanggal);
 
     } catch (err) {
       console.error(err);
-      toast.error(err?.response?.data?.message || "Gagal kirim Observation");
+      toast.error(err?.response?.data?.message || "Gagal menyimpan hasil");
     } finally {
       setSaving(false);
     }
@@ -529,8 +512,15 @@ const MonitoringXRay = (
   // SATU SEHAT
   const handleProsesXRay = async () => {
     try {
+      if (!selectedDetail?.x_ray_dtl_id) {
+        toast.error("x_ray_dtl_id tidak ditemukan");
+        return;
+      }
+
       const res = await requestXRay({
         registry_id: selectedDetail.registry_id,
+        x_ray_id: selectedDetail.x_ray_id,           // tambahkan
+        x_ray_dtl_id: selectedDetail.x_ray_dtl_id,   // ← WAJIB
         pengirim_id: selectedDetail.pengirim_id,
         pemeriksa_id: selectedDetail.pemeriksa_id,
         keluhan: keluhan,

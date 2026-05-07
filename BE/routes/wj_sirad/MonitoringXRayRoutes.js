@@ -7,7 +7,8 @@ const verifyToken = require("../../middleware/verifyToken");
 
 //router.get("/data", verifyToken, dataController.getData);
 router.get("/data", dataController.getData);
-router.get("/detail/:registry_id", dataController.getDetail);
+// Detail dengan 2 parameter
+router.get("/detail/:registry_id/:x_ray_dtl_id", dataController.getDetail);
 
 // SAVE
 router.post("/upload", (req, res, next) => {
