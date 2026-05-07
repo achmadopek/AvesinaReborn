@@ -48,6 +48,12 @@ const DicomViewer = ({ imageId }) => {
         renderingEngine = new RenderingEngine("engine1");
       }
 
+      const existingViewport = renderingEngine.getViewport("viewport1");
+
+      if (existingViewport) {
+        renderingEngine.disableElement("viewport1");
+      }
+
       renderingEngine.enableElement({
         viewportId: "viewport1",
         element: elementRef.current,
@@ -94,8 +100,18 @@ const DicomViewer = ({ imageId }) => {
     const timer = setTimeout(initializeViewer, 400); // Tunggu modal terbuka
     return () => {
       clearTimeout(timer);
-      const engine = getRenderingEngine("engine1");
-      if (engine) engine.disableElement("viewport1");
+    
+      try {
+        const engine = getRenderingEngine("engine1");
+    
+        if (engine) {
+          engine.disableElement("viewport1");
+        }
+    
+        ToolGroupManager.destroyToolGroup("toolGroup1");
+      } catch (err) {
+        console.warn("Cleanup viewer:", err);
+      }
     };
   }, [initializeViewer]);
 

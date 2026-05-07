@@ -34,18 +34,10 @@ export const saveHasilXRay = async (payload) => {
   return res.data;
 };
 
-// Tidak lagi digunakan jika saveHasil sudah menangani Observation
-export const sendObservation = async (registry_id, x_ray_dtl_id) => {
-  const res = await API.post("/api/sirad/MonitoringXRay/send-observation", { 
-    registry_id, 
-    x_ray_dtl_id 
-  });
-  return res.data;
-};
-
-export const sendDiagnostic = async (registry_id, x_ray_dtl_id) => {
+export const sendDiagnostic = async (registry_id, x_ray_id, x_ray_dtl_id) => {
   const res = await API.post("/api/sirad/MonitoringXRay/send-diagnostic", { 
     registry_id, 
+    x_ray_id,
     x_ray_dtl_id 
   });
   return res.data;

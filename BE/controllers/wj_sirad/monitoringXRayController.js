@@ -13,6 +13,12 @@ const { generateUID } = require("../../services/satusehat/builders");
 const { parseDicomUID } = require("../../utility/dicomParser");
 const { dicomToJpg } = require("../../utility/dicomToJpg");
 
+const {
+  sendImagingStudyToSatuSehat,
+  sendObservationToSatuSehat,
+  sendDiagnosticToSatuSehat,
+} = require("../../services/satusehat/sender");
+
 // ==============================
 // GET DATA MONITORING (List) — FINAL VERSION
 // ==============================
@@ -142,6 +148,7 @@ exports.getData = async (req, res) => {
         hasil_bacaan: u.photo_reading || l.hasil_bacaan || null,
         status: l.status || "none",
         is_final: !!u.photo_reading,
+        is_lokal: !!l.hasil_bacaan,
 
         tindakan_mapping: [{
           nama: u.tindakan,
@@ -243,6 +250,7 @@ exports.getDetail = async (req, res) => {
         hasil_bacaan: utama.photo_reading || lokal?.hasil_bacaan || null,
         status: !!utama.photo_reading ? "done" : (lokal?.status || "none"),
         is_final: !!utama.photo_reading,
+        is_lokal: !!lokal?.hasil_bacaan,
 
         // Tambahan informasi yang berguna
         pengirim_ihs: utama.pengirim_ihs,
@@ -410,7 +418,7 @@ exports.uploadXRay = async (req, res) => {
   let inTransaction = false;
 
   try {
-    const { registry_id, x_ray_id, created_by } = req.body;
+    const { registry_id, x_ray_id, x_ray_dtl_id, created_by } = req.body;
     
     console.log("BODY:", req.body);
     console.log("FILES:", req.files);
@@ -471,6 +479,8 @@ exports.uploadXRay = async (req, res) => {
       `
       SELECT 
         r.registry_id,
+        xrh.x_ray_id,
+        xrd.x_ray_dtl_id,
         xrh.measured_dt,
         ss.patient_ihs_number AS patient_ihs,
         ss.encounter_uuid,
@@ -478,6 +488,7 @@ exports.uploadXRay = async (req, res) => {
       FROM avesina_wj.registry r
       JOIN avesina_wj.unit_visit uv ON uv.registry_id = r.registry_id
       JOIN avesina_wj.x_ray_hdr xrh ON xrh.unit_visit_id = uv.unit_visit_id
+      JOIN avesina_wj.x_ray_dtl xrd ON xrh.x_ray_id = xrd.x_ray_id
       LEFT JOIN avesina_wj.employee e ON e.employee_id = xrh.expert
       LEFT JOIN erm_rswj.satusehat ss ON ss.registry_id = r.registry_id
       WHERE r.registry_id = ?
@@ -653,7 +664,7 @@ exports.uploadXRay = async (req, res) => {
       [
         uid.study,
         uid.series,
-        uid.instance1,
+        uid.instance,
         registry_id,
       ]
     );
@@ -712,7 +723,7 @@ exports.uploadXRay = async (req, res) => {
     await connERM.query(
       `
       INSERT INTO satusehat_imaging_study
-      (registry_id, s_ray_id, x_ray_dtl_id, service_request_uuid, imaging_study_uuid, modality, status, created_at)
+      (registry_id, x_ray_id, x_ray_dtl_id, service_request_uuid, imaging_study_uuid, modality, status, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
       ON DUPLICATE KEY UPDATE
         imaging_study_uuid = VALUES(imaging_study_uuid),
@@ -805,7 +816,7 @@ exports.saveHasil = async (req, res) => {
     await conn.beginTransaction();
     await connUtama.beginTransaction();
 
-    const { registry_id, x_ray_dtl_id, hasil_bacaan, read_by } = req.body;
+    const { registry_id, x_ray_id, x_ray_dtl_id, hasil_bacaan, read_by } = req.body;
 
     if (!registry_id || !x_ray_dtl_id) throw new Error("registry_id dan x_ray_dtl_id wajib");
     if (!hasil_bacaan?.trim()) throw new Error("hasil_bacaan wajib diisi");
@@ -946,8 +957,8 @@ exports.saveHasil = async (req, res) => {
           `,
           [
             registry_id,
-            s_ray_id,
-            s_ray_dtl_id,
+            x_ray_id,
+            x_ray_dtl_id,
             payload.service_request_id,
             result.id,
             map?.loinc_code || "30745-4",
@@ -989,82 +1000,15 @@ exports.saveHasil = async (req, res) => {
   }
 };
 
-exports.sendObservation = async (req, res) => {
-  try {
-    const { registry_id } = req.body;
-
-    // =========================
-    // 0. GUARD AGAR TIDAK KIRIM LAGI
-    // =========================
-    const [[cek]] = await dbERM.promise().query(
-      `SELECT observation_uuid 
-       FROM satusehat_observation 
-       WHERE registry_id = ? LIMIT 1`,
-      [registry_id]
-    );
-    
-    if (cek?.observation_uuid) {
-      throw new Error("Observation sudah pernah dikirim");
-    }
-
-    const payload = await buildPayloadFromDB(registry_id);
-
-    const cleanText = payload.hasil_bacaan
-      ?.replace(/\r\n/g, "\n")
-      ?.replace(/\n{3,}/g, "\n\n")
-      ?.trim();
-
-    console.log("===== OBSERVATION DEBUG =====");
-    console.log("Registry:", registry_id);
-    console.log("Patient:", payload.patient_ihs);
-    console.log("Encounter:", payload.encounter_uuid);
-    console.log("Practitioner:", payload.practitioner_ihs);
-    console.log("Payload:");
-    console.dir(payload, { depth: null });
-    console.log("================================");
-
-    let result;
-
-    if (process.env.DEBUG_SATUSEHAT === "true") {
-      console.log("DEBUG MODE: Skip hit SATUSEHAT (Observation)");
-
-      result = {
-        id: "DEBUG-" + Date.now(),
-        status: "final",
-      };
-    } else {
-      result = await sendObservationToSatuSehat({
-        ...payload,
-        hasil_bacaan: cleanText,
-      });
-    }
-
-    res.json({
-      success: true,
-      message: "Observation processed (debug aware)",
-      data: result,
-    });
-  } catch (err) {
-    console.error("OBS ERROR:", err.response?.data || err.message);
-
-    res.status(500).json({
-      success: false,
-      message:
-        err.response?.data?.issue?.[0]?.diagnostics ||
-        err.message,
-    });
-  }
-};
-
 exports.sendDiagnostic = async (req, res) => {
   const connERM = await dbERM.promise().getConnection();
   const connLokal = await dbLokal.promise().getConnection();
   
   try {
-    const { registry_id } = req.body;
+    const { registry_id, x_ray_id, x_ray_dtl_id } = req.body;
 
-    if (!registry_id) {
-      throw new Error("registry_id wajib");
+    if (!registry_id && x_ray_dtl_id) {
+      throw new Error("registry_id dan x_ray_dtl_id wajib");
     }
 
     // =========================
@@ -1073,8 +1017,8 @@ exports.sendDiagnostic = async (req, res) => {
     const [[cek]] = await dbERM.promise().query(
       `SELECT diagnostic_report_uuid 
        FROM satusehat_diagnostic_report 
-       WHERE registry_id = ? LIMIT 1`,
-      [registry_id]
+       WHERE registry_id = ? AND x_ray_dtl_id = ? LIMIT 1`,
+      [registry_id, x_ray_dtl_id]
     );
     
     if (cek?.diagnostic_report_uuid) {
@@ -1096,20 +1040,20 @@ exports.sendDiagnostic = async (req, res) => {
       `
       SELECT observation_uuid 
       FROM satusehat_observation
-      WHERE registry_id = ?
+      WHERE registry_id = ? AND x_ray_dtl_id = ?
       LIMIT 1
       `,
-      [registry_id]
+      [registry_id, x_ray_dtl_id]
     );
 
     const [[img]] = await dbERM.promise().query(
       `
       SELECT imaging_study_uuid 
       FROM satusehat_imaging_study
-      WHERE registry_id = ?
+      WHERE registry_id = ? AND x_ray_dtl_id
       LIMIT 1
       `,
-      [registry_id]
+      [registry_id, x_ray_dtl_id]
     );
 
     // =========================

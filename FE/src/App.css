@@ -1302,3 +1302,9 @@ input[type="number"]::-webkit-outer-spin-button {
   transform: scale(1.1);
   transition: 0.2s;
 }
+
+/* WARNA BG CUSTOM */
+.bg-purple {
+  background-color: #6f42c1 !important;
+  color: white;
+}

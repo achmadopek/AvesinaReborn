@@ -282,7 +282,8 @@ const MonitoringXRay = (
 
       await saveHasilXRay({
         registry_id: selectedBaca.registry_id,
-        x_ray_dtl_id: selectedBaca.x_ray_dtl_id,     // ← WAJIB
+        x_ray_id: selectedBaca.x_ray_id,
+        x_ray_dtl_id: selectedBaca.x_ray_dtl_id,
         hasil_bacaan: hasilBacaan,
         read_by: peg_id,
       });
@@ -305,7 +306,7 @@ const MonitoringXRay = (
     try {
       setLoading(true);
   
-      const res = await sendDiagnostic(selectedReport.registry_id);
+      const res = await sendDiagnostic(selectedReport.registry_id, selectedReport.x_ray_id, selectedReport.x_ray_dtl_id);
   
       toast.success("DiagnosticReport berhasil dikirim");
   
@@ -629,9 +630,13 @@ const MonitoringXRay = (
                 <strong>Hasil Bacaan</strong>
               </label>
 
-              {selectedDetail?.is_final && (
+              {selectedDetail?.is_final ? (
                 <div className="text-success small mb-1">
                   ✔ Menggunakan hasil dari Avesina (final)
+                </div>
+              ) : (
+                <div className="text-success small mb-1">
+                  ✔ Menggunakan hasil dari Avesina Reborn (lokal)
                 </div>
               )}
 
@@ -739,9 +744,8 @@ const MonitoringXRay = (
                 <textarea
                   className="form-control form-control-sm"
                   rows={isMobile ? 1 : 3}
-                  value={keluhan}
+                  value={keluhan ? keluhan : "-"}
                   onChange={(e) => setKeluhan(e.target.value)}
-                  placeholder="Tulis keluhan..."
                   style={{
                     flex: isMobile ? 1 : "unset",
                     resize: "none",
@@ -877,7 +881,6 @@ const MonitoringXRay = (
               rows={isMobile ? 1 : 3}
               value={selectedUpload?.keluhan}
               onChange={(e) => setKeluhan(e.target.value)}
-              placeholder="Tulis keluhan..."
               style={{
                 flex: isMobile ? 1 : "unset",
                 resize: "none",
@@ -1033,9 +1036,8 @@ const MonitoringXRay = (
             <textarea
               className="form-control form-control-sm"
               rows={isMobile ? 1 : 3}
-              value={keluhan}
+              value={keluhan ? keluhan : "-"}
               onChange={(e) => setKeluhan(e.target.value)}
-              placeholder="Tulis keluhan..."
               style={{
                 flex: isMobile ? 1 : "unset",
                 resize: "none",
@@ -1284,6 +1286,7 @@ const MonitoringXRay = (
                   const {
                     status,
                     is_final,
+                    is_lokal,
                     tindakan_mapping = [],
                     pengirim_ihs,
                     pemeriksa_ihs,
@@ -1324,8 +1327,7 @@ const MonitoringXRay = (
 
                   const canUpload = 
                     //isNotFinal &&
-                    status === "ordered" || 
-                    status === "read" &&
+                    status === "ordered" &&
                     service_request &&
                     hasValidTindakan &&
                     !imaging;
@@ -1381,33 +1383,44 @@ const MonitoringXRay = (
                             ))}
                           </div>
                           <div>
-                            {row.is_final && (
+                            {row.is_lokal ? (
                               <span className="badge bg-dark">
+                                Final Reborn
+                              </span>
+                            ) : (
+                              <span className="badge bg-purple">
                                 Final Avesina
                               </span>
                             )}
+
                             {row.status === "none" && (
                               <span className="badge bg-secondary">
                                 Belum Upload
                               </span>
                             )}
+
                             {row.status === "ordered" && (
-                              <span className="badge bg-info">
+                              <span className="badge bg-info text-dark">
                                 Sudah Diminta
                               </span>
                             )}
+
                             {row.status === "uploaded" && (
                               <span className="badge bg-warning text-dark">
                                 Sudah Upload
                               </span>
                             )}
+
                             {row.status === "read" && (
                               <span className="badge bg-primary">
                                 Sudah Dibaca
                               </span>
                             )}
+
                             {row.status === "done" && (
-                              <span className="badge bg-success">Selesai</span>
+                              <span className="badge bg-success">
+                                Selesai
+                              </span>
                             )}
                           </div>
                         </td>
@@ -1545,33 +1558,49 @@ const MonitoringXRay = (
                       )}
 
                       {!isMobile && (
-                        <td className="text-center">
-                          {row.is_final && (
+                        <div className="text-center">
+                          {row.is_lokal ? (
                             <span className="badge bg-dark">
+                              Final Reborn
+                            </span>
+                          ) : (
+                            <span className="badge bg-purple">
                               Final Avesina
                             </span>
                           )}
+
                           <br/>
+
                           {row.status === "none" && (
                             <span className="badge bg-secondary">
                               Belum Upload
                             </span>
                           )}
+
+                          {row.status === "ordered" && (
+                            <span className="badge bg-info text-dark">
+                              Sudah Diminta
+                            </span>
+                          )}
+
                           {row.status === "uploaded" && (
                             <span className="badge bg-warning text-dark">
                               Sudah Upload
                             </span>
                           )}
+
                           {row.status === "read" && (
                             <span className="badge bg-primary">
                               Sudah Dibaca
                             </span>
                           )}
-                          <br/>
+
                           {row.status === "done" && (
-                            <span className="badge bg-success">Selesai</span>
+                            <span className="badge bg-success">
+                              Selesai
+                            </span>
                           )}
-                        </td>
+                        </div>
                       )}
 
                       <td className="text-center">

@@ -23,12 +23,12 @@ router.post("/upload", (req, res, next) => {
     });
 }, dataController.uploadXRay);
 
-router.post("/save-hasil", dataController.saveHasil);
+router.post("/save-hasil", dataController.saveHasil); //disini sekaligus sendObservation
 
 router.post("/proses-xray", dataController.requestXRay);
 
 router.post("/send-imaging", dataController.sendImagingStudy);
-router.post("/send-observation", dataController.sendObservation);
+
 router.post("/send-diagnostic", dataController.sendDiagnostic);
 
 module.exports = router;
