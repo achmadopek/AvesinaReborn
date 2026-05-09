@@ -366,12 +366,14 @@ exports.requestCTScan = async (req, res) => {
         e2.employee_id AS pemeriksa_id,
         e2.employee_nm AS pemeriksa_nm,
         e2.satusehat_ihs_number AS pemeriksa_ihs,
-        ss.encounter_uuid
+        ss.encounter_uuid,
+        ms.medical_service_name AS tindakan
       FROM registry r
       JOIN patient p ON r.mr_id = p.mr_id
       JOIN unit_visit uv ON r.registry_id = uv.registry_id
       JOIN ct_scan_hdr cth ON cth.unit_visit_id = uv.unit_visit_id
       JOIN ct_scan_dtl ctd ON cth.ct_scan_id = ctd.ct_scan_id
+      JOIN medical_service ms ON ms.medical_service_id = ctd.medical_service_id
       LEFT JOIN employee e ON e.employee_id = cth.physician
       LEFT JOIN employee e2 ON e2.employee_id = cth.expert
       LEFT JOIN erm_rswj.satusehat ss ON ss.registry_id = r.registry_id
@@ -396,14 +398,20 @@ exports.requestCTScan = async (req, res) => {
       LIMIT 1
     `, [utama.tindakan]);
 
+    const loinc_code =
+      mapping?.loinc_code || "30745-4";
+
+    const loinc_display =
+      mapping?.loinc_display || "Radiology study";
+
     const payload = buildServiceRequest({
       patient_ihs: utama.patient_ihs,
       encounter_uuid: utama.encounter_uuid,
       pengirim_ihs: utama.pengirim_ihs,
       pemeriksa_ihs: utama.pemeriksa_ihs,
       tanggal: utama.unit_visit_dt,
-      loinc_code: mapping?.loinc_code || "30745-4",
-      loinc_display: mapping?.loinc_display || "Radiology study",
+      loinc_code,
+      loinc_display,
     });
 
     console.log("===== DEBUG SERVICE REQUEST =====");

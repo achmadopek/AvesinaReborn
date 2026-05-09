@@ -38,6 +38,8 @@ const getAccessToken = async () => {
 
     accessToken = response.data.access_token;
 
+    console.log("Token : ", accessToken);
+
     // kasih buffer 60 detik biar aman
     tokenExpiredAt = Date.now() + (response.data.expires_in - 60) * 1000;
 
