@@ -170,6 +170,7 @@ app.use("/api/bugarr/MonitoringBugarr", require("./routes/wj_bugarr/MonitoringBu
 
 // SIRAD
 app.use("/api/sirad/MonitoringXRay", require("./routes/wj_sirad/MonitoringXRayRoutes"));
+app.use("/api/sirad/MonitoringCTScan", require("./routes/wj_sirad/MonitoringCTScanRoutes"));
 
 //app.use("/uploads", express.static("uploads"));
 app.use("/uploads", express.static("uploads", {

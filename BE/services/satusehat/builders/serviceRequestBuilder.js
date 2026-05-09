@@ -1,4 +1,4 @@
-exports.buildServiceRequest = (data) => {
+export const buildServiceRequest = (data) => {
   return {
     resourceType: "ServiceRequest",
     status: "active",
@@ -20,8 +20,8 @@ exports.buildServiceRequest = (data) => {
       coding: [
         {
           system: "http://loinc.org",
-          code: data.loinc_code,
-          display: data.loinc_display
+          code: data.loinc_code || "30745-4",     // fallback
+          display: data.loinc_display || "Radiology study"
         }
       ]
     },

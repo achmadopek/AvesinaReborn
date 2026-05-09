@@ -1,18 +1,18 @@
 const express = require("express");
 const router = express.Router();
 
-const dataController = require("../../controllers/wj_sirad/monitoringXRayController");
-const uploadXRay = require("../../middleware/uploadXRayMiddleware");
+const dataController = require("../../controllers/wj_sirad/monitoringCTScanController");
+const uploadCTScan = require("../../middleware/uploadCTScanMiddleware");
 const verifyToken = require("../../middleware/verifyToken");
 
 //router.get("/data", verifyToken, dataController.getData);
 router.get("/data", dataController.getData);
 // Detail dengan 2 parameter
-router.get("/detail/:registry_id/:x_ray_dtl_id", dataController.getDetail);
+router.get("/detail/:registry_id/:ct_scan_dtl_id", dataController.getDetail);
 
 // SAVE
 router.post("/upload", (req, res, next) => {
-    uploadXRay(req, res, function (err) {
+    uploadCTScan(req, res, function (err) {
         if (err) {
             return res.status(400).json({
                 success: false,
@@ -21,11 +21,11 @@ router.post("/upload", (req, res, next) => {
         }
         next();
     });
-}, dataController.uploadXRay);
+}, dataController.uploadCTScan);
 
 router.post("/save-hasil", dataController.saveHasil); //disini sekaligus sendObservation
 
-router.post("/proses-xray", dataController.requestXRay);
+router.post("/proses-ctscan", dataController.requestCTScan);
 
 router.post("/send-diagnostic", dataController.sendDiagnostic);
 

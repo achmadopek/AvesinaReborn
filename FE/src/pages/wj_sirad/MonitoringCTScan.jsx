@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import {
-  fetchPaginatedDataXRay,
-  fetchDetailXRay,
-  requestXRay,
-  uploadXRay,
-  saveHasilXRay,
+  fetchPaginatedDataCTScan,
+  fetchDetailCTScan,
+  requestCTScan,
+  uploadCTScan,
+  saveHasilCTScan,
   sendDiagnostic,
-} from "../../api/wj_sirad/MonitoringXRay";
+} from "../../api/wj_sirad/MonitoringCTScan";
 import { toast } from "react-toastify";
 import { useAuth } from "../../context/AuthContext";
 import { Modal, Button } from "react-bootstrap";
@@ -26,7 +26,7 @@ import id from "date-fns/locale/id";
 registerLocale("id", id);
 // End Of React Datepicker
 
-const MonitoringXRay = (
+const MonitoringCTScan = (
   setRightContent = false,
   defaultRightContent = false,
 ) => {
@@ -45,7 +45,7 @@ const MonitoringXRay = (
   const [selectedDetail, setSelectedDetail] = useState(null);
   const [showKirimObservasiModal, setShowKirimDiagnosticReportModal] = useState(false);
 
-  const [selectedXray, setSelectedXray] = useState(null);
+  const [selectedCTScan, setSelectedCTScan] = useState(null);
 
   const [showObservationModal, setShowObservationModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -120,8 +120,8 @@ const MonitoringXRay = (
     setLoading(true);
 
     try {
-      //const res = await fetchPaginatedDataXRay({ tgl, token });
-      const res = await fetchPaginatedDataXRay({ tgl, role, peg_id });
+      //const res = await fetchPaginatedDataCTScan({ tgl, token });
+      const res = await fetchPaginatedDataCTScan({ tgl, role, peg_id });
       setData(res.data || []);
 
       //console.log("DATA", res);
@@ -175,20 +175,20 @@ const MonitoringXRay = (
   // -----------------------
   const openModalDetail = async (row) => {
     try {
-      const res = await fetchDetailXRay(row.registry_id, row.x_ray_dtl_id);
+      const res = await fetchDetailCTScan(row.registry_id, row.ct_scan_dtl_id);
       if (res.success) {
         setSelectedDetail(res.data);
         setShowDetailModal(true);
       }
     } catch (err) {
       console.error(err);
-      toast.error("Gagal memuat detail X-Ray");
+      toast.error("Gagal memuat detail CT-Scan");
     }
   };
 
   const openModalRequest = async (row) => {
     try {
-      const res = await fetchDetailXRay(row.registry_id, row.x_ray_dtl_id);
+      const res = await fetchDetailCTScan(row.registry_id, row.ct_scan_dtl_id);
       if (res.success) {
         setSelectedDetail(res.data);
         setKeluhan(res.data.keluhan || "");
@@ -232,15 +232,15 @@ const MonitoringXRay = (
 
     const formData = new FormData();
     formData.append("registry_id", selectedUpload.registry_id);
-    formData.append("x_ray_id", selectedUpload.x_ray_id);
-    formData.append("x_ray_dtl_id", selectedUpload.x_ray_dtl_id);   // ← WAJIB
+    formData.append("ct_scan_id", selectedUpload.ct_scan_id);
+    formData.append("ct_scan_dtl_id", selectedUpload.ct_scan_dtl_id);   // ← WAJIB
     formData.append("dicom", dicomFile);
 
     if (peg_id) formData.append("created_by", peg_id);
 
     setUploading(true);
     try {
-      await uploadXRay(formData);
+      await uploadCTScan(formData);
       toast.success("Upload DICOM berhasil");
       setShowUploadModal(false);
       loadData(currentPage, tanggal);
@@ -253,7 +253,7 @@ const MonitoringXRay = (
 
   const openModalBaca = async (row) => {
     try {
-      const res = await fetchDetailXRay(row.registry_id, row.x_ray_dtl_id);
+      const res = await fetchDetailCTScan(row.registry_id, row.ct_scan_dtl_id);
 
       if (res.success) {
         setSelectedBaca(res.data);
@@ -262,13 +262,13 @@ const MonitoringXRay = (
       }
     } catch (err) {
       console.error(err);
-      toast.error("Gagal memuat data baca X-Ray");
+      toast.error("Gagal memuat data baca CT-Scan");
     }
   };
 
   const openModalReport = async (row) => {
     try {
-      const res = await fetchDetailXRay(row.registry_id, row.x_ray_dtl_id);
+      const res = await fetchDetailCTScan(row.registry_id, row.ct_scan_dtl_id);
       if (res.success) {
         setSelectedReport(res.data);
         setShowReportModal(true);
@@ -288,10 +288,10 @@ const MonitoringXRay = (
     try {
       setSaving(true);
 
-      await saveHasilXRay({
+      await saveHasilCTScan({
         registry_id: selectedBaca.registry_id,
-        x_ray_id: selectedBaca.x_ray_id,
-        x_ray_dtl_id: selectedBaca.x_ray_dtl_id,
+        ct_scan_id: selectedBaca.ct_scan_id,
+        ct_scan_dtl_id: selectedBaca.ct_scan_dtl_id,
         hasil_bacaan: hasilBacaan,
         read_by: peg_id,
       });
@@ -314,7 +314,7 @@ const MonitoringXRay = (
     try {
       setLoading(true);
   
-      const res = await sendDiagnostic(selectedReport.registry_id, selectedReport.x_ray_id, selectedReport.x_ray_dtl_id);
+      const res = await sendDiagnostic(selectedReport.registry_id, selectedReport.ct_scan_id, selectedReport.ct_scan_dtl_id);
   
       toast.success("DiagnosticReport berhasil dikirim");
   
@@ -519,32 +519,32 @@ const MonitoringXRay = (
   }, [isMobile]);
 
   // SATU SEHAT
-  const handleProsesXRay = async () => {
+  const handleProsesCTScan = async () => {
     try {
-      if (!selectedDetail?.x_ray_dtl_id) {
-        toast.error("x_ray_dtl_id tidak ditemukan");
+      if (!selectedDetail?.ct_scan_dtl_id) {
+        toast.error("ct_scan_dtl_id tidak ditemukan");
         return;
       }
 
-      const res = await requestXRay({
+      const res = await requestCTScan({
         registry_id: selectedDetail.registry_id,
-        x_ray_id: selectedDetail.x_ray_id,           // tambahkan
-        x_ray_dtl_id: selectedDetail.x_ray_dtl_id,   // ← WAJIB
+        ct_scan_id: selectedDetail.ct_scan_id,           // tambahkan
+        ct_scan_dtl_id: selectedDetail.ct_scan_dtl_id,   // ← WAJIB
         pengirim_id: selectedDetail.pengirim_id,
         pemeriksa_id: selectedDetail.pemeriksa_id,
         keluhan: keluhan,
       });
 
       if (res.success) {
-        toast.success("Berhasil membuat order X-Ray");
+        toast.success("Berhasil membuat order CT-Scan");
         setShowRequestModal(false);
         loadData(currentPage, tanggal);
       } else {
-        toast.error(res.message || "Gagal proses X-Ray");
+        toast.error(res.message || "Gagal proses CT-Scan");
       }
     } catch (err) {
       console.error(err);
-      toast.error(err?.response?.data?.message || "Gagal proses X-Ray");
+      toast.error(err?.response?.data?.message || "Gagal proses CT-Scan");
     }
   };
 
@@ -571,7 +571,7 @@ const MonitoringXRay = (
       // ==================== HEADER ====================
       doc.setFont("helvetica", "bold");
       doc.setFontSize(16);
-      doc.text("RUOBK RSUD WALUYO JATI", pageWidth / 2, 20, { align: "center" });
+      doc.text("UOBK RSUD WALUYO JATI", pageWidth / 2, 20, { align: "center" });
 
       doc.setFontSize(11);
       doc.setFont("helvetica", "normal");
@@ -644,7 +644,7 @@ const MonitoringXRay = (
         dialogClassName="modal-theme"
       >
         <Modal.Header closeButton>
-          <Modal.Title>Detail X-Ray</Modal.Title>
+          <Modal.Title>Detail CT-Scan</Modal.Title>
           <span
             className={`badge ${
               selectedDetail?.status === "done"
@@ -764,7 +764,7 @@ const MonitoringXRay = (
         dialogClassName="modal-theme"
       >
         <Modal.Header closeButton>
-          <Modal.Title>Permintaan X-Ray</Modal.Title>
+          <Modal.Title>Permintaan CT-Scan</Modal.Title>
           <span
             className={`badge ${
               selectedDetail?.status === "done"
@@ -856,7 +856,7 @@ const MonitoringXRay = (
         <Modal.Footer>
           <Button
             variant="success"
-            onClick={() => handleProsesXRay(selectedDetail)}
+            onClick={() => handleProsesCTScan(selectedDetail)}
             disabled={uploading && !keluhan}
             className="ms-2"
           >
@@ -877,7 +877,7 @@ const MonitoringXRay = (
         backdrop="static"
       >
         <Modal.Header closeButton>
-          <Modal.Title>Upload X-Ray</Modal.Title>
+          <Modal.Title>Upload CT-Scan</Modal.Title>
           <span
             className={`badge ${
               selectedUpload?.status === "done"
@@ -1078,7 +1078,7 @@ const MonitoringXRay = (
         fullscreen={isMobile}   // ← Fullscreen di HP
       >
         <Modal.Header closeButton>
-          <Modal.Title>Baca X-Ray - {selectedBaca?.patient_nm}</Modal.Title>
+          <Modal.Title>Baca CT-Scan - {selectedBaca?.patient_nm}</Modal.Title>
           <span className={`badge ms-2 ${selectedBaca?.status === "done" ? "bg-success" : selectedBaca?.status === "uploaded" ? "bg-warning text-dark" : "bg-secondary"}`}>
             {selectedBaca?.status}
           </span>
@@ -1227,7 +1227,7 @@ const MonitoringXRay = (
       {/* ================= CARD ================= */}
       <div className={`card shadow-sm card-theme ${isMobile ? "mt-2" : ""}`}>
         <div className="card-header py-2 px-3">
-          <h6 className="mb-0">Monitoring X-Ray</h6>
+          <h6 className="mb-0">Monitoring CT-Scan</h6>
         </div>
 
         <div className="card-body px-3 py-3">
@@ -1803,7 +1803,7 @@ const MonitoringXRay = (
                 </div>
                 <div className="col-md-5 small">
                   <span className="badge bg-info text-dark me-1">IMG</span>
-                  ImagingStudy X-Ray sudah dikirim (mini-PACS non-DICOM)
+                  ImagingStudy CT-Scan sudah dikirim (mini-PACS non-DICOM)
                   <br />
                   <span className="badge bg-dark me-1">OBS</span>
                   Observation hasil bacaan (temuan medis) sudah dikirim
@@ -1840,4 +1840,4 @@ const MonitoringXRay = (
   );
 };
 
-export default MonitoringXRay;
+export default MonitoringCTScan;

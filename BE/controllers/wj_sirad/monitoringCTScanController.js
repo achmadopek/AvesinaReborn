@@ -22,32 +22,32 @@ const {
 // =============================================================
 // BUILD PAYLOAD HELPER (DIGUNAKAN OLEH BANYAK FUNCTION)
 // =============================================================
-const buildPayloadFromDB = async (registry_id, x_ray_dtl_id) => {
-  if (!registry_id || !x_ray_dtl_id) {
-    throw new Error("registry_id dan x_ray_dtl_id wajib");
+const buildPayloadFromDB = async (registry_id, ct_scan_dtl_id) => {
+  if (!registry_id || !ct_scan_dtl_id) {
+    throw new Error("registry_id dan ct_scan_dtl_id wajib");
   }
 
   const [[utama]] = await dbUtama.promise().query(
     `
     SELECT 
       r.registry_id,
-      xrd.photo_reading AS hasil_bacaan,
-      xrh.measured_dt,
-      xrh.expert,
+      ctd.ct_scan_reading AS hasil_bacaan,
+      cth.measured_dt,
+      cth.expert,
       ms.medical_service_name AS tindakan,
       sm.loinc_code,
       sm.loinc_display,
       sm.modality
     FROM registry r
     JOIN unit_visit uv ON uv.registry_id = r.registry_id
-    JOIN x_ray_hdr xrh ON xrh.unit_visit_id = uv.unit_visit_id
-    JOIN x_ray_dtl xrd ON xrd.x_ray_id = xrh.x_ray_id
-    JOIN medical_service ms ON ms.medical_service_id = xrd.medical_service_id
+    JOIN ct_scan_hdr cth ON cth.unit_visit_id = uv.unit_visit_id
+    JOIN ct_scan_dtl ctd ON ctd.ct_scan_id = cth.ct_scan_id
+    JOIN medical_service ms ON ms.medical_service_id = ctd.medical_service_id
     LEFT JOIN erm_rswj.satusehat_mapping sm ON sm.local_display = ms.medical_service_name
-    WHERE r.registry_id = ? AND xrd.x_ray_dtl_id = ?
+    WHERE r.registry_id = ? AND ctd.ct_scan_dtl_id = ?
     LIMIT 1
     `,
-    [registry_id, x_ray_dtl_id]
+    [registry_id, ct_scan_dtl_id]
   );
 
   if (!utama) throw new Error("Data utama tidak ditemukan");
@@ -59,8 +59,8 @@ const buildPayloadFromDB = async (registry_id, x_ray_dtl_id) => {
 
   const [[sr]] = await dbERM.promise().query(
     `SELECT service_request_uuid FROM satusehat_service_request 
-     WHERE registry_id = ? AND x_ray_dtl_id = ? LIMIT 1`,
-    [registry_id, x_ray_dtl_id]
+     WHERE registry_id = ? AND ct_scan_dtl_id = ? LIMIT 1`,
+    [registry_id, ct_scan_dtl_id]
   );
 
   const [[dokter]] = await dbUtama.promise().query(
@@ -75,7 +75,7 @@ const buildPayloadFromDB = async (registry_id, x_ray_dtl_id) => {
 
   return {
     registry_id,
-    x_ray_dtl_id,
+    ct_scan_dtl_id,
     hasil_bacaan: utama.hasil_bacaan,
     measured_dt: utama.measured_dt,
     tindakan: utama.tindakan,
@@ -111,24 +111,24 @@ exports.getData = async (req, res) => {
       `
       SELECT 
         r.registry_id,
-        xrh.x_ray_id,
-        xrd.x_ray_dtl_id,
+        cth.ct_scan_id,
+        ctd.ct_scan_dtl_id,
         r.registry_dt,
-        xrh.measured_dt,
+        cth.measured_dt,
 
         p.mr_code,
         p.patient_nm,
 
-        xrh.physician AS pengirim_id,
+        cth.physician AS pengirim_id,
         e.employee_nm AS dr_pengirim,
         e.satusehat_ihs_number AS pengirim_ihs,
 
-        xrh.expert AS pemeriksa_id,
+        cth.expert AS pemeriksa_id,
         e2.employee_nm AS dr_pemeriksa,
         e2.satusehat_ihs_number AS pemeriksa_ihs,
 
         ms.medical_service_name AS tindakan,
-        xrd.photo_reading,
+        ctd.ct_scan_reading,
 
         ss.patient_ihs_number IS NOT NULL AS has_patient_ihs,
         ss.encounter_uuid IS NOT NULL AS has_encounter
@@ -136,18 +136,18 @@ exports.getData = async (req, res) => {
       FROM registry r
       JOIN patient p ON r.mr_id = p.mr_id
       JOIN unit_visit uv ON r.registry_id = uv.registry_id
-      JOIN x_ray_hdr xrh ON uv.unit_visit_id = xrh.unit_visit_id
-      JOIN x_ray_dtl xrd ON xrh.x_ray_id = xrd.x_ray_id
-      JOIN medical_service ms ON ms.medical_service_id = xrd.medical_service_id
+      JOIN ct_scan_hdr cth ON uv.unit_visit_id = cth.unit_visit_id
+      JOIN ct_scan_dtl ctd ON cth.ct_scan_id = ctd.ct_scan_id
+      JOIN medical_service ms ON ms.medical_service_id = ctd.medical_service_id
 
-      LEFT JOIN employee e ON xrh.physician = e.employee_id
-      LEFT JOIN employee e2 ON xrh.expert = e2.employee_id
+      LEFT JOIN employee e ON cth.physician = e.employee_id
+      LEFT JOIN employee e2 ON cth.expert = e2.employee_id
       LEFT JOIN erm_rswj.satusehat ss ON ss.registry_id = r.registry_id
 
       WHERE 1=1
-        ${tgl ? "AND DATE(xrh.measured_dt) = ?" : ""}
-        ${expert_id ? "AND xrh.expert = ?" : ""}
-      ORDER BY xrh.measured_dt DESC, xrd.x_ray_dtl_id ASC
+        ${tgl ? "AND DATE(cth.measured_dt) = ?" : ""}
+        ${expert_id ? "AND cth.expert = ?" : ""}
+      ORDER BY cth.measured_dt DESC, ctd.ct_scan_dtl_id ASC
       `,
       [...(tgl ? [tgl] : []), ...(expert_id ? [expert_id] : [])]
     );
@@ -156,42 +156,42 @@ exports.getData = async (req, res) => {
       return res.json({ success: true, data: [] });
     }
 
-    const registryDtlIds = utama.map(u => [u.registry_id, u.x_ray_dtl_id]);
+    const registryDtlIds = utama.map(u => [u.registry_id, u.ct_scan_dtl_id]);
 
     // Data Lokal
     const [lokal] = await dbLokal.promise().query(
-      `SELECT * FROM sirad_xray 
-       WHERE (registry_id, x_ray_dtl_id) IN (?) AND is_active = 1`,
+      `SELECT * FROM radar_ctscan 
+       WHERE (registry_id, ct_scan_dtl_id) IN (?) AND is_active = 1`,
       [registryDtlIds]
     );
 
-    const mapLokal = new Map(lokal.map(l => [`${l.registry_id}-${l.x_ray_dtl_id}`, l]));
+    const mapLokal = new Map(lokal.map(l => [`${l.registry_id}-${l.ct_scan_dtl_id}`, l]));
 
     // Data SatuSehat
     const [ss] = await dbERM.promise().query(
       `
       SELECT 
-        registry_id, x_ray_dtl_id,
+        registry_id, ct_scan_dtl_id,
         MAX(CASE WHEN service_request_uuid IS NOT NULL THEN 1 ELSE 0 END) AS has_service_request,
         MAX(CASE WHEN imaging_study_uuid IS NOT NULL THEN 1 ELSE 0 END) AS has_imaging,
         MAX(CASE WHEN observation_uuid IS NOT NULL THEN 1 ELSE 0 END) AS has_observation,
         MAX(CASE WHEN diagnostic_report_uuid IS NOT NULL THEN 1 ELSE 0 END) AS has_report
       FROM (
-        SELECT registry_id, x_ray_dtl_id, service_request_uuid, NULL as imaging_study_uuid, NULL as observation_uuid, NULL as diagnostic_report_uuid FROM satusehat_service_request
+        SELECT registry_id, ct_scan_dtl_id, service_request_uuid, NULL as imaging_study_uuid, NULL as observation_uuid, NULL as diagnostic_report_uuid FROM satusehat_service_request
         UNION ALL
-        SELECT registry_id, x_ray_dtl_id, NULL, imaging_study_uuid, NULL, NULL FROM satusehat_imaging_study
+        SELECT registry_id, ct_scan_dtl_id, NULL, imaging_study_uuid, NULL, NULL FROM satusehat_imaging_study
         UNION ALL
-        SELECT registry_id, x_ray_dtl_id, NULL, NULL, observation_uuid, NULL FROM satusehat_observation
+        SELECT registry_id, ct_scan_dtl_id, NULL, NULL, observation_uuid, NULL FROM satusehat_observation
         UNION ALL
-        SELECT registry_id, x_ray_dtl_id, NULL, NULL, NULL, diagnostic_report_uuid FROM satusehat_diagnostic_report
+        SELECT registry_id, ct_scan_dtl_id, NULL, NULL, NULL, diagnostic_report_uuid FROM satusehat_diagnostic_report
       ) ss
-      WHERE (registry_id, x_ray_dtl_id) IN (?)
-      GROUP BY registry_id, x_ray_dtl_id
+      WHERE (registry_id, ct_scan_dtl_id) IN (?)
+      GROUP BY registry_id, ct_scan_dtl_id
       `,
       [registryDtlIds]
     );
 
-    const mapSS = new Map(ss.map(s => [`${s.registry_id}-${s.x_ray_dtl_id}`, s]));
+    const mapSS = new Map(ss.map(s => [`${s.registry_id}-${s.ct_scan_dtl_id}`, s]));
 
     // Mapping Tindakan
     const tindakanList = [...new Set(utama.map(u => u.tindakan).filter(Boolean))];
@@ -207,19 +207,19 @@ exports.getData = async (req, res) => {
 
     // Final Result
     const result = utama.map(u => {
-      const key = `${u.registry_id}-${u.x_ray_dtl_id}`;
+      const key = `${u.registry_id}-${u.ct_scan_dtl_id}`;
       const l = mapLokal.get(key) || {};
       const s = mapSS.get(key) || {};
 
       return {
         ...u,
-        foto1: l.foto1 ? `/uploads/xray/${l.foto1}` : null,
-        foto2: l.foto2 ? `/uploads/xray/${l.foto2}` : null,
-        dicom_path: l.dicom_path ? `/uploads/xray/${l.dicom_path}` : null,
+        foto1: l.foto1 ? `/uploads/ctscan/${l.foto1}` : null,
+        foto2: l.foto2 ? `/uploads/ctscan/${l.foto2}` : null,
+        dicom_path: l.dicom_path ? `/uploads/ctscan/${l.dicom_path}` : null,
         keluhan: l.keluhan || "-",
-        hasil_bacaan: u.photo_reading || l.hasil_bacaan || null,
+        hasil_bacaan: u.ct_scan_reading || l.hasil_bacaan || null,
         status: l.status || "none",
-        is_final: !!u.photo_reading,
+        is_final: !!u.ct_scan_reading,
         is_lokal: !!l.hasil_bacaan,
 
         tindakan_mapping: [{
@@ -250,16 +250,16 @@ exports.getData = async (req, res) => {
 };
 
 // ==============================
-// GET DETAIL X-RAY (RECOMMENDED)
+// GET DETAIL CT-SCAN (RECOMMENDED)
 // ==============================
 exports.getDetail = async (req, res) => {
   try {
-    const { registry_id, x_ray_dtl_id } = req.params;
+    const { registry_id, ct_scan_dtl_id } = req.params;
 
-    if (!registry_id || !x_ray_dtl_id) {
+    if (!registry_id || !ct_scan_dtl_id) {
       return res.status(400).json({ 
         success: false, 
-        message: "registry_id dan x_ray_dtl_id wajib diisi" 
+        message: "registry_id dan ct_scan_dtl_id wajib diisi" 
       });
     }
 
@@ -267,15 +267,15 @@ exports.getDetail = async (req, res) => {
       `
       SELECT 
         r.registry_id,
-        xrh.x_ray_id,
-        xrd.x_ray_dtl_id,
+        cth.ct_scan_id,
+        ctd.ct_scan_dtl_id,
         p.patient_nm,
         p.mr_code,
-        xrh.measured_dt,
+        cth.measured_dt,
         ms.medical_service_name AS tindakan,
-        xrd.photo_reading,
-        xrh.physician AS pengirim_id,
-        xrh.expert AS pemeriksa_id,
+        ctd.ct_scan_reading,
+        cth.physician AS pengirim_id,
+        cth.expert AS pemeriksa_id,
         e.employee_nm AS pengirim,
         e2.employee_nm AS radiolog,
         e.satusehat_ihs_number AS pengirim_ihs,           -- tambahan
@@ -283,44 +283,44 @@ exports.getDetail = async (req, res) => {
       FROM registry r
       JOIN patient p ON r.mr_id = p.mr_id
       JOIN unit_visit uv ON r.registry_id = uv.registry_id
-      JOIN x_ray_hdr xrh ON uv.unit_visit_id = xrh.unit_visit_id
-      JOIN x_ray_dtl xrd ON xrh.x_ray_id = xrd.x_ray_id
-      JOIN medical_service ms ON ms.medical_service_id = xrd.medical_service_id
-      LEFT JOIN employee e ON xrh.physician = e.employee_id
-      LEFT JOIN employee e2 ON xrh.expert = e2.employee_id
-      WHERE r.registry_id = ? AND xrd.x_ray_dtl_id = ?
+      JOIN ct_scan_hdr cth ON uv.unit_visit_id = cth.unit_visit_id
+      JOIN ct_scan_dtl ctd ON cth.ct_scan_id = ctd.ct_scan_id
+      JOIN medical_service ms ON ms.medical_service_id = ctd.medical_service_id
+      LEFT JOIN employee e ON cth.physician = e.employee_id
+      LEFT JOIN employee e2 ON cth.expert = e2.employee_id
+      WHERE r.registry_id = ? AND ctd.ct_scan_dtl_id = ?
       LIMIT 1
       `,
-      [registry_id, x_ray_dtl_id]
+      [registry_id, ct_scan_dtl_id]
     );
 
     if (!utama) {
       return res.status(404).json({ 
         success: false, 
-        message: "Data X-Ray tidak ditemukan" 
+        message: "Data CT-Scan tidak ditemukan" 
       });
     }
 
     const [[lokal]] = await dbLokal.promise().query(
-      `SELECT * FROM sirad_xray 
+      `SELECT * FROM radar_ctscan 
        WHERE registry_id = ? 
-         AND x_ray_dtl_id = ? 
+         AND ct_scan_dtl_id = ? 
          AND is_active = 1 
        LIMIT 1`,
-      [registry_id, x_ray_dtl_id]
+      [registry_id, ct_scan_dtl_id]
     );
 
     res.json({
       success: true,
       data: {
         ...utama,
-        dicom_path: lokal?.dicom_path ? `/uploads/xray/${lokal.dicom_path}` : null,
-        foto1: lokal?.foto1 ? `/uploads/xray/${lokal.foto1}` : null,
-        foto2: lokal?.foto2 ? `/uploads/xray/${lokal.foto2}` : null,
+        dicom_path: lokal?.dicom_path ? `/uploads/ctscan/${lokal.dicom_path}` : null,
+        foto1: lokal?.foto1 ? `/uploads/ctscan/${lokal.foto1}` : null,
+        foto2: lokal?.foto2 ? `/uploads/ctscan/${lokal.foto2}` : null,
         keluhan: lokal?.keluhan || "-",
-        hasil_bacaan: utama.photo_reading || lokal?.hasil_bacaan || null,
-        status: !!utama.photo_reading ? "done" : (lokal?.status || "none"),
-        is_final: !!utama.photo_reading,
+        hasil_bacaan: utama.ct_scan_reading || lokal?.hasil_bacaan || null,
+        status: !!utama.ct_scan_reading ? "done" : (lokal?.status || "none"),
+        is_final: !!utama.ct_scan_reading,
         is_lokal: !!lokal?.hasil_bacaan,
 
         // Tambahan informasi yang berguna
@@ -334,15 +334,15 @@ exports.getDetail = async (req, res) => {
   }
 };
 
-exports.requestXRay = async (req, res) => {
+exports.requestCTScan = async (req, res) => {
   const connLokal = await dbLokal.promise().getConnection();
   const connERM = await dbERM.promise().getConnection();
 
   try {
-    const { registry_id, x_ray_id, x_ray_dtl_id, pengirim_id, pemeriksa_id, keluhan } = req.body;
+    const { registry_id, ct_scan_id, ct_scan_dtl_id, pengirim_id, pemeriksa_id, keluhan } = req.body;
 
-    if (!registry_id || !x_ray_dtl_id) {
-      throw new Error("registry_id dan x_ray_dtl_id wajib");
+    if (!registry_id || !ct_scan_dtl_id) {
+      throw new Error("registry_id dan ct_scan_dtl_id wajib");
     }
 
     await connLokal.beginTransaction();
@@ -353,8 +353,8 @@ exports.requestXRay = async (req, res) => {
       `
       SELECT 
         r.registry_id,
-        xrh.x_ray_id,
-        xrd.x_ray_dtl_id,
+        cth.ct_scan_id,
+        ctd.ct_scan_dtl_id,
         r.registry_dt,
         uv.unit_visit_dt,
         p.mr_code,
@@ -370,18 +370,18 @@ exports.requestXRay = async (req, res) => {
       FROM registry r
       JOIN patient p ON r.mr_id = p.mr_id
       JOIN unit_visit uv ON r.registry_id = uv.registry_id
-      JOIN x_ray_hdr xrh ON xrh.unit_visit_id = uv.unit_visit_id
-      JOIN x_ray_dtl xrd ON xrh.x_ray_id = xrd.x_ray_id
-      LEFT JOIN employee e ON e.employee_id = xrh.physician
-      LEFT JOIN employee e2 ON e2.employee_id = xrh.expert
+      JOIN ct_scan_hdr cth ON cth.unit_visit_id = uv.unit_visit_id
+      JOIN ct_scan_dtl ctd ON cth.ct_scan_id = ctd.ct_scan_id
+      LEFT JOIN employee e ON e.employee_id = cth.physician
+      LEFT JOIN employee e2 ON e2.employee_id = cth.expert
       LEFT JOIN erm_rswj.satusehat ss ON ss.registry_id = r.registry_id
-      WHERE r.registry_id = ? AND xrd.x_ray_dtl_id = ?
+      WHERE r.registry_id = ? AND ctd.ct_scan_dtl_id = ?
       LIMIT 1
       `,
-      [registry_id, x_ray_dtl_id]
+      [registry_id, ct_scan_dtl_id]
     );
 
-    if (!utama) throw new Error("Data X-Ray tidak ditemukan");
+    if (!utama) throw new Error("Data CT-Scan tidak ditemukan");
 
     // Validasi IHS
     if (!utama.patient_ihs) throw new Error("Patient belum punya IHS Number");
@@ -421,7 +421,7 @@ exports.requestXRay = async (req, res) => {
     await connERM.query(
       `
       INSERT INTO satusehat_service_request
-      (registry_id, x_ray_id, x_ray_dtl_id, service_request_uuid, code, display, status, created_at)
+      (registry_id, ct_scan_id, ct_scan_dtl_id, service_request_uuid, code, display, status, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
       ON DUPLICATE KEY UPDATE
         service_request_uuid = VALUES(service_request_uuid),
@@ -430,14 +430,14 @@ exports.requestXRay = async (req, res) => {
         status = VALUES(status),
         updated_at = NOW()
       `,
-      [registry_id, utama.x_ray_id, utama.x_ray_dtl_id, serviceRequestUUID, loinc_code, loinc_display, "active"]
+      [registry_id, utama.ct_scan_id, utama.ct_scan_dtl_id, serviceRequestUUID, loinc_code, loinc_display, "active"]
     );
 
-    // ====================== SIMPAN KE SIRAD_XRAY ======================
+    // ====================== SIMPAN KE radar_ctscan ======================
     await connLokal.query(
       `
-      INSERT INTO sirad_xray
-      (registry_id, x_ray_id, x_ray_dtl_id, service_request_id, status, ordered_by, keluhan, created_at)
+      INSERT INTO radar_ctscan
+      (registry_id, ct_scan_id, ct_scan_dtl_id, service_request_id, status, ordered_by, keluhan, created_at)
       VALUES (?, ?, ?, ?, 'ordered', ?, ?, NOW())
       ON DUPLICATE KEY UPDATE
         service_request_id = VALUES(service_request_id),
@@ -446,7 +446,7 @@ exports.requestXRay = async (req, res) => {
         keluhan = VALUES(keluhan),
         updated_at = NOW()
       `,
-      [registry_id, utama.x_ray_id, utama.x_ray_dtl_id, serviceRequestUUID, pengirim_id, keluhan]
+      [registry_id, utama.ct_scan_id, utama.ct_scan_dtl_id, serviceRequestUUID, pengirim_id, keluhan]
     );
 
     await connLokal.commit();
@@ -462,7 +462,7 @@ exports.requestXRay = async (req, res) => {
     await connLokal.rollback().catch(() => {});
     await connERM.rollback().catch(() => {});
 
-    console.error("PROSES XRAY ERROR:", err.message);
+    console.error("PROSES CTSCAN ERROR:", err.message);
     res.status(500).json({
       success: false,
       message: err.message
@@ -474,37 +474,37 @@ exports.requestXRay = async (req, res) => {
 };
 
 // ==================================
-// UPLOAD X-RAY + SEND IMAGING STUDY
+// UPLOAD CT-SCAN + SEND IMAGING STUDY
 // ==================================
-exports.uploadXRay = async (req, res) => {
+exports.uploadCTScan = async (req, res) => {
   const connLokal = await dbLokal.promise().getConnection();
   const connERM = await dbERM.promise().getConnection();
 
   let inTransaction = false;
 
   try {
-    const { registry_id, x_ray_id, x_ray_dtl_id, created_by } = req.body;
+    const { registry_id, ct_scan_id, ct_scan_dtl_id, created_by } = req.body;
 
-    if (!registry_id || !x_ray_dtl_id) {
-      throw new Error("registry_id dan x_ray_dtl_id wajib");
+    if (!registry_id || !ct_scan_dtl_id) {
+      throw new Error("registry_id dan ct_scan_dtl_id wajib");
     }
 
-    console.log("UPLOAD X-RAY BODY:", req.body);
+    console.log("UPLOAD CT-SCAN BODY:", req.body);
     console.log("FILES:", req.files);
 
     // Cek apakah sudah final di Avesina
     const [[cekFinal]] = await dbUtama.promise().query(
-      `SELECT photo_reading FROM x_ray_dtl WHERE x_ray_id = ? LIMIT 1`,
-      [x_ray_id]
+      `SELECT ct_scan_reading FROM ct_scan_dtl WHERE ct_scan_id = ? LIMIT 1`,
+      [ct_scan_id]
     );
 
-    const isFinal = !!cekFinal?.photo_reading;
+    const isFinal = !!cekFinal?.ct_scan_reading;
 
     // Ambil data lokal
     const [[existing]] = await connLokal.query(
-      `SELECT * FROM sirad_xray 
-       WHERE registry_id = ? AND x_ray_dtl_id = ? AND is_active = 1 LIMIT 1`,
-      [registry_id, x_ray_dtl_id]
+      `SELECT * FROM radar_ctscan 
+       WHERE registry_id = ? AND ct_scan_dtl_id = ? AND is_active = 1 LIMIT 1`,
+      [registry_id, ct_scan_dtl_id]
     );
 
     if (!existing) throw new Error("Data belum di-request");
@@ -512,8 +512,8 @@ exports.uploadXRay = async (req, res) => {
     // Cek ServiceRequest
     const [[sr]] = await connERM.query(
       `SELECT service_request_uuid FROM satusehat_service_request 
-       WHERE registry_id = ? AND x_ray_dtl_id = ? LIMIT 1`,
-      [registry_id, x_ray_dtl_id]
+       WHERE registry_id = ? AND ct_scan_dtl_id = ? LIMIT 1`,
+      [registry_id, ct_scan_dtl_id]
     );
 
     if (!sr?.service_request_uuid) {
@@ -524,20 +524,20 @@ exports.uploadXRay = async (req, res) => {
     const [[detail]] = await dbUtama.promise().query(
       `
       SELECT 
-        r.registry_id, xrh.x_ray_id, xrd.x_ray_dtl_id, xrh.measured_dt,
+        r.registry_id, cth.ct_scan_id, ctd.ct_scan_dtl_id, cth.measured_dt,
         ss.patient_ihs_number AS patient_ihs,
         ss.encounter_uuid,
         e.satusehat_ihs_number AS practitioner_ihs
       FROM registry r
       JOIN unit_visit uv ON r.registry_id = uv.registry_id
-      JOIN x_ray_hdr xrh ON xrh.unit_visit_id = uv.unit_visit_id
-      JOIN x_ray_dtl xrd ON xrd.x_ray_id = xrh.x_ray_id
-      LEFT JOIN employee e ON e.employee_id = xrh.expert
+      JOIN ct_scan_hdr cth ON cth.unit_visit_id = uv.unit_visit_id
+      JOIN ct_scan_dtl ctd ON ctd.ct_scan_id = cth.ct_scan_id
+      LEFT JOIN employee e ON e.employee_id = cth.expert
       LEFT JOIN erm_rswj.satusehat ss ON ss.registry_id = r.registry_id
-      WHERE r.registry_id = ? AND xrd.x_ray_dtl_id = ?
+      WHERE r.registry_id = ? AND ctd.ct_scan_dtl_id = ?
       LIMIT 1
       `,
-      [registry_id, x_ray_dtl_id]
+      [registry_id, ct_scan_dtl_id]
     );
 
     if (!detail?.patient_ihs || !detail?.encounter_uuid || !detail?.practitioner_ihs) {
@@ -556,21 +556,21 @@ exports.uploadXRay = async (req, res) => {
 
     // Generate Thumbnail
     const thumbName = `thumb_${Date.now()}.jpg`;
-    const thumbPath = path.join(__dirname, "../../uploads/xray", thumbName);
+    const thumbPath = path.join(__dirname, "../../uploads/ctscan", thumbName);
     const thumb = dicomToJpg(dicom.path, thumbPath);
 
     // Update Database
     await connLokal.query(
       `
-      UPDATE sirad_xray
+      UPDATE radar_ctscan
       SET dicom_path = ?, 
           foto1 = ?,
           created_by = ?,
           status = 'uploaded',
           updated_at = NOW()
-      WHERE registry_id = ? AND x_ray_dtl_id = ?
+      WHERE registry_id = ? AND ct_scan_dtl_id = ?
       `,
-      [dicom.filename, thumb.success ? thumbName : null, created_by, registry_id, x_ray_dtl_id]
+      [dicom.filename, thumb.success ? thumbName : null, created_by, registry_id, ct_scan_dtl_id]
     );
 
     await connLokal.commit();
@@ -584,18 +584,18 @@ exports.uploadXRay = async (req, res) => {
     };
 
     await connLokal.query(
-      `UPDATE sirad_xray SET uid_study = ?, uid_series = ?, uid_instance1 = ? 
-       WHERE registry_id = ? AND x_ray_dtl_id = ?`,
-      [uid.study, uid.series, uid.instance, registry_id, x_ray_dtl_id]
+      `UPDATE radar_ctscan SET uid_study = ?, uid_series = ?, uid_instance1 = ? 
+       WHERE registry_id = ? AND ct_scan_dtl_id = ?`,
+      [uid.study, uid.series, uid.instance, registry_id, ct_scan_dtl_id]
     );
 
     // Ambil modality dari mapping
     let modality = "CR";
     const [[tindakan]] = await dbUtama.promise().query(
-      `SELECT medical_service_name FROM x_ray_dtl xrd 
-       JOIN medical_service ms ON ms.medical_service_id = xrd.medical_service_id 
-       WHERE xrd.x_ray_id = ? LIMIT 1`,
-      [x_ray_id]
+      `SELECT medical_service_name FROM ct_scan_dtl ctd 
+       JOIN medical_service ms ON ms.medical_service_id = ctd.medical_service_id 
+       WHERE ctd.ct_scan_id = ? LIMIT 1`,
+      [ct_scan_id]
     );
 
     if (tindakan?.medical_service_name) {
@@ -631,7 +631,7 @@ exports.uploadXRay = async (req, res) => {
     await connERM.query(
       `
       INSERT INTO satusehat_imaging_study 
-      (registry_id, x_ray_id, x_ray_dtl_id, service_request_uuid, imaging_study_uuid, modality, status, created_at)
+      (registry_id, ct_scan_id, ct_scan_dtl_id, service_request_uuid, imaging_study_uuid, modality, status, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
       ON DUPLICATE KEY UPDATE 
         imaging_study_uuid = VALUES(imaging_study_uuid),
@@ -639,7 +639,7 @@ exports.uploadXRay = async (req, res) => {
         status = VALUES(status),
         updated_at = NOW()
       `,
-      [registry_id, x_ray_id, x_ray_dtl_id, sr.service_request_uuid, imagingId, modality, imagingStatus]
+      [registry_id, ct_scan_id, ct_scan_dtl_id, sr.service_request_uuid, imagingId, modality, imagingStatus]
     );
 
     res.json({
@@ -652,7 +652,7 @@ exports.uploadXRay = async (req, res) => {
 
   } catch (err) {
     if (inTransaction) await connLokal.rollback().catch(() => {});
-    console.error("UPLOAD X-RAY ERROR:", err);
+    console.error("UPLOAD CT-SCAN ERROR:", err);
 
     res.status(500).json({
       success: false,
@@ -673,9 +673,9 @@ exports.saveHasil = async (req, res) => {
   const connERM = await dbERM.promise().getConnection();
 
   try {
-    const { registry_id, x_ray_id, x_ray_dtl_id, hasil_bacaan, read_by } = req.body;
+    const { registry_id, ct_scan_id, ct_scan_dtl_id, hasil_bacaan, read_by } = req.body;
 
-    if (!registry_id || !x_ray_dtl_id) throw new Error("registry_id dan x_ray_dtl_id wajib");
+    if (!registry_id || !ct_scan_dtl_id) throw new Error("registry_id dan ct_scan_dtl_id wajib");
     if (!hasil_bacaan?.trim()) throw new Error("Hasil bacaan wajib diisi");
 
     await connLokal.beginTransaction();
@@ -683,11 +683,11 @@ exports.saveHasil = async (req, res) => {
 
     // Ambil data lokal
     const [[lokalData]] = await connLokal.query(
-      `SELECT x_ray_id, x_ray_dtl_id, status 
-       FROM sirad_xray 
-       WHERE registry_id = ? AND x_ray_dtl_id = ? AND is_active = 1 
+      `SELECT ct_scan_id, ct_scan_dtl_id, status 
+       FROM radar_ctscan 
+       WHERE registry_id = ? AND ct_scan_dtl_id = ? AND is_active = 1 
        LIMIT 1`,
-      [registry_id, x_ray_dtl_id]
+      [registry_id, ct_scan_dtl_id]
     );
 
     if (!lokalData) throw new Error("Data lokal tidak ditemukan");
@@ -697,32 +697,32 @@ exports.saveHasil = async (req, res) => {
     const [[existingObs]] = await connERM.query(
       `SELECT observation_uuid 
        FROM satusehat_observation 
-       WHERE registry_id = ? AND x_ray_dtl_id = ? 
+       WHERE registry_id = ? AND ct_scan_dtl_id = ? 
        LIMIT 1`,
-      [registry_id, x_ray_dtl_id]
+      [registry_id, ct_scan_dtl_id]
     );
 
     // Update ke tabel utama Avesina (jika belum ada hasil)
     await connUtama.query(
-      `UPDATE x_ray_dtl 
-       SET photo_reading = ? 
-       WHERE x_ray_id = ? AND x_ray_dtl_id = ?`,
-      [hasil_bacaan, lokalData.x_ray_id, x_ray_dtl_id]
+      `UPDATE ct_scan_dtl 
+       SET ct_scan_reading = ? 
+       WHERE ct_scan_id = ? AND ct_scan_dtl_id = ?`,
+      [hasil_bacaan, lokalData.ct_scan_id, ct_scan_dtl_id]
     );
 
     // Update tabel lokal
     await connLokal.query(
       `
-      UPDATE sirad_xray
+      UPDATE radar_ctscan
       SET 
         hasil_bacaan = ?,
         status = 'read',
         read_by = ?,
         read_at = NOW(),
         updated_at = NOW()
-      WHERE registry_id = ? AND x_ray_dtl_id = ?
+      WHERE registry_id = ? AND ct_scan_dtl_id = ?
       `,
-      [hasil_bacaan, read_by, registry_id, x_ray_dtl_id]
+      [hasil_bacaan, read_by, registry_id, ct_scan_dtl_id]
     );
 
     await connLokal.commit();
@@ -731,7 +731,7 @@ exports.saveHasil = async (req, res) => {
     // ==================== KIRIM OBSERVATION (jika belum pernah) ====================
     if (!existingObs?.observation_uuid) {
       try {
-        const payload = await buildPayloadFromDB(registry_id, x_ray_dtl_id);
+        const payload = await buildPayloadFromDB(registry_id, ct_scan_dtl_id);
 
         const cleanText = payload.hasil_bacaan
           ?.replace(/\r\n/g, "\n")
@@ -754,7 +754,7 @@ exports.saveHasil = async (req, res) => {
         await connERM.query(
           `
           INSERT INTO satusehat_observation
-          (registry_id, x_ray_id, x_ray_dtl_id, service_request_uuid, 
+          (registry_id, ct_scan_id, ct_scan_dtl_id, service_request_uuid, 
            observation_uuid, code, display, value_text, issued_at, created_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
           ON DUPLICATE KEY UPDATE
@@ -767,8 +767,8 @@ exports.saveHasil = async (req, res) => {
           `,
           [
             registry_id,
-            x_ray_id,
-            x_ray_dtl_id,
+            ct_scan_id,
+            ct_scan_dtl_id,
             payload.service_request_id,
             result.id,
             payload.loinc_code || "30745-4",
@@ -819,18 +819,18 @@ exports.sendDiagnostic = async (req, res) => {
   const connLokal = await dbLokal.promise().getConnection();
 
   try {
-    const { registry_id, x_ray_id, x_ray_dtl_id } = req.body;
+    const { registry_id, ct_scan_id, ct_scan_dtl_id } = req.body;
 
-    if (!registry_id || !x_ray_dtl_id) {
-      throw new Error("registry_id dan x_ray_dtl_id wajib");
+    if (!registry_id || !ct_scan_dtl_id) {
+      throw new Error("registry_id dan ct_scan_dtl_id wajib");
     }
 
     // Guard duplikasi
     const [[existing]] = await connERM.query(
       `SELECT diagnostic_report_uuid 
        FROM satusehat_diagnostic_report 
-       WHERE registry_id = ? AND x_ray_dtl_id = ? LIMIT 1`,
-      [registry_id, x_ray_dtl_id]
+       WHERE registry_id = ? AND ct_scan_dtl_id = ? LIMIT 1`,
+      [registry_id, ct_scan_dtl_id]
     );
 
     if (existing?.diagnostic_report_uuid) {
@@ -840,19 +840,19 @@ exports.sendDiagnostic = async (req, res) => {
       });
     }
 
-    const payload = await buildPayloadFromDB(registry_id, x_ray_dtl_id);
+    const payload = await buildPayloadFromDB(registry_id, ct_scan_dtl_id);
 
     // Ambil Observation & ImagingStudy
     const [[obs]] = await connERM.query(
       `SELECT observation_uuid FROM satusehat_observation 
-       WHERE registry_id = ? AND x_ray_dtl_id = ? LIMIT 1`,
-      [registry_id, x_ray_dtl_id]
+       WHERE registry_id = ? AND ct_scan_dtl_id = ? LIMIT 1`,
+      [registry_id, ct_scan_dtl_id]
     );
 
     const [[img]] = await connERM.query(
       `SELECT imaging_study_uuid FROM satusehat_imaging_study 
-       WHERE registry_id = ? AND x_ray_dtl_id = ? LIMIT 1`,
-      [registry_id, x_ray_dtl_id]
+       WHERE registry_id = ? AND ct_scan_dtl_id = ? LIMIT 1`,
+      [registry_id, ct_scan_dtl_id]
     );
 
     if (!obs?.observation_uuid) throw new Error("Observation belum tersedia");
@@ -875,7 +875,7 @@ exports.sendDiagnostic = async (req, res) => {
     await connERM.query(
       `
       INSERT INTO satusehat_diagnostic_report
-      (registry_id, x_ray_id, x_ray_dtl_id, service_request_uuid, 
+      (registry_id, ct_scan_id, ct_scan_dtl_id, service_request_uuid, 
        diagnostic_report_uuid, status, conclusion, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
       ON DUPLICATE KEY UPDATE
@@ -886,8 +886,8 @@ exports.sendDiagnostic = async (req, res) => {
       `,
       [
         registry_id,
-        x_ray_id,
-        x_ray_dtl_id,
+        ct_scan_id,
+        ct_scan_dtl_id,
         payload.service_request_id,
         result.id,
         result.status || "final",
@@ -897,10 +897,10 @@ exports.sendDiagnostic = async (req, res) => {
 
     // Update status lokal menjadi DONE
     await connLokal.query(
-      `UPDATE sirad_xray 
+      `UPDATE radar_ctscan 
        SET status = 'done', updated_at = NOW() 
-       WHERE registry_id = ? AND x_ray_dtl_id = ?`,
-      [registry_id, x_ray_dtl_id]
+       WHERE registry_id = ? AND ct_scan_dtl_id = ?`,
+      [registry_id, ct_scan_dtl_id]
     );
 
     res.json({

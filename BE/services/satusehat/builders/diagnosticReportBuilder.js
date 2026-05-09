@@ -27,13 +27,12 @@ export const buildDiagnosticReport = (
       },
     ],
     code: {
-      coding: [
-        {
-          system: "http://loinc.org",
-          code: "30745-4",
-        },
-      ],
-      text: "Hasil Radiologi",
+      coding: [{
+        system: "http://loinc.org",
+        code: data.loinc_code || "30745-4",
+        display: data.loinc_display || "Radiology Report"
+      }],
+      text: data.local_display || "Hasil Radiologi"
     },
     subject: {
       reference: `Patient/${data.patient_id}`,

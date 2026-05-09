@@ -15,15 +15,13 @@ export const buildObservation = (data) => {
         ],
       },
     ],
-    code: {
-      coding: [
-        {
-          system: "http://loinc.org",
-          code: "30745-4",
-          display: "Chest X-ray study",
-        },
-      ],
-      text: "Hasil Rontgen",
+    ccode: {
+      coding: [{
+        system: "http://loinc.org",
+        code: data.loinc_code || "30745-4",
+        display: data.loinc_display || "Radiology study"
+      }],
+      text: data.local_display || "Hasil Pemeriksaan Radiologi"
     },
     subject: {
       reference: `Patient/${data.patient_id}`,

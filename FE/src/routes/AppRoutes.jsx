@@ -78,6 +78,7 @@ import EntriBugarr from "../pages/wj_bugarr/EntriBugarr";
 
 // === SIRAD ===
 import MonitoringXRay from "../pages/wj_sirad/MonitoringXRay";
+import MonitoringCTScan from "../pages/wj_sirad/MonitoringCTScan";
 
 const AppRoutes = ({ setRightContent }) => {
     const { dashboard } = useAuth();
@@ -488,6 +489,11 @@ const AppRoutes = ({ setRightContent }) => {
             <Route path="/sirad/MonitoringXRay" element={
                 <ProtectedRoute allowedRoles={["admin", "radiografer", "radiolog"]}>
                     <MonitoringXRay setRightContent={setRightContent} />
+                </ProtectedRoute>
+            } />
+            <Route path="/sirad/MonitoringCTScan" element={
+                <ProtectedRoute allowedRoles={["admin", "radiografer", "radiolog"]}>
+                    <MonitoringCTScan setRightContent={setRightContent} />
                 </ProtectedRoute>
             } />
 

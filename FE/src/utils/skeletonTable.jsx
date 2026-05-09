@@ -1,5 +1,4 @@
 import React from "react";
-import PropTypes from "prop-types";
 import "../App.css";
 
 const SkeletonTable = ({
@@ -50,15 +49,6 @@ const SkeletonTable = ({
       </table>
     </div>
   );
-};
-
-SkeletonTable.propTypes = {
-  rows: PropTypes.number,
-  cols: PropTypes.number,
-  rowHeight: PropTypes.number,
-  headerHeight: PropTypes.number,
-  animated: PropTypes.bool,
-  responsive: PropTypes.bool,
 };
 
 export default SkeletonTable;
