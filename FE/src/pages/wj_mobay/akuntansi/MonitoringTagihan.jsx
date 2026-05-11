@@ -1,9 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { formatDateInput, formatSortDateTime } from "../../../utils/FormatDate";
 import { formatNumber, formatCurrency } from "../../../utils/FormatNumber";
+
 import {
-  fetchPaginatedMonitoringData
+  fetchPaginatedMonitoringData,
+  cetakMonitoringPDF
 } from "../../../api/wj_mobay/MonitoringTagihan";
+
 import { toast } from "react-toastify";
 import { useAuth } from "../../../context/AuthContext";
 import { Modal, Button } from "react-bootstrap";
@@ -176,6 +179,23 @@ const MonitoringTagihan = () => {
         </div>
       </div>
     );
+  };
+
+  const handleCetak = async (surat) => {
+    try {
+      const response = await cetakMonitoringPDF(surat);
+      const blob = new Blob(
+        [response.data],
+        {
+          type: "application/pdf"
+        }
+      );
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, "_blank");
+    } catch (err) {
+      console.error(err);
+      toast.error("Gagal mencetak PDF");
+    }
   };
 
   // -----------------------
@@ -365,7 +385,7 @@ const MonitoringTagihan = () => {
 
                         <td className="text-center">
                           <button
-                            className="btn btn-sm btn-primary"
+                            className="btn btn-sm btn-primary mb-1"
                             onClick={() =>
                               setExpandedSurat(
                                 expandedSurat === surat.pengajuan_id
@@ -375,6 +395,12 @@ const MonitoringTagihan = () => {
                             }
                           >
                             Detail
+                          </button>
+                          <button
+                            className="btn btn-sm btn-success"
+                            onClick={() => handleCetak(surat)}
+                          >
+                            Cetak
                           </button>
                         </td>
                       </tr>

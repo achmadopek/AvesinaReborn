@@ -239,12 +239,21 @@ exports.createPengiriman = async (req, res) => {
 
     // ================= AMBIL DATA PENGAJUAN =================
     const [pengajuanList] = await conn.query(`
-      SELECT id, no_surat, tanggal_surat, tujuan, keterangan, total_pengajuan
-      FROM mobay_pengajuan
-      WHERE id IN (?)
+      SELECT 
+        mp.id,
+        mp.no_surat,
+        mp.tanggal_surat,
+        mp.tujuan,
+        mp.keterangan,
+        mp.total_pengajuan,
+        GROUP_CONCAT(DISTINCT mpo.prvdr_str SEPARATOR ', ') AS prvdr_str
+      FROM mobay_pengajuan mp
+      LEFT JOIN mobay_mirror_po mpo
+        ON mpo.pengajuan_id = mp.id
+      WHERE mp.id IN (?)
+      GROUP BY mp.id
     `, [pengajuan_ids]);
 
-    // ================= INSERT DETAIL + UPDATE STATUS =================
     // ================= INSERT DETAIL + UPDATE STATUS =================
     for (const p of pengajuanList) {
       await conn.query(`
@@ -313,6 +322,9 @@ const generatePDFPengiriman = (res, data) => {
   doc.pipe(res);
 
   // ================= HEADER =================
+  doc.fontSize(14).text("UOBK RSUD WALUYO JATI", {
+    align: "center",
+  });
   doc.fontSize(14).text("DAFTAR PENGIRIMAN BERKAS PENGAJUAN", {
     align: "center",
   });
@@ -344,9 +356,10 @@ const generatePDFPengiriman = (res, data) => {
   doc.fontSize(9);
   doc.text("No", 50, y);
   doc.text("No Surat", 80, y);
-  doc.text("Tgl Surat", 220, y);
-  doc.text("Keterangan", 280, y);
-  doc.text("Total", 400, y);
+  doc.text("Tgl Surat", 170, y);
+  doc.text("Keterangan", 230, y);
+  doc.text("Total", 330, y);
+  doc.text("Provider", 430, y);
 
   y += 20;
   doc.font("Helvetica");
@@ -362,9 +375,10 @@ const generatePDFPengiriman = (res, data) => {
       doc.font("Helvetica-Bold");
       doc.text("No", 50, y);
       doc.text("No Surat", 80, y);
-      doc.text("Tgl Surat", 220, y);
-      doc.text("Keterangan", 280, y);
-      doc.text("Total", 420, y);
+      doc.text("Tgl Surat", 170, y);
+      doc.text("Keterangan", 230, y);
+      doc.text("Total", 330, y);
+      doc.text("Provider", 430, y);
 
       y += 20;
       doc.font("Helvetica");
@@ -372,9 +386,10 @@ const generatePDFPengiriman = (res, data) => {
 
     doc.text(index + 1, 50, y);
     doc.text(p.no_surat, 80, y);
-    doc.text(formatTanggalIndo(p.tanggal_surat), 220, y);
-    doc.text(p.keterangan || "-", 280, y, { width: 110 });
-    doc.text(formatRupiah(p.total_pengajuan) || "-", 420, y, { width: 150 });
+    doc.text(formatTanggalIndo(p.tanggal_surat), 170, y);
+    doc.text(p.keterangan || "-", 230, y, { width: 110 });
+    doc.text(formatRupiah(p.total_pengajuan) || "-", 330, y, { width: 130 });
+    doc.text(p.prvdr_str || "-", 430, y, { width: 150 });
 
     y += 20;
   });
@@ -382,19 +397,54 @@ const generatePDFPengiriman = (res, data) => {
   y += 20;
 
   // ================= FOOTER =================
-  doc.moveDown(2);
+  const leftX = 50;
+  const rightX = 350;
+
+  const signWidth = 180;
+  const footerY = y + 20;
+
+  // tanggal
+  doc.font("Helvetica");
   doc.fontSize(11);
 
-  doc.text(`Kraksaan, diterima tgl: ________________________ `, 50, y);
-  doc.text(`Kraksaan, ${formatTanggalIndo(tanggal_pengiriman)} `, 350, y);
+  doc.text(
+    "Kraksaan, diterima tgl: ________________________",
+    leftX,
+    footerY
+  );
 
-  doc.text("Penerima,", 50, y + 20);
-  doc.text("Pengirim,", 350, y + 20);
+  doc.text(
+    `Kraksaan, ${formatTanggalIndo(tanggal_pengiriman)}`,
+    rightX,
+    footerY, {
+      width: signWidth,
+      align: "center"
+    }
+  );
 
-  doc.moveDown(4);
+  // label
+  doc.text("Penerima,", leftX, footerY + 25, {
+    width: signWidth,
+    align: "center"
+  });
+
+  doc.text("Pengirim,", rightX, footerY + 25, {
+    width: signWidth,
+    align: "center"
+  });
+
+  // garis
   doc.font("Helvetica-Bold");
-  doc.text("_________________________", 50);
-  doc.text("_________________________", 350);
+
+  doc.text("_________________________", leftX, footerY + 80, {
+    width: signWidth,
+    align: "center"
+  });
+
+  doc.text("_________________________", rightX, footerY + 80, {
+    width: signWidth,
+    align: "center"
+  });
 
   doc.end();
 };

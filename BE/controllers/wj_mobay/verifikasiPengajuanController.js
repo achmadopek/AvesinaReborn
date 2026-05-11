@@ -75,6 +75,7 @@ exports.getData = async (req, res) => {
         sp.no_verifikasi,
         sp.tanggal_surat,
         sp.created_at AS tgl_pengajuan,
+        sp.jenis_pengajuan,
 
         d.id AS item_id,
         d.drug_equi_id,
@@ -130,6 +131,7 @@ exports.getData = async (req, res) => {
           no_verifikasi: r.no_verifikasi,
           tgl_surat: r.tanggal_surat,
           tgl_pengajuan: r.tgl_pengajuan,
+          jenis_pengajuan: r.jenis_pengajuan,
           tgl_konsolidasi: r.invoice_consolidated_dt,
           tgl_terima: r.invoice_accepted_dt,
           tgl_verifikasi: r.invoice_verified_dt,
@@ -373,18 +375,18 @@ const generatePDF = (res, payload, checklist = {}) => {
   const {
     no_surat,
     no_verifikasi,
-    tujuan,
+    tujuan = "Bagian Keuangan",
     prvdr_str,
     prvdr_address,
     keterangan,
     tanggal_surat,
+    jenis_pengajuan = 'V6',
     invoiceDetails = []
   } = payload;
 
   const doc = new PDFDocument({ size: "A4", margin: 50 });
 
   const safeNo = (no_verifikasi || "NO").replace(/[\/\\]/g, "-");
-
   const fileName = `Lembar_Verifikasi_${safeNo}.pdf`;
 
   res.setHeader("Content-Type", "application/pdf");
@@ -393,35 +395,51 @@ const generatePDF = (res, payload, checklist = {}) => {
 
   doc.pipe(res);
 
-  // ================= SPLIT DATA =================
+  // ================= DATA PREPARATION =================
   const validInvoices = invoiceDetails.filter(i => i.status_validasi === "Valid");
   const invalidInvoices = invoiceDetails.filter(i => i.status_validasi !== "Valid");
 
-  const grandTotal = validInvoices.reduce((s, v) => s + Number(v.diajukan || 0), 0);
-  const grandPPN = validInvoices.reduce((s, v) => s + Number(v.ppn || 0), 0);
-  const grandPPh = validInvoices.reduce((s, v) => s + Number(v.pph || 0), 0);
+  const grandTotal = validInvoices.reduce((sum, inv) => sum + Number(inv.diajukan || 0), 0);
+  const grandPPN   = validInvoices.reduce((sum, inv) => sum + Number(inv.ppn || 0), 0);
+  const grandPPh   = validInvoices.reduce((sum, inv) => sum + Number(inv.pph || 0), 0);
 
-  const formatRupiah = (angka) =>
-    Number(angka || 0).toLocaleString("id-ID", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    });
-
-  const formatTanggalIndo = (tgl) =>
-    new Date(tgl).toLocaleDateString("id-ID");
-  
-  const formatTanggalPanjang = (tgl) => {
-    return new Date(tgl).toLocaleDateString("id-ID", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
-  };
+  const cleanAddress = (prvdr_address || "").replace(/\r/g, "").trim();
 
   let y = 50;
   let isFirstPage = true;
 
-  // ================= HEADER FULL (HANYA HALAMAN 1) =================
+  // ================= HELPER =================
+  const formatRupiah = (angka) => Number(angka || 0).toLocaleString("id-ID");
+
+  const formatTanggalPanjang = (tgl) => 
+    new Date(tgl).toLocaleDateString("id-ID", {
+      day: "numeric", month: "long", year: "numeric"
+    });
+
+  const getChecklistItems = () => {
+    if (jenis_pengajuan === 'V5') {
+      return [
+        { key: "kwitansi", label: "Kwitansi" },
+        { key: "faktur_nota", label: "Faktur / Nota" },
+        { key: "faktur_pajak", label: "Faktur Pajak" },
+        { key: "kelengkapan", label: "Kelengkapan (SIUP, TDP, NPWP, No. Rek)" },
+        { key: "rba", label: "Fotokopi RBA" },
+        { key: "dokumentasi", label: "Dokumentasi Kegiatan" },
+      ];
+    }
+    return [
+      { key: "kwitansi", label: "Kwitansi" },
+      { key: "invoice", label: "Invoice dari Sistem" },
+      { key: "sp", label: "Surat Pesanan dari Sistem" },
+      { key: "bast", label: "BAST dari Sistem" },
+      { key: "rba", label: "Fotokopi RBA" },
+      { key: "dokumentasi", label: "Dokumentasi Kegiatan" },
+    ];
+  };
+
+  const checklistItems = getChecklistItems();
+
+  // ================= HEADER FULL =================
   const renderHeaderFull = () => {
     y = 140;
 
@@ -429,7 +447,7 @@ const generatePDF = (res, payload, checklist = {}) => {
     doc.fontSize(10).text("BELANJA\nBARANG / JASA", 55, 50);
 
     doc.rect(420, 40, 100, 40).stroke();
-    doc.fontSize(18).text("V6", 455, 50);
+    doc.fontSize(18).text(jenis_pengajuan, 455, 52);
 
     doc.fontSize(12).text("LEMBAR VERIFIKASI", 225, 50);
     doc.fontSize(10).text(`No. ${no_verifikasi}`, 230, 70);
@@ -442,70 +460,69 @@ const generatePDF = (res, payload, checklist = {}) => {
     y += 25;
 
     doc.text("Nama", 50, y);
-    doc.text(`: ${prvdr_str}`, 150, y);
+    doc.text(`: ${prvdr_str || "-"}`, 150, y);
     y += 20;
 
     doc.text("Alamat", 50, y);
-    doc.text(`: ${prvdr_address}`, 150, y);
-    y += 30;
+    doc.text(`: ${cleanAddress}`, 150, y, { width: 350 });
+    y += 25 + 25;
 
     doc.text("Kegiatan belanja", 50, y);
-    doc.text(`: ${keterangan}`, 150, y, { width: 350 });
-    y += 20;
+    doc.text(`: ${keterangan || "-"}`, 150, y, { width: 350 });
+    y += 30;
 
+    // ================= CHECKLIST =================
     doc.text("Kelengkapan dokumen :", 50, y);
-    y += 20;
-
-    const checklistItems = [
-      { key: "kwitansi", label: "Kwitansi" },
-      { key: "invoice", label: "Invoice dari Sistem" },
-      { key: "sp", label: "Surat Pesanan dari Sistem" },
-      { key: "bast", label: "BAST dari Sistem" },
-      { key: "rba", label: "Fotokopi RBA" },
-      { key: "dokumentasi", label: "Dokumentasi Kegiatan" },
-    ];
+    y += 22;
 
     checklistItems.forEach((item, index) => {
-      const isChecked = checklist?.[item.key];
+      const isChecked = !!checklist?.[item.key];
 
       doc.rect(60, y - 2, 12, 12).stroke();
 
       if (isChecked) {
-        doc.font("Helvetica-Bold").text("V", 62, y - 1);
+        doc.font("Helvetica-Bold").text("V", 62.5, y - 1);
         doc.font("Helvetica");
       }
 
       doc.text(`${index + 1}. ${item.label}`, 80, y);
-      y += 20;
+      y += 19;                    // <-- dikurangi sedikit
     });
 
-    y += 30;
+    y += 15;   // Jarak setelah checklist (sebelum tanda tangan)
 
-    doc.text("Mengetahui,", 50, y);
-    y += 18;
-    doc.text("Pejabat Penatausahaan Keuangan", 50, y);
-
-    doc.text(`Kraksaan, ${formatTanggalPanjang(tanggal_surat)}`, 350, y - 18);
-    doc.text("Petugas Verifikasi,", 350, y);
-
-    y += 60;
-
-    doc.font("Helvetica-Bold");
-
-    doc.text("YULI SUCIATI ZAINI PUTRI, S.E.", 50, y);
-    doc.text("SAFI'I, S.H.", 350, y);
-
-    y += 15;
-
-    doc.font("Helvetica");
-    doc.text("NIP. 19790713 201001 2 002", 50, y);
-    doc.text("NIP. 19811004 200903 1 001", 350, y);
-
-    y += 40;
-
+    renderSignatureSection();
   };
 
-  // ================= HEADER TABEL =================
+  // ================= TANDA TANGAN =================
+  const renderSignatureSection = () => {
+    const leftX = 50;
+    const rightX = 350;
+    const signWidth = 200;
+    const startY = y;
+
+    doc.font("Helvetica").fontSize(11);
+
+    doc.text("Mengetahui,", leftX, startY, { width: signWidth, align: "center" });
+    doc.text(`Kraksaan, ${formatTanggalPanjang(tanggal_surat)}`, rightX, startY, { width: signWidth, align: "center" });
+
+    doc.text("Pejabat Penatausahaan Keuangan", leftX, startY + 18, { width: signWidth, align: "center" });
+    doc.text("Petugas Verifikasi,", rightX, startY + 18, { width: signWidth, align: "center" });
+
+    // Nama
+    doc.font("Helvetica-Bold");
+    doc.text("YULI SUCIATI ZAINI PUTRI, S.E.", leftX, startY + 75, { width: signWidth, align: "center" });
+    doc.text("SAFI'I, S.H.", rightX, startY + 75, { width: signWidth, align: "center" });
+
+    // NIP
+    doc.font("Helvetica");
+    doc.text("NIP. 19790713 201001 2 002", leftX, startY + 93, { width: signWidth, align: "center" });
+    doc.text("NIP. 19811004 200903 1 001", rightX, startY + 93, { width: signWidth, align: "center" });
+
+    y = startY + 130;   // Naikkan y setelah tanda tangan
+  };
+
+  // ================= TABLE HEADER =================
   const drawTableHeader = () => {
     doc.font("Helvetica-Bold").fontSize(8);
 
@@ -518,16 +535,13 @@ const generatePDF = (res, payload, checklist = {}) => {
     doc.text("Verif", 525, y);
 
     y += 15;
-
     doc.moveTo(50, y).lineTo(550, y).stroke();
-
-    y += 5;
+    y += 8;
     doc.font("Helvetica");
   };
 
-  // ================= TABLE =================
-  const renderTable = (data, isValidPage = true) => {
-
+  // ================= RENDER TABLE =================
+  const renderTable = (invoices, isValidPage = true) => {
     if (isFirstPage) {
       renderHeaderFull();
       isFirstPage = false;
@@ -535,94 +549,69 @@ const generatePDF = (res, payload, checklist = {}) => {
       y = 50;
     }
 
-    doc.font("Helvetica-Bold").fontSize(8);
-    doc.text("Rincian Invoice :", 50, y);
+    doc.font("Helvetica-Bold").fontSize(8).text("Rincian Invoice :", 50, y);
     y += 20;
-
     drawTableHeader();
 
     const pageHeight = doc.page.height - doc.page.margins.bottom;
 
-    data.forEach((inv, i) => {
-
-      const rowHeight = 20;
-
-      if (y + rowHeight > pageHeight) {
+    invoices.forEach((inv, i) => {
+      if (y + 25 > pageHeight) {
         doc.addPage();
         y = 50;
-
-        doc.font("Helvetica-Bold").fontSize(8);
-        doc.text("Rincian Invoice :", 50, y);
+        doc.font("Helvetica-Bold").fontSize(8).text("Rincian Invoice :", 50, y);
         y += 20;
-
         drawTableHeader();
       }
 
       doc.font("Helvetica").fontSize(8);
-
       doc.text(i + 1, 50, y);
-      doc.text(inv.invoice_no, 70, y);
-
+      doc.text(inv.invoice_no || "-", 70, y);
       doc.text(formatRupiah(inv.diajukan), 170, y);
       doc.text(formatRupiah(inv.dpp), 270, y);
       doc.text(formatRupiah(inv.ppn), 370, y);
       doc.text(formatRupiah(inv.pph), 450, y);
 
-      // checkbox
       doc.rect(535, y, 10, 10).stroke();
-
-      doc.font("Helvetica-Bold").fontSize(8);
-      doc.text(
-        inv.status_validasi === "Valid" ? "V" : "X",
-        537,
-        y + 2
+      doc.font("Helvetica-Bold").text(
+        inv.status_validasi === "Valid" ? "V" : "X", 537, y + 2
       );
-
       doc.font("Helvetica");
 
-      y += rowHeight;
+      y += 20;
     });
 
-    // ================= TOTAL =================
     if (isValidPage) {
+      if (y + 90 > pageHeight) doc.addPage(), y = 50;
 
-      const sisa = doc.page.height - doc.page.margins.bottom - y;
-
-      if (sisa < 60) {
-        doc.addPage();
-        y = 50;
-      }
-
-      y += 10;
-
+      y += 12;
       doc.moveTo(50, y).lineTo(550, y).stroke();
-      y += 10;
+      y += 15;
 
       doc.font("Helvetica-Bold").fontSize(10);
-
       doc.text("Jumlah Belanja", 50, y);
       doc.text("Rp. " + formatRupiah(grandTotal), 220, y);
+      y += 18;
 
-      y += 20;
       doc.text("PPN", 50, y);
       doc.text("Rp. " + formatRupiah(grandPPN), 220, y);
+      y += 18;
 
-      y += 20;
       doc.text("PPh 22", 50, y);
       doc.text("Rp. " + formatRupiah(grandPPh), 220, y);
-
-      doc.font("Helvetica");
     }
   };
 
-  // ================= RENDER =================
+  // ================= RENDER PDF =================
   renderTable(validInvoices, true);
 
   if (invalidInvoices.length > 0) {
     doc.addPage();
-    doc.text("DAFTAR INVOICE TIDAK VALID", 50, 30);
+    doc.font("Helvetica-Bold").fontSize(12).text("DAFTAR INVOICE TIDAK VALID", 50, 45);
     renderTable(invalidInvoices, false);
   }
 
   doc.end();
 };
+
+//module.exports = { generatePDF }; // kalau mau di-export

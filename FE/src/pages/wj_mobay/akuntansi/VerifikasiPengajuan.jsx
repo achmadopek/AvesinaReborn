@@ -46,6 +46,8 @@ const VerifikasiPengajuan = () => {
   const [invoice, setInvoice] = useState("");
   const [drug, setDrug] = useState("");
 
+  const [jenisPengajuanMap, setJenisPengajuanMap] = useState({});
+
   const [verifikasiData, setVerifikasiData] = useState({
     surat_id: null,
     po_acce_id: null,
@@ -127,10 +129,19 @@ const VerifikasiPengajuan = () => {
       const normalized = res.data || [];
       setData(normalized);
 
-      const draft = {};
-      normalized.forEach((inv) => {
-        draft[inv.po_acce_id] = inv.status_validasi === "Valid";
+      // === MAPPING JENIS PENGAJUAN ===
+      const jenisMap = {};
+      normalized.forEach((surat) => {
+        if (surat.surat_id) {
+          jenisMap[surat.surat_id] = surat.jenis_pengajuan || 'V6';
+        }
       });
+
+      setJenisPengajuanMap(jenisMap);
+
+      // Debug
+      //console.log("✅ Data Loaded:", normalized.length, "surat");
+      //console.log("📌 Jenis Pengajuan Map:", jenisMap);
 
     } catch (err) {
       console.error(err);
@@ -245,6 +256,10 @@ const VerifikasiPengajuan = () => {
       return;
     }
 
+    const currentJenis = jenisPengajuanMap[surat_id] || "V6";
+
+    //console.log(`Finalisasi surat_id: ${surat_id} | Jenis: ${currentJenis}`); // ← Debug penting
+
     Swal.fire({
       icon: "question",
       title: "Finalisasi Verifikasi?",
@@ -255,22 +270,65 @@ const VerifikasiPengajuan = () => {
         setVerifikasiData((prev) => ({
           ...prev,
           surat_id,
+          jenis_pengajuan: currentJenis,
           items: prev.items || []
         }));
+
+        setChecklist(getDefaultChecklist(currentJenis));
         setShowChecklistModal(true);
       }
     });
   };
 
-  const resetChecklist = () => {
-    setChecklist({
-      kwitansi: false,
-      invoice: false,
-      sp: false,
-      bast: false,
-      rba: false,
-      dokumentasi: false
-    });
+  // Helper
+  const getDefaultChecklist = (jenis) => {
+    if (jenis === 'V5') {
+      return {
+        kwitansi: false,
+        faktur_nota: false,
+        faktur_pajak: false,
+        kelengkapan: false,
+        rba: false,
+        dokumentasi: false,
+      };
+    } else {
+      return {
+        kwitansi: false,
+        invoice: false,
+        sp: false,
+        bast: false,
+        rba: false,
+        dokumentasi: false,
+      };
+    }
+  };
+
+  // Helper untuk mendapatkan daftar checklist sesuai jenis pengajuan
+  const getChecklistItems = (jenis) => {
+    if (jenis === 'V5') {
+      return [
+        ["kwitansi", "Kwitansi"],
+        ["faktur_nota", "Faktur / Nota"],
+        ["faktur_pajak", "Faktur Pajak"],
+        ["kelengkapan", "Kelengkapan (SIUP, TDP, NPWP, No. Rek)"],
+        ["rba", "Fotokopi RBA"],
+        ["dokumentasi", "Dokumentasi Kegiatan"],
+      ];
+    } else {
+      // Default V6
+      return [
+        ["kwitansi", "Kwitansi"],
+        ["invoice", "Invoice dari Sistem"],
+        ["sp", "Surat Pesanan dari Sistem"],
+        ["bast", "BAST dari Sistem"],
+        ["rba", "Fotokopi RBA"],
+        ["dokumentasi", "Dokumentasi Kegiatan"],
+      ];
+    }
+  };
+
+  const resetChecklist = (jenis = 'V6') => {
+    setChecklist(getDefaultChecklist(jenis));
   };
 
   const generatePdfWithChecklist = async () => {
@@ -368,7 +426,7 @@ const VerifikasiPengajuan = () => {
       // ===============================
       // 8. RESET STATE
       // ===============================
-      resetChecklist();
+      resetChecklist(verifikasiData?.jenis_pengajuan);
       setShowChecklistModal(false);
 
     } catch (err) {
@@ -606,51 +664,46 @@ const VerifikasiPengajuan = () => {
 
       {/* ================= MODAL CENTANG KELANGKAPAN ================= */}
       <Modal show={showChecklistModal} onHide={() => setShowChecklistModal(false)} centered>
-      <Modal.Header closeButton>
-        <Modal.Title>Kelengkapan Dokumen</Modal.Title>
-      </Modal.Header>
+        <Modal.Header closeButton>
+          <Modal.Title>
+            Kelengkapan Dokumen {verifikasiData?.jenis_pengajuan && `(${verifikasiData.jenis_pengajuan})`}
+          </Modal.Title>
+        </Modal.Header>
 
-      <Modal.Body>
-        {[
-          ["kwitansi", "Kwitansi"],
-          ["invoice", "Invoice dari Sistem"],
-          ["sp", "Surat Pesanan dari Sistem"],
-          ["bast", "BAST dari Sistem"],
-          ["rba", "Fotokopi RBA"],
-          ["dokumentasi", "Dokumentasi Kegiatan"],
-        ].map(([key, label]) => (
-          <div key={key} className="form-check">
-            <input
-              type="checkbox"
-              className="form-check-input"
-              checked={checklist[key]}
-              onChange={(e) =>
-                setChecklist(prev => ({
-                  ...prev,
-                  [key]: e.target.checked
-                }))
-              }
-            />
-            <label className="form-check-label ms-2">{label}</label>
-          </div>
-        ))}
-      </Modal.Body>
+        <Modal.Body>
+          {getChecklistItems(verifikasiData?.jenis_pengajuan).map(([key, label]) => (
+            <div key={key} className="form-check mb-2">
+              <input
+                type="checkbox"
+                className="form-check-input"
+                checked={!!checklist[key]}
+                onChange={(e) =>
+                  setChecklist(prev => ({
+                    ...prev,
+                    [key]: e.target.checked
+                  }))
+                }
+              />
+              <label className="form-check-label ms-2">{label}</label>
+            </div>
+          ))}
+        </Modal.Body>
 
-      <Modal.Footer>
-        <Button variant="secondary" onClick={() => setShowChecklistModal(false)}>
-          Batal
-        </Button>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowChecklistModal(false)}>
+            Batal
+          </Button>
 
-        <Button
-          variant="success"
-          onClick={async () => {
-            await generatePdfWithChecklist();
-          }}
-        >
-          Cetak PDF
-        </Button>
-      </Modal.Footer>
-    </Modal>
+          <Button
+            variant="success"
+            onClick={async () => {
+              await generatePdfWithChecklist();
+            }}
+          >
+            Cetak PDF
+          </Button>
+        </Modal.Footer>
+      </Modal>
 
       {/* ================= CARD ================= */}
       <div className="card shadow-sm card-theme">

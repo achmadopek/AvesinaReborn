@@ -1320,7 +1320,9 @@ async function ambilDataBySurat(surat_id) {
       po.status_validasi,
       msp.no_surat,
       msp.no_verifikasi,
-      msp.tanggal_surat
+      msp.tanggal_surat,
+      msp.jenis_pengajuan,
+      msp.keterangan
     FROM mobay_mirror_po po
     JOIN mobay_pengajuan msp 
       ON po.pengajuan_id = msp.id 
@@ -1365,10 +1367,12 @@ async function ambilDataBySurat(surat_id) {
     no_surat: rows[0].no_surat,
     no_verifikasi: rows[0].no_verifikasi,
     tanggal_surat: rows[0].tanggal_surat,
+    jenis_pengajuan: rows[0].jenis_pengajuan,
+
     tujuan: "Bagian Keuangan",
     prvdr_str: rows[0].prvdr_str,
     prvdr_address: rows[0].prvdr_address,
-    keterangan: "Pembayaran invoice sesuai terlampir",
+    keterangan: rows[0].keterangan,
 
     invoiceDetails,
     grandTotal,
