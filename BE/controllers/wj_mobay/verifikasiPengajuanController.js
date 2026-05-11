@@ -469,7 +469,12 @@ const generatePDF = (res, payload, checklist = {}) => {
 
     doc.text("Kegiatan belanja", 50, y);
     doc.text(`: ${keterangan || "-"}`, 150, y, { width: 350 });
+    
+    doc.font("Helvetica-Bold").fontSize(12);
+    doc.text("Rp. " + formatRupiah(grandTotal), 370, y);
     y += 30;
+
+    doc.font("Helvetica").fontSize(11);
 
     // ================= CHECKLIST =================
     doc.text("Kelengkapan dokumen :", 50, y);
