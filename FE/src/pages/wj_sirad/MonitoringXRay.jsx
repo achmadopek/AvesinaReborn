@@ -233,19 +233,28 @@ const MonitoringXRay = (
     const formData = new FormData();
     formData.append("registry_id", selectedUpload.registry_id);
     formData.append("x_ray_id", selectedUpload.x_ray_id);
-    formData.append("x_ray_dtl_id", selectedUpload.x_ray_dtl_id);   // ← WAJIB
+    formData.append("x_ray_dtl_id", selectedUpload.x_ray_dtl_id);
     formData.append("dicom", dicomFile);
 
     if (peg_id) formData.append("created_by", peg_id);
 
     setUploading(true);
     try {
-      await uploadXRay(formData);
-      toast.success("Upload DICOM berhasil");
-      setShowUploadModal(false);
-      loadData(currentPage, tanggal);
+      const res = await uploadXRay(formData);
+
+      if (res.success) {
+        toast.success(res.satusehat_imaging === "success" 
+          ? "Upload DICOM & ImagingStudy berhasil" 
+          : "Upload DICOM berhasil (SatuSehat Imaging pending)");
+        
+        setShowUploadModal(false);
+        loadData(currentPage, tanggal);
+      } else {
+        toast.error(res.message || "Upload gagal");
+      }
     } catch (err) {
       toast.error("Upload gagal");
+      console.error(err);
     } finally {
       setUploading(false);
     }
@@ -288,7 +297,7 @@ const MonitoringXRay = (
     try {
       setSaving(true);
 
-      await saveHasilXRay({
+      const res = await saveHasilXRay({
         registry_id: selectedBaca.registry_id,
         x_ray_id: selectedBaca.x_ray_id,
         x_ray_dtl_id: selectedBaca.x_ray_dtl_id,
@@ -296,7 +305,13 @@ const MonitoringXRay = (
         read_by: peg_id,
       });
 
-      toast.success("Hasil bacaan berhasil disimpan & dikirim ke SatuSehat");
+      if (res.success) {
+        toast.success(res.observation_sent 
+          ? "Hasil bacaan berhasil disimpan & dikirim ke SatuSehat" 
+          : "Hasil bacaan berhasil disimpan (SatuSehat pending)");
+      } else {
+        toast.error(res.message || "Gagal menyimpan hasil");
+      }
 
       setShowBacaModal(false);
       setHasilBacaan("");
@@ -313,14 +328,24 @@ const MonitoringXRay = (
   const handleSendDiagnosticReport = async () => {
     try {
       setLoading(true);
-  
-      const res = await sendDiagnostic(selectedReport.registry_id, selectedReport.x_ray_id, selectedReport.x_ray_dtl_id);
-  
-      toast.success("DiagnosticReport berhasil dikirim");
-  
+    
+      const res = await sendDiagnostic(
+        selectedReport.registry_id, 
+        selectedReport.x_ray_id, 
+        selectedReport.x_ray_dtl_id
+      );
+
+      if (res.success) {
+        toast.success(res.satusehat === "success" 
+          ? "DiagnosticReport berhasil dikirim" 
+          : "Status lokal berhasil diupdate (SatuSehat pending)");
+      } else {
+        toast.error(res.message || "Gagal kirim DiagnosticReport");
+      }
+
       setShowReportModal(false);
       loadData(currentPage, tanggal);
-  
+    
     } catch (err) {
       console.error(err);
       toast.error(err?.response?.data?.message || "Gagal kirim DiagnosticReport");
@@ -528,15 +553,18 @@ const MonitoringXRay = (
 
       const res = await requestXRay({
         registry_id: selectedDetail.registry_id,
-        x_ray_id: selectedDetail.x_ray_id,           // tambahkan
-        x_ray_dtl_id: selectedDetail.x_ray_dtl_id,   // ← WAJIB
+        x_ray_id: selectedDetail.x_ray_id,
+        x_ray_dtl_id: selectedDetail.x_ray_dtl_id,
         pengirim_id: selectedDetail.pengirim_id,
         pemeriksa_id: selectedDetail.pemeriksa_id,
         keluhan: keluhan,
       });
 
       if (res.success) {
-        toast.success("Berhasil membuat order X-Ray");
+        toast.success(res.satusehat === "success" 
+          ? "Berhasil membuat order X-Ray & SatuSehat" 
+          : "Berhasil membuat order X-Ray (SatuSehat pending)");
+        
         setShowRequestModal(false);
         loadData(currentPage, tanggal);
       } else {
@@ -1424,26 +1452,22 @@ const MonitoringXRay = (
                   // radiolog ada (optional kalau dipakai)
                   const hasPemeriksa = !!pemeriksa_ihs;
 
-                  const canRequest =
-                    //isNotFinal &&
-                    patient &&
-                    encounter &&
-                    hasPengirim &&
-                    hasPemeriksa &&
-                    hasValidTindakan &&
-                    !service_request;
+                  // ==================== LOGIC TOMBOL (DI-RELAX) ====================
+                  const canRequest = 
+                    hasPengirim && 
+                    hasPemeriksa && 
+                    !service_request;                    // Mapping tidak wajib lagi
 
                   const canUpload = 
-                    //isNotFinal &&
-                    status === "ordered" &&
-                    service_request &&
-                    hasValidTindakan &&
-                    !imaging;
-                  
-                  // bisa baca kalau sudah upload & belum final
-                  const canBaca =
-                    //isNotFinal &&
-                    status === "uploaded";
+                    (status === "ordered" || status === "none") && 
+                    !imaging;                            // Mapping tidak wajib
+
+                  const canBaca = status === "uploaded" || status === "ordered";
+
+                  const canSendDiagnostic =
+                    status === "read" &&
+                    imaging &&
+                    !row.satu_sehat?.report;
 
                   // bisa simpan (Observasi / Avesina) kalau sudah dibaca
                   const canSimpan =
@@ -1455,12 +1479,6 @@ const MonitoringXRay = (
                     status === "uploaded" &&
                     service_request &&
                     !imaging;
-
-                  // Diagnostic hanya kalau sudah baca
-                  const canSendDiagnostic =
-                    status === "read" &&
-                    imaging &&
-                    !row.satu_sehat?.report;
 
                   // Observation optional (boleh setelah read)
                   const canSendObservation =
@@ -1721,34 +1739,46 @@ const MonitoringXRay = (
 
                         {isMobile && <hr className="m-2" />}
 
+                        {/* === PHYSICIAN - REQUEST === */}
                         {role === "physician" && (
                           <button
                             className="btn btn-sm btn-outline-success"
                             disabled={!canRequest}
                             onClick={() => openModalRequest(row)}
                             title={
-                              !hasValidTindakan
-                                ? "Mapping SNOMED & LOINC belum lengkap"
-                                : ""
+                              !hasPengirim 
+                                ? "Dokter Pengirim belum terdaftar di SatuSehat" 
+                                : !hasPemeriksa 
+                                  ? "Dokter Pemeriksa belum terdaftar di SatuSehat" 
+                                  : !hasValidTindakan 
+                                    ? "Mapping SNOMED/LOINC belum lengkap → hanya lokal" 
+                                    : ""
                             }
                           >
                             Request
                           </button>
                         )}
 
+                        {/* === RADIOGRAFER - UPLOAD === */}
                         {role === "radiografer" && (
                           <button
                             className="btn btn-sm btn-outline-success ms-1"
                             disabled={!canUpload}
                             onClick={() => openModalUpload(row)}
+                            title={
+                              !hasValidTindakan 
+                                ? "Mapping SNOMED/LOINC belum lengkap → hanya lokal" 
+                                : ""
+                            }
                           >
                             Upload
                           </button>
                         )}
 
+                        {/* === RADIOLOG - BACA === */}
                         {role === "radiolog" && (
                           <button
-                            className="btn btn-sm btn-outline-success"
+                            className="btn btn-sm btn-outline-success ms-1"
                             disabled={!canBaca}
                             onClick={() => openModalBaca(row)}
                           >
@@ -1760,6 +1790,7 @@ const MonitoringXRay = (
                           <hr className="m-2" />
                         )}
 
+                        {/* === RADIOLOG - REPORT === */}
                         {role === "radiolog" && (
                           <button
                             className="btn btn-sm btn-outline-info ms-1"

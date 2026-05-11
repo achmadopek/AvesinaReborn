@@ -13,6 +13,8 @@ const { generateUID } = require("../../services/satusehat/builders");
 const { parseDicomUID } = require("../../utility/dicomParser");
 const { dicomToJpg } = require("../../utility/dicomToJpg");
 
+const satuSehatService = require("../../services/satusehat/satusehatService");
+
 const {
   sendImagingStudyToSatuSehat,
   sendObservationToSatuSehat,
@@ -20,7 +22,7 @@ const {
 } = require("../../services/satusehat/sender");
 
 // =============================================================
-// BUILD PAYLOAD HELPER (DIGUNAKAN OLEH BANYAK FUNCTION)
+// BUILD PAYLOAD HELPER (SUDAH DI-IMPROVE)
 // =============================================================
 const buildPayloadFromDB = async (registry_id, x_ray_dtl_id) => {
   if (!registry_id || !x_ray_dtl_id) {
@@ -50,43 +52,44 @@ const buildPayloadFromDB = async (registry_id, x_ray_dtl_id) => {
     [registry_id, x_ray_dtl_id]
   );
 
-  if (!utama) throw new Error("Data utama tidak ditemukan");
+if (!utama) throw new Error("Data utama tidak ditemukan");
 
   const [[ss]] = await dbERM.promise().query(
-    `SELECT patient_ihs_number, encounter_uuid FROM satusehat WHERE registry_id = ? LIMIT 1`,
-    [registry_id]
+    `SELECT patient_ihs_number, encounter_uuid FROM satusehat WHERE registry_id = ? LIMIT 1`, [registry_id]
   );
 
   const [[sr]] = await dbERM.promise().query(
-    `SELECT service_request_uuid FROM satusehat_service_request 
-     WHERE registry_id = ? AND x_ray_dtl_id = ? LIMIT 1`,
+    `SELECT service_request_uuid FROM satusehat_service_request WHERE registry_id = ? AND x_ray_dtl_id = ? LIMIT 1`,
     [registry_id, x_ray_dtl_id]
   );
 
   const [[dokter]] = await dbUtama.promise().query(
-    `SELECT satusehat_ihs_number FROM employee WHERE employee_id = ? LIMIT 1`,
-    [utama.expert]
+    `SELECT satusehat_ihs_number FROM employee WHERE employee_id = ? LIMIT 1`, [utama.expert]
   );
 
-  if (!ss?.patient_ihs_number) throw new Error("Patient IHS tidak ditemukan");
-  if (!ss?.encounter_uuid) throw new Error("Encounter belum tersedia");
-  if (!sr?.service_request_uuid) throw new Error("ServiceRequest tidak ditemukan");
-  if (!dokter?.satusehat_ihs_number) throw new Error("Practitioner IHS tidak ditemukan");
+  const missing = [];
+  if (!ss?.patient_ihs_number) missing.push("Patient IHS");
+  if (!ss?.encounter_uuid) missing.push("Encounter");
+  if (!sr?.service_request_uuid) missing.push("ServiceRequest");
+  if (!dokter?.satusehat_ihs_number) missing.push("Practitioner IHS");
 
   return {
     registry_id,
     x_ray_dtl_id,
-    hasil_bacaan: utama.hasil_bacaan,
+    hasil_bacaan: utama.hasil_bacaan || "",
     measured_dt: utama.measured_dt,
     tindakan: utama.tindakan,
-    loinc_code: utama.loinc_code,
-    loinc_display: utama.loinc_display,
+    loinc_code: utama.loinc_code || "30745-4",
+    loinc_display: utama.loinc_display || "Radiology study",
     modality: utama.modality || "CR",
 
-    patient_ihs: ss.patient_ihs_number,
-    encounter_uuid: ss.encounter_uuid,
-    practitioner_ihs: dokter.satusehat_ihs_number,
-    service_request_id: sr.service_request_uuid,
+    patient_ihs: ss?.patient_ihs_number || null,
+    encounter_uuid: ss?.encounter_uuid || null,
+    practitioner_ihs: dokter?.satusehat_ihs_number || null,
+    service_request_id: sr?.service_request_uuid || null,
+
+    isCompleteForSatuSehat: missing.length === 0,
+    missingFields: missing
   };
 };
 
@@ -116,6 +119,9 @@ exports.getData = async (req, res) => {
         r.registry_dt,
         xrh.measured_dt,
 
+        -- Keluhan dari Anamnesis
+        a.anamnesa AS keluhan_anamnesa,
+
         p.mr_code,
         p.patient_nm,
 
@@ -139,6 +145,10 @@ exports.getData = async (req, res) => {
       JOIN x_ray_hdr xrh ON uv.unit_visit_id = xrh.unit_visit_id
       JOIN x_ray_dtl xrd ON xrh.x_ray_id = xrd.x_ray_id
       JOIN medical_service ms ON ms.medical_service_id = xrd.medical_service_id
+
+      -- Join ke Anamnesis
+      LEFT JOIN visite v ON v.unit_visit_id = uv.unit_visit_id
+      LEFT JOIN anamnesis a ON a.visite_id = v.visite_id
 
       LEFT JOIN employee e ON xrh.physician = e.employee_id
       LEFT JOIN employee e2 ON xrh.expert = e2.employee_id
@@ -216,9 +226,11 @@ exports.getData = async (req, res) => {
         foto1: l.foto1 ? `/uploads/xray/${l.foto1}` : null,
         foto2: l.foto2 ? `/uploads/xray/${l.foto2}` : null,
         dicom_path: l.dicom_path ? `/uploads/xray/${l.dicom_path}` : null,
-        keluhan: l.keluhan || "-",
+        
+        keluhan: l.keluhan || u.keluhan_anamnesa || "-",
         hasil_bacaan: u.photo_reading || l.hasil_bacaan || null,
         status: l.status || "none",
+        
         is_final: !!u.photo_reading,
         is_lokal: !!l.hasil_bacaan,
 
@@ -278,16 +290,25 @@ exports.getDetail = async (req, res) => {
         xrh.expert AS pemeriksa_id,
         e.employee_nm AS pengirim,
         e2.employee_nm AS radiolog,
-        e.satusehat_ihs_number AS pengirim_ihs,           -- tambahan
-        e2.satusehat_ihs_number AS pemeriksa_ihs          -- tambahan
+        e.satusehat_ihs_number AS pengirim_ihs,
+        e2.satusehat_ihs_number AS pemeriksa_ihs,
+
+        -- Keluhan dari Anamnesis
+        a.anamnesa AS keluhan_anamnesa
+
       FROM registry r
       JOIN patient p ON r.mr_id = p.mr_id
       JOIN unit_visit uv ON r.registry_id = uv.registry_id
       JOIN x_ray_hdr xrh ON uv.unit_visit_id = xrh.unit_visit_id
       JOIN x_ray_dtl xrd ON xrh.x_ray_id = xrd.x_ray_id
       JOIN medical_service ms ON ms.medical_service_id = xrd.medical_service_id
+
+      LEFT JOIN visite v ON v.unit_visit_id = uv.unit_visit_id
+      LEFT JOIN anamnesis a ON a.visite_id = v.visite_id
+
       LEFT JOIN employee e ON xrh.physician = e.employee_id
       LEFT JOIN employee e2 ON xrh.expert = e2.employee_id
+
       WHERE r.registry_id = ? AND xrd.x_ray_dtl_id = ?
       LIMIT 1
       `,
@@ -317,9 +338,11 @@ exports.getDetail = async (req, res) => {
         dicom_path: lokal?.dicom_path ? `/uploads/xray/${lokal.dicom_path}` : null,
         foto1: lokal?.foto1 ? `/uploads/xray/${lokal.foto1}` : null,
         foto2: lokal?.foto2 ? `/uploads/xray/${lokal.foto2}` : null,
-        keluhan: lokal?.keluhan || "-",
+        
+        keluhan: lokal?.keluhan || utama.keluhan_anamnesa || "-",
         hasil_bacaan: utama.photo_reading || lokal?.hasil_bacaan || null,
         status: !!utama.photo_reading ? "done" : (lokal?.status || "none"),
+
         is_final: !!utama.photo_reading,
         is_lokal: !!lokal?.hasil_bacaan,
 
@@ -341,9 +364,7 @@ exports.requestXRay = async (req, res) => {
   try {
     const { registry_id, x_ray_id, x_ray_dtl_id, pengirim_id, pemeriksa_id, keluhan } = req.body;
 
-    if (!registry_id || !x_ray_dtl_id) {
-      throw new Error("registry_id dan x_ray_dtl_id wajib");
-    }
+    if (!registry_id || !x_ray_dtl_id) throw new Error("registry_id dan x_ray_dtl_id wajib");
 
     await connLokal.beginTransaction();
     await connERM.beginTransaction();
@@ -385,11 +406,6 @@ exports.requestXRay = async (req, res) => {
 
     if (!utama) throw new Error("Data X-Ray tidak ditemukan");
 
-    // Validasi IHS
-    if (!utama.patient_ihs) throw new Error("Patient belum punya IHS Number");
-    if (!utama.pengirim_ihs) throw new Error("Pengirim belum punya IHS");
-    if (!utama.pemeriksa_ihs) throw new Error("Pemeriksa belum punya IHS");
-
     // Mapping LOINC
     const [[mapping]] = await dbERM.promise().query(`
       SELECT loinc_code, loinc_display 
@@ -398,34 +414,46 @@ exports.requestXRay = async (req, res) => {
       LIMIT 1
     `, [utama.tindakan]);
 
-    const loinc_code =
-      mapping?.loinc_code || "30745-4";
+    const loinc_code = mapping?.loinc_code || "30745-4";
+    const loinc_display = mapping?.loinc_display || "Radiology study";
 
-    const loinc_display =
-      mapping?.loinc_display || "Radiology study";
+    // === 1. SIMPAN LOKAL DULU (WAJIB) ===
+    await connLokal.query(`
+      INSERT INTO sirad_xray 
+      (registry_id, x_ray_id, x_ray_dtl_id, keluhan, status, ordered_by, created_at)
+      VALUES (?, ?, ?, ?, 'ordered', ?, NOW())
+      ON DUPLICATE KEY UPDATE 
+        keluhan = VALUES(keluhan),
+        status = 'ordered',
+        updated_at = NOW()
+    `, [registry_id, x_ray_id, x_ray_dtl_id, keluhan || "", pengirim_id]);
 
-    const payload = buildServiceRequest({
-      patient_ihs: utama.patient_ihs,
-      encounter_uuid: utama.encounter_uuid,
-      pengirim_ihs: utama.pengirim_ihs,
-      pemeriksa_ihs: utama.pemeriksa_ihs,
-      tanggal: utama.unit_visit_dt,
-      loinc_code,
-      loinc_display,
-    });
-
-    console.log("===== DEBUG SERVICE REQUEST =====");
-    console.dir(payload, { depth: null });
-    console.log("=================================");
-
-    let serviceRequestUUID = "DEBUG-" + Date.now();
+    // === 2. SatuSehat (Optional & Cerdas) ===
+    let ssResult = { success: false, service_request_id: `LOCAL-${Date.now()}` };
 
     if (process.env.DEBUG_SATUSEHAT !== "true") {
-      const response = await satusehatClient.post("/ServiceRequest", payload);
-      serviceRequestUUID = response.data.id;
+      const check = await buildPayloadFromDB(registry_id, x_ray_dtl_id);
+
+      if (check.isCompleteForSatuSehat) {
+        const payload = buildServiceRequest({
+          patient_ihs: utama.patient_ihs,
+          encounter_uuid: utama.encounter_uuid,
+          pengirim_ihs: utama.pengirim_ihs,
+          pemeriksa_ihs: utama.pemeriksa_ihs,
+          tanggal: utama.unit_visit_dt,
+          loinc_code,
+          loinc_display,
+        });
+
+        ssResult = await satuSehatService.sendServiceRequest(payload);
+      } else {
+        console.warn("⏭️ Skip SatuSehat ServiceRequest - missing:", check.missingFields);
+      }
     }
 
-    // ====================== SIMPAN KE ERM ======================
+    const serviceRequestUUID = ssResult.data?.id || ssResult.service_request_id;
+
+    // Simpan ke tabel SatuSehat
     await connERM.query(
       `
       INSERT INTO satusehat_service_request
@@ -441,29 +469,14 @@ exports.requestXRay = async (req, res) => {
       [registry_id, utama.x_ray_id, utama.x_ray_dtl_id, serviceRequestUUID, loinc_code, loinc_display, "active"]
     );
 
-    // ====================== SIMPAN KE SIRAD_XRAY ======================
-    await connLokal.query(
-      `
-      INSERT INTO sirad_xray
-      (registry_id, x_ray_id, x_ray_dtl_id, service_request_id, status, ordered_by, keluhan, created_at)
-      VALUES (?, ?, ?, ?, 'ordered', ?, ?, NOW())
-      ON DUPLICATE KEY UPDATE
-        service_request_id = VALUES(service_request_id),
-        status = 'ordered',
-        ordered_by = VALUES(ordered_by),
-        keluhan = VALUES(keluhan),
-        updated_at = NOW()
-      `,
-      [registry_id, utama.x_ray_id, utama.x_ray_dtl_id, serviceRequestUUID, pengirim_id, keluhan]
-    );
-
     await connLokal.commit();
     await connERM.commit();
 
     res.json({
       success: true,
-      message: "ServiceRequest berhasil dibuat",
-      service_request_id: serviceRequestUUID,
+      message: "Request X-Ray berhasil",
+      satusehat: ssResult.success ? "success" : "failed/pending",
+      service_request_id: serviceRequestUUID
     });
 
   } catch (err) {
@@ -492,30 +505,10 @@ exports.uploadXRay = async (req, res) => {
 
   try {
     const { registry_id, x_ray_id, x_ray_dtl_id, created_by } = req.body;
+    const dicom = req.files?.dicom?.[0];
 
-    if (!registry_id || !x_ray_dtl_id) {
-      throw new Error("registry_id dan x_ray_dtl_id wajib");
-    }
-
-    console.log("UPLOAD X-RAY BODY:", req.body);
-    console.log("FILES:", req.files);
-
-    // Cek apakah sudah final di Avesina
-    const [[cekFinal]] = await dbUtama.promise().query(
-      `SELECT photo_reading FROM x_ray_dtl WHERE x_ray_id = ? LIMIT 1`,
-      [x_ray_id]
-    );
-
-    const isFinal = !!cekFinal?.photo_reading;
-
-    // Ambil data lokal
-    const [[existing]] = await connLokal.query(
-      `SELECT * FROM sirad_xray 
-       WHERE registry_id = ? AND x_ray_dtl_id = ? AND is_active = 1 LIMIT 1`,
-      [registry_id, x_ray_dtl_id]
-    );
-
-    if (!existing) throw new Error("Data belum di-request");
+    if (!registry_id || !x_ray_dtl_id) throw new Error("registry_id dan x_ray_dtl_id wajib");
+    if (!dicom) throw new Error("File DICOM wajib");
 
     // Cek ServiceRequest
     const [[sr]] = await connERM.query(
@@ -528,36 +521,8 @@ exports.uploadXRay = async (req, res) => {
       return res.status(400).json({ success: false, message: "ServiceRequest belum dibuat" });
     }
 
-    // Ambil data lengkap untuk ImagingStudy
-    const [[detail]] = await dbUtama.promise().query(
-      `
-      SELECT 
-        r.registry_id, xrh.x_ray_id, xrd.x_ray_dtl_id, xrh.measured_dt,
-        ss.patient_ihs_number AS patient_ihs,
-        ss.encounter_uuid,
-        e.satusehat_ihs_number AS practitioner_ihs
-      FROM registry r
-      JOIN unit_visit uv ON r.registry_id = uv.registry_id
-      JOIN x_ray_hdr xrh ON xrh.unit_visit_id = uv.unit_visit_id
-      JOIN x_ray_dtl xrd ON xrd.x_ray_id = xrh.x_ray_id
-      LEFT JOIN employee e ON e.employee_id = xrh.expert
-      LEFT JOIN erm_rswj.satusehat ss ON ss.registry_id = r.registry_id
-      WHERE r.registry_id = ? AND xrd.x_ray_dtl_id = ?
-      LIMIT 1
-      `,
-      [registry_id, x_ray_dtl_id]
-    );
-
-    if (!detail?.patient_ihs || !detail?.encounter_uuid || !detail?.practitioner_ihs) {
-      throw new Error("Data SatuSehat belum lengkap");
-    }
-
-    // ==================== UPLOAD FILE ====================
     await connLokal.beginTransaction();
     inTransaction = true;
-
-    const dicom = req.files?.dicom?.[0];
-    if (!dicom) throw new Error("File DICOM tidak diterima");
 
     const dicomMeta = parseDicomUID(dicom.path);
     if (!dicomMeta?.studyUID) throw new Error("File bukan DICOM valid");
@@ -567,7 +532,7 @@ exports.uploadXRay = async (req, res) => {
     const thumbPath = path.join(__dirname, "../../uploads/xray", thumbName);
     const thumb = dicomToJpg(dicom.path, thumbPath);
 
-    // Update Database
+    // Update Database Lokal
     await connLokal.query(
       `
       UPDATE sirad_xray
@@ -584,7 +549,7 @@ exports.uploadXRay = async (req, res) => {
     await connLokal.commit();
     inTransaction = false;
 
-    // ==================== SIMPAN UID & KIRIM IMAGING STUDY ====================
+    // Simpan UID
     const uid = {
       study: dicomMeta.studyUID,
       series: dicomMeta.seriesUID,
@@ -597,45 +562,31 @@ exports.uploadXRay = async (req, res) => {
       [uid.study, uid.series, uid.instance, registry_id, x_ray_dtl_id]
     );
 
-    // Ambil modality dari mapping
-    let modality = "CR";
-    const [[tindakan]] = await dbUtama.promise().query(
-      `SELECT medical_service_name FROM x_ray_dtl xrd 
-       JOIN medical_service ms ON ms.medical_service_id = xrd.medical_service_id 
-       WHERE xrd.x_ray_id = ? LIMIT 1`,
-      [x_ray_id]
-    );
+    // === Kirim ImagingStudy (Hanya jika memenuhi syarat) ===
+    let imagingResult = { success: false, imaging_id: `LOCAL-IMG-${Date.now()}` };
 
-    if (tindakan?.medical_service_name) {
-      const [[map]] = await dbERM.promise().query(
-        `SELECT modality FROM satusehat_mapping WHERE local_display = ? LIMIT 1`,
-        [tindakan.medical_service_name]
-      );
-      if (map?.modality) modality = map.modality;
+    if (process.env.DEBUG_SATUSEHAT !== "true" && sr?.service_request_uuid) {
+      const check = await buildPayloadFromDB(registry_id, x_ray_dtl_id);
+      const modality = check.modality || "CR";
+
+      if (check.isCompleteForSatuSehat) {
+        const normalized = {
+          patient_id: check.patient_ihs,
+          encounter_id: check.encounter_uuid,
+          doctor_id: check.practitioner_ihs,
+          service_request_id: sr.service_request_uuid,
+          measured_dt: check.measured_dt,
+          no_reg: registry_id,
+          modality: modality,
+        };
+
+        imagingResult = await satuSehatService.sendImagingStudy(normalized, process.env.ORGANIZATION_ID);
+      } else {
+        console.warn("⏭️ Skip ImagingStudy - missing:", check.missingFields);
+      }
     }
 
-    const normalized = {
-      patient_id: detail.patient_ihs,
-      encounter_id: detail.encounter_uuid,
-      doctor_id: detail.practitioner_ihs,
-      service_request_id: sr.service_request_uuid,
-      measured_dt: detail.measured_dt,
-      no_reg: registry_id,
-      modality: modality,
-    };
-
-    const imagingPayload = buildImagingStudy(normalized, uid, process.env.ORGANIZATION_ID);
-
-    let imagingId = `DEBUG-${Date.now()}`;
-    let imagingStatus = "available";
-
-    if (process.env.DEBUG_SATUSEHAT !== "true") {
-      const resImg = await satusehatClient.post("/ImagingStudy", imagingPayload);
-      imagingId = resImg.data.id;
-      imagingStatus = resImg.data.status || "available";
-    }
-
-    // Simpan ke SatuSehat
+    // Simpan ke tabel SatuSehat
     await connERM.query(
       `
       INSERT INTO satusehat_imaging_study 
@@ -647,24 +598,21 @@ exports.uploadXRay = async (req, res) => {
         status = VALUES(status),
         updated_at = NOW()
       `,
-      [registry_id, x_ray_id, x_ray_dtl_id, sr.service_request_uuid, imagingId, modality, imagingStatus]
+      [registry_id, x_ray_id, x_ray_dtl_id, sr.service_request_uuid, imagingResult.imaging_id || imagingResult.data?.id, modality, "available"]
     );
 
     res.json({
       success: true,
-      is_final: isFinal,
-      message: isFinal 
-        ? "Data sudah final. ImagingStudy tetap dikirim." 
-        : "Upload DICOM & ImagingStudy berhasil",
+      message: "Upload DICOM berhasil",
+      satusehat_imaging: imagingResult.success ? "success" : "pending"
     });
 
   } catch (err) {
     if (inTransaction) await connLokal.rollback().catch(() => {});
     console.error("UPLOAD X-RAY ERROR:", err);
-
     res.status(500).json({
       success: false,
-      message: err.response?.data?.issue?.[0]?.diagnostics || err.message,
+      message: err.message || "Gagal upload"
     });
   } finally {
     connLokal.release();
@@ -710,7 +658,7 @@ exports.saveHasil = async (req, res) => {
       [registry_id, x_ray_dtl_id]
     );
 
-    // Update ke tabel utama Avesina (jika belum ada hasil)
+    // === UPDATE DATABASE UTAMA & LOKAL (WAJIB) ===
     await connUtama.query(
       `UPDATE x_ray_dtl 
        SET photo_reading = ? 
@@ -718,7 +666,6 @@ exports.saveHasil = async (req, res) => {
       [hasil_bacaan, lokalData.x_ray_id, x_ray_dtl_id]
     );
 
-    // Update tabel lokal
     await connLokal.query(
       `
       UPDATE sirad_xray
@@ -736,70 +683,58 @@ exports.saveHasil = async (req, res) => {
     await connLokal.commit();
     await connUtama.commit();
 
-    // ==================== KIRIM OBSERVATION (jika belum pernah) ====================
-    if (!existingObs?.observation_uuid) {
+    // === KIRIM OBSERVATION KE SATUSEHAT (OPTIONAL) ===
+    let obsResult = { success: false };
+
+    if (process.env.DEBUG_SATUSEHAT !== "true" && !existingObs?.observation_uuid) {
       try {
         const payload = await buildPayloadFromDB(registry_id, x_ray_dtl_id);
 
-        const cleanText = payload.hasil_bacaan
-          ?.replace(/\r\n/g, "\n")
-          ?.replace(/\n{3,}/g, "\n\n")
-          ?.trim();
+        if (payload.isCompleteForSatuSehat) {
+          const cleanText = payload.hasil_bacaan
+            ?.replace(/\r\n/g, "\n")
+            ?.replace(/\n{3,}/g, "\n\n")
+            ?.trim();
 
-        let result;
-
-        if (process.env.DEBUG_SATUSEHAT === "true") {
-          console.log("DEBUG MODE: Skip Observation API");
-          result = { id: `DEBUG-OBS-${Date.now()}`, status: "final" };
-        } else {
-          result = await sendObservationToSatuSehat({
+          obsResult = await satuSehatService.sendObservation({
             ...payload,
             hasil_bacaan: cleanText,
           });
+
+          // Simpan ke tabel jika berhasil
+          if (obsResult.success && obsResult.data?.id) {
+            await connERM.query(
+              `
+              INSERT INTO satusehat_observation
+              (registry_id, x_ray_id, x_ray_dtl_id, service_request_uuid, 
+               observation_uuid, code, display, value_text, issued_at, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+              ON DUPLICATE KEY UPDATE
+                observation_uuid = VALUES(observation_uuid),
+                value_text = VALUES(value_text),
+                issued_at = VALUES(issued_at),
+                updated_at = NOW()
+              `,
+              [
+                registry_id, x_ray_id, x_ray_dtl_id, payload.service_request_id,
+                obsResult.data.id, payload.loinc_code, payload.loinc_display,
+                cleanText, obsResult.data?.issued || new Date()
+              ]
+            );
+          }
+        } else {
+          console.warn("⏭️ Skip Observation - data SatuSehat belum lengkap:", payload.missingFields);
         }
-
-        // Simpan ke tabel SatuSehat
-        await connERM.query(
-          `
-          INSERT INTO satusehat_observation
-          (registry_id, x_ray_id, x_ray_dtl_id, service_request_uuid, 
-           observation_uuid, code, display, value_text, issued_at, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-          ON DUPLICATE KEY UPDATE
-            observation_uuid = VALUES(observation_uuid),
-            code = VALUES(code),
-            display = VALUES(display),
-            value_text = VALUES(value_text),
-            issued_at = VALUES(issued_at),
-            updated_at = NOW()
-          `,
-          [
-            registry_id,
-            x_ray_id,
-            x_ray_dtl_id,
-            payload.service_request_id,
-            result.id,
-            payload.loinc_code || "30745-4",
-            payload.loinc_display || "Radiology study",
-            cleanText,
-            result?.issued || new Date(),
-          ]
-        );
-
-        console.log(`✅ Observation berhasil dikirim: ${result.id}`);
-
       } catch (obsErr) {
-        console.error("❌ Observation gagal dikirim:", obsErr.message);
-        // Tidak throw agar save hasil tetap berhasil
+        console.warn("⚠️ Observation gagal dikirim:", obsErr.message);
       }
-    } else {
-      console.log("ℹ️ Observation sudah pernah dikirim, skip.");
     }
 
     return res.json({
       success: true,
       message: "Hasil bacaan berhasil disimpan",
-      observation_sent: !existingObs?.observation_uuid,
+      observation_sent: obsResult.success,
+      note: obsResult.success ? "" : "SatuSehat observation pending"
     });
 
   } catch (err) {
@@ -833,7 +768,7 @@ exports.sendDiagnostic = async (req, res) => {
       throw new Error("registry_id dan x_ray_dtl_id wajib");
     }
 
-    // Guard duplikasi
+    // Cek duplikasi
     const [[existing]] = await connERM.query(
       `SELECT diagnostic_report_uuid 
        FROM satusehat_diagnostic_report 
@@ -848,6 +783,7 @@ exports.sendDiagnostic = async (req, res) => {
       });
     }
 
+    // Ambil payload
     const payload = await buildPayloadFromDB(registry_id, x_ray_dtl_id);
 
     // Ambil Observation & ImagingStudy
@@ -866,20 +802,21 @@ exports.sendDiagnostic = async (req, res) => {
     if (!obs?.observation_uuid) throw new Error("Observation belum tersedia");
     if (!img?.imaging_study_uuid) throw new Error("ImagingStudy belum tersedia");
 
-    let result;
-    if (process.env.DEBUG_SATUSEHAT === "true") {
-      console.log("DEBUG MODE: Skip DiagnosticReport API");
-      result = { id: `DEBUG-DIAG-${Date.now()}`, status: "final" };
-    } else {
-      result = await sendDiagnosticToSatuSehat(
+    // === KIRIM KE SATUSEHAT (Hanya jika lengkap) ===
+    let diagResult = { success: false, id: `LOCAL-DIAG-${Date.now()}` };
+
+    if (process.env.DEBUG_SATUSEHAT !== "true" && payload.isCompleteForSatuSehat) {
+      diagResult = await satuSehatService.sendDiagnosticReport(
         payload,
         obs.observation_uuid,
         img.imaging_study_uuid,
         process.env.ORGANIZATION_ID
       );
+    } else {
+      console.warn("⏭️ Skip DiagnosticReport - data belum lengkap:", payload.missingFields);
     }
 
-    // Simpan ke ERM
+    // Simpan ke tabel SatuSehat
     await connERM.query(
       `
       INSERT INTO satusehat_diagnostic_report
@@ -897,8 +834,8 @@ exports.sendDiagnostic = async (req, res) => {
         x_ray_id,
         x_ray_dtl_id,
         payload.service_request_id,
-        result.id,
-        result.status || "final",
+        diagResult.data?.id || diagResult.id,
+        diagResult.data?.status || "final",
         payload.hasil_bacaan
       ]
     );
@@ -913,8 +850,9 @@ exports.sendDiagnostic = async (req, res) => {
 
     res.json({
       success: true,
-      message: "DiagnosticReport berhasil dikirim dan status DONE",
-      diagnostic_report_id: result.id
+      message: "DiagnosticReport berhasil diproses",
+      diagnostic_report_id: diagResult.data?.id || diagResult.id,
+      satusehat: diagResult.success ? "success" : "pending"
     });
 
   } catch (err) {
