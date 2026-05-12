@@ -6,20 +6,12 @@ const fs = require("fs");
 const path = require("path");
 
 const { buildServiceRequest } = require("../../services/satusehat/builders/serviceRequestBuilder");
-const { buildImagingStudy } = require("../../services/satusehat/builders/imagingStudyBuilder");
 
 const { satusehatClient } = require("../../services/satusehat/satusehatClient");
-const { generateUID } = require("../../services/satusehat/builders");
 const { parseDicomUID } = require("../../utility/dicomParser");
 const { dicomToJpg } = require("../../utility/dicomToJpg");
 
 const satuSehatService = require("../../services/satusehat/satusehatService");
-
-const {
-  sendImagingStudyToSatuSehat,
-  sendObservationToSatuSehat,
-  sendDiagnosticToSatuSehat,
-} = require("../../services/satusehat/sender");
 
 // =============================================================
 // BUILD PAYLOAD HELPER (SUDAH DI-IMPROVE)
@@ -33,6 +25,7 @@ const buildPayloadFromDB = async (registry_id, x_ray_dtl_id) => {
     `
     SELECT 
       r.registry_id,
+      p.patient_ihs_number,
       xrd.photo_reading AS hasil_bacaan,
       xrh.measured_dt,
       xrh.expert,
@@ -40,13 +33,29 @@ const buildPayloadFromDB = async (registry_id, x_ray_dtl_id) => {
       sm.loinc_code,
       sm.loinc_display,
       sm.modality
+
     FROM registry r
-    JOIN unit_visit uv ON uv.registry_id = r.registry_id
-    JOIN x_ray_hdr xrh ON xrh.unit_visit_id = uv.unit_visit_id
-    JOIN x_ray_dtl xrd ON xrd.x_ray_id = xrh.x_ray_id
-    JOIN medical_service ms ON ms.medical_service_id = xrd.medical_service_id
-    LEFT JOIN erm_rswj.satusehat_mapping sm ON sm.local_display = ms.medical_service_name
-    WHERE r.registry_id = ? AND xrd.x_ray_dtl_id = ?
+
+    JOIN patient p
+      ON p.mr_id = r.mr_id
+
+    JOIN unit_visit uv
+      ON uv.registry_id = r.registry_id
+
+    JOIN x_ray_hdr xrh
+      ON xrh.unit_visit_id = uv.unit_visit_id
+
+    JOIN x_ray_dtl xrd
+      ON xrd.x_ray_id = xrh.x_ray_id
+
+    JOIN medical_service ms
+      ON ms.medical_service_id = xrd.medical_service_id
+
+    LEFT JOIN erm_rswj.satusehat_mapping sm
+      ON sm.local_display = ms.medical_service_name
+
+    WHERE r.registry_id = ?
+      AND xrd.x_ray_dtl_id = ?
     LIMIT 1
     `,
     [registry_id, x_ray_dtl_id]
@@ -54,8 +63,15 @@ const buildPayloadFromDB = async (registry_id, x_ray_dtl_id) => {
 
 if (!utama) throw new Error("Data utama tidak ditemukan");
 
-  const [[ss]] = await dbERM.promise().query(
-    `SELECT patient_ihs_number, encounter_uuid FROM satusehat WHERE registry_id = ? LIMIT 1`, [registry_id]
+  const [[enc]] = await dbERM.promise().query(
+    `
+    SELECT encounter_uuid
+    FROM satusehat
+    WHERE registry_id = ?
+      AND encounter_uuid IS NOT NULL
+    LIMIT 1
+    `,
+    [registry_id]
   );
 
   const [[sr]] = await dbERM.promise().query(
@@ -68,8 +84,8 @@ if (!utama) throw new Error("Data utama tidak ditemukan");
   );
 
   const missing = [];
-  if (!ss?.patient_ihs_number) missing.push("Patient IHS");
-  if (!ss?.encounter_uuid) missing.push("Encounter");
+  if (!utama?.patient_ihs_number) missing.push("Patient IHS");
+  if (!enc?.encounter_uuid) missing.push("Encounter");
   if (!sr?.service_request_uuid) missing.push("ServiceRequest");
   if (!dokter?.satusehat_ihs_number) missing.push("Practitioner IHS");
 
@@ -83,8 +99,8 @@ if (!utama) throw new Error("Data utama tidak ditemukan");
     loinc_display: utama.loinc_display || "Radiology study",
     modality: utama.modality || "CR",
 
-    patient_ihs: ss?.patient_ihs_number || null,
-    encounter_uuid: ss?.encounter_uuid || null,
+    patient_ihs: utama?.patient_ihs_number || null,
+    encounter_uuid: enc?.encounter_uuid || null,
     practitioner_ihs: dokter?.satusehat_ihs_number || null,
     service_request_id: sr?.service_request_uuid || null,
 
@@ -119,9 +135,6 @@ exports.getData = async (req, res) => {
         r.registry_dt,
         xrh.measured_dt,
 
-        -- Keluhan dari Anamnesis
-        a.anamnesa AS keluhan_anamnesa,
-
         p.mr_code,
         p.patient_nm,
 
@@ -134,10 +147,8 @@ exports.getData = async (req, res) => {
         e2.satusehat_ihs_number AS pemeriksa_ihs,
 
         ms.medical_service_name AS tindakan,
-        xrd.photo_reading,
 
-        ss.patient_ihs_number IS NOT NULL AS has_patient_ihs,
-        ss.encounter_uuid IS NOT NULL AS has_encounter
+        p.patient_ihs_number IS NOT NULL AND p.patient_ihs_number <> '' AS has_patient_ihs
 
       FROM registry r
       JOIN patient p ON r.mr_id = p.mr_id
@@ -146,13 +157,8 @@ exports.getData = async (req, res) => {
       JOIN x_ray_dtl xrd ON xrh.x_ray_id = xrd.x_ray_id
       JOIN medical_service ms ON ms.medical_service_id = xrd.medical_service_id
 
-      -- Join ke Anamnesis
-      LEFT JOIN visite v ON v.unit_visit_id = uv.unit_visit_id
-      LEFT JOIN anamnesis a ON a.visite_id = v.visite_id
-
       LEFT JOIN employee e ON xrh.physician = e.employee_id
       LEFT JOIN employee e2 ON xrh.expert = e2.employee_id
-      LEFT JOIN erm_rswj.satusehat ss ON ss.registry_id = r.registry_id
 
       WHERE 1=1
         ${tgl ? "AND DATE(xrh.measured_dt) = ?" : ""}
@@ -223,12 +229,6 @@ exports.getData = async (req, res) => {
 
       return {
         ...u,
-        foto1: l.foto1 ? `/uploads/xray/${l.foto1}` : null,
-        foto2: l.foto2 ? `/uploads/xray/${l.foto2}` : null,
-        dicom_path: l.dicom_path ? `/uploads/xray/${l.dicom_path}` : null,
-        
-        keluhan: l.keluhan || u.keluhan_anamnesa || "-",
-        hasil_bacaan: u.photo_reading || l.hasil_bacaan || null,
         status: l.status || "none",
         
         is_final: !!u.photo_reading,
@@ -244,7 +244,6 @@ exports.getData = async (req, res) => {
 
         satu_sehat: {
           patient: !!u.has_patient_ihs,
-          encounter: !!u.has_encounter,
           service_request: !!s.has_service_request,
           imaging: !!s.has_imaging,
           observation: !!s.has_observation,
@@ -339,7 +338,9 @@ exports.getDetail = async (req, res) => {
         foto1: lokal?.foto1 ? `/uploads/xray/${lokal.foto1}` : null,
         foto2: lokal?.foto2 ? `/uploads/xray/${lokal.foto2}` : null,
         
-        keluhan: lokal?.keluhan || utama.keluhan_anamnesa || "-",
+        keluhan_anamnesa: utama.keluhan_anamnesa || "-",
+        catatan_radiografer: lokal?.notes ?? null,
+
         hasil_bacaan: utama.photo_reading || lokal?.hasil_bacaan || null,
         status: !!utama.photo_reading ? "done" : (lokal?.status || "none"),
 
@@ -362,7 +363,7 @@ exports.requestXRay = async (req, res) => {
   const connERM = await dbERM.promise().getConnection();
 
   try {
-    const { registry_id, x_ray_id, x_ray_dtl_id, pengirim_id, pemeriksa_id, keluhan } = req.body;
+    const { registry_id, x_ray_id, x_ray_dtl_id, pengirim_id, pemeriksa_id, notes } = req.body;
 
     if (!registry_id || !x_ray_dtl_id) throw new Error("registry_id dan x_ray_dtl_id wajib");
 
@@ -380,14 +381,13 @@ exports.requestXRay = async (req, res) => {
         uv.unit_visit_dt,
         p.mr_code,
         p.patient_nm,
-        ss.patient_ihs_number AS patient_ihs,
+        p.patient_ihs_number,
         e.employee_id AS pengirim_id,
         e.employee_nm AS pengirim_nm,
         e.satusehat_ihs_number AS pengirim_ihs,
         e2.employee_id AS pemeriksa_id,
         e2.employee_nm AS pemeriksa_nm,
         e2.satusehat_ihs_number AS pemeriksa_ihs,
-        ss.encounter_uuid,
         ms.medical_service_name AS tindakan
       FROM registry r
       JOIN patient p ON r.mr_id = p.mr_id
@@ -397,7 +397,6 @@ exports.requestXRay = async (req, res) => {
       JOIN medical_service ms ON ms.medical_service_id = xrd.medical_service_id
       LEFT JOIN employee e ON e.employee_id = xrh.physician
       LEFT JOIN employee e2 ON e2.employee_id = xrh.expert
-      LEFT JOIN erm_rswj.satusehat ss ON ss.registry_id = r.registry_id
       WHERE r.registry_id = ? AND xrd.x_ray_dtl_id = ?
       LIMIT 1
       `,
@@ -405,6 +404,17 @@ exports.requestXRay = async (req, res) => {
     );
 
     if (!utama) throw new Error("Data X-Ray tidak ditemukan");
+
+    const [[encounter]] = await dbERM.promise().query(
+      `
+      SELECT encounter_uuid
+      FROM satusehat
+      WHERE registry_id = ?
+        AND encounter_uuid IS NOT NULL
+      LIMIT 1
+      `,
+      [registry_id]
+    );
 
     // Mapping LOINC
     const [[mapping]] = await dbERM.promise().query(`
@@ -420,13 +430,13 @@ exports.requestXRay = async (req, res) => {
     // === 1. SIMPAN LOKAL DULU (WAJIB) ===
     await connLokal.query(`
       INSERT INTO radar_xray 
-      (registry_id, x_ray_id, x_ray_dtl_id, keluhan, status, ordered_by, created_at)
+      (registry_id, x_ray_id, x_ray_dtl_id, notes, status, ordered_by, created_at)
       VALUES (?, ?, ?, ?, 'ordered', ?, NOW())
       ON DUPLICATE KEY UPDATE 
-        keluhan = VALUES(keluhan),
+        notes = VALUES(notes),
         status = 'ordered',
         updated_at = NOW()
-    `, [registry_id, x_ray_id, x_ray_dtl_id, keluhan || "", pengirim_id]);
+    `, [registry_id, x_ray_id, x_ray_dtl_id, notes || "", pengirim_id]);
 
     // === 2. SatuSehat (Optional & Cerdas) ===
     let ssResult = { success: false, service_request_id: `LOCAL-${Date.now()}` };
@@ -436,8 +446,8 @@ exports.requestXRay = async (req, res) => {
 
       if (check.isCompleteForSatuSehat) {
         const payload = buildServiceRequest({
-          patient_ihs: utama.patient_ihs,
-          encounter_uuid: utama.encounter_uuid,
+          patient_ihs: utama.patient_ihs_number,
+          encounter_uuid: encounter?.encounter_uuid,
           pengirim_ihs: utama.pengirim_ihs,
           pemeriksa_ihs: utama.pemeriksa_ihs,
           tanggal: utama.unit_visit_dt,
@@ -447,7 +457,7 @@ exports.requestXRay = async (req, res) => {
 
         ssResult = await satuSehatService.sendServiceRequest(payload);
       } else {
-        console.warn("⏭️ Skip SatuSehat ServiceRequest - missing:", check.missingFields);
+        console.warn("Skip SatuSehat ServiceRequest - missing:", check.missingFields);
       }
     }
 

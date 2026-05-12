@@ -385,7 +385,7 @@ const MonitoringTagihan = () => {
 
                         <td className="text-center">
                           <button
-                            className="btn btn-sm btn-primary mb-1"
+                            className="btn btn-sm btn-primary"
                             onClick={() =>
                               setExpandedSurat(
                                 expandedSurat === surat.pengajuan_id
@@ -393,12 +393,15 @@ const MonitoringTagihan = () => {
                                   : surat.pengajuan_id
                               )
                             }
+                            style={{margin: "1px"}}
                           >
                             Detail
                           </button>
+                          
                           <button
                             className="btn btn-sm btn-success"
                             onClick={() => handleCetak(surat)}
+                            style={{margin: "1px"}}
                           >
                             Cetak
                           </button>

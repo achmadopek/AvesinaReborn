@@ -1,4 +1,5 @@
 import API from "../axiosInstance";
+const BASE_URL = import.meta.env.VITE_API_URL;
 
 // Ambil Aplicares dengan pagination (server-side)
 export const fetchPaginatedDataMonitoringAplicares = async (
@@ -149,5 +150,14 @@ export const fetchPaginatedDataMonitoringSatuSehat = async ({
 // Kirim simulasi (server-side)
 export const kirimSpecimenSatuSehat = async (lab_srvc_id) => {
   const res = await API.post(`/api/mibers/MonitoringSatuSehat/${lab_srvc_id}`);
+  return res.data;
+};
+
+
+export const fetchMonitoringVisite = async (params) => {
+  const res = await API.get("/api/mibers/MonitoringVisite",
+    { params }
+  );
+
   return res.data;
 };

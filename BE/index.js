@@ -127,6 +127,7 @@ app.use('/api/mibers/MonitoringAntrian', require('./routes/wj_mibers/MonitoringA
 app.use('/api/mibers/MonitoringSatuSehat', require('./routes/wj_mibers/MonitoringSatuSehat'));
 app.use('/api/mibers/MonitoringTHP', require('./routes/wj_mibers/MonitoringTHP'));
 app.use('/api/mibers/MonitoringDisplay', require('./routes/wj_mibers/MonitoringDisplay'));
+app.use("/api/mibers/MonitoringVisite", require("./routes/wj_mibers/MonitoringVisite"));
 
 // SPM
 app.use('/api/spm/MasterUnit', require('./routes/wj_spm/MasterUnitRoutes'));

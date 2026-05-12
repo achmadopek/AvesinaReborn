@@ -56,12 +56,34 @@ const MonitoringXRay = (
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedUpload, setSelectedUpload] = useState(null);
 
+  // ========================
+  // FEATURE FLAGS
+  // ========================
+  const ENABLE_DICOM_UPLOAD =
+    import.meta.env.VITE_ENABLE_DICOM === "true";
+
+  const ENABLE_IMAGE_UPLOAD =
+    import.meta.env.VITE_ENABLE_IMAGE === "true";
+
   const [foto1, setFoto1] = useState(null);
   const [foto2, setFoto2] = useState(null);
-  
+
+  // ========================
+  // UPLOAD STATES
+  // ========================
   const [dicomFile, setDicomFile] = useState(null);
 
-  const [keluhan, setKeluhan] = useState("");
+  const [imageFiles, setImageFiles] = useState({
+    foto1: null,
+    foto2: null,
+  });
+
+  const [imagePreview, setImagePreview] = useState({
+    foto1: null,
+    foto2: null,
+  });
+
+  const [notes, setNotes] = useState("");
   const [uploading, setUploading] = useState(false);
 
   const [showBacaModal, setShowBacaModal] = useState(false);
@@ -137,6 +159,22 @@ const MonitoringXRay = (
     }
   };
 
+  const resetUploadState = () => {
+    setDicomFile(null);
+
+    setImageFiles({
+      foto1: null,
+      foto2: null,
+    });
+
+    setImagePreview({
+      foto1: null,
+      foto2: null,
+    });
+
+    setNotes("");
+  };
+
   const handleLoadData = () => {
     if (!tanggal) {
       toast.warn("Pilih tanggal dulu");
@@ -180,6 +218,9 @@ const MonitoringXRay = (
         setSelectedDetail(res.data);
         setShowDetailModal(true);
       }
+
+      //console.log(res);
+
     } catch (err) {
       console.error(err);
       toast.error("Gagal memuat detail X-Ray");
@@ -191,7 +232,7 @@ const MonitoringXRay = (
       const res = await fetchDetailXRay(row.registry_id, row.x_ray_dtl_id);
       if (res.success) {
         setSelectedDetail(res.data);
-        setKeluhan(res.data.keluhan || "");
+        setNotes(res.data.notes || "");
         setShowRequestModal(true);
       }
     } catch (err) {
@@ -202,12 +243,7 @@ const MonitoringXRay = (
   const openModalUpload = (row) => {
     setSelectedUpload(row);
     
-    setFoto1(null);
-    setFoto2(null);
-    setPreview1(null);
-    setPreview2(null);
-
-    setDicomFile(null);
+    resetUploadState();
 
     setShowUploadModal(true);
   };
@@ -225,36 +261,65 @@ const MonitoringXRay = (
   };
 
   const handleUpload = async () => {
-    if (!dicomFile) {
+    // VALIDASI MODE
+    if (ENABLE_DICOM_UPLOAD && !dicomFile) {
       toast.warn("File DICOM wajib diupload");
       return;
     }
 
+    if (
+      ENABLE_IMAGE_UPLOAD &&
+      !imageFiles.foto1 &&
+      !imageFiles.foto2
+    ) {
+      toast.warn("Minimal upload 1 gambar");
+      return;
+    }
+
     const formData = new FormData();
+
     formData.append("registry_id", selectedUpload.registry_id);
     formData.append("x_ray_id", selectedUpload.x_ray_id);
     formData.append("x_ray_dtl_id", selectedUpload.x_ray_dtl_id);
-    formData.append("dicom", dicomFile);
+    formData.append("notes", selectedUpload.notes || "");
 
-    if (peg_id) formData.append("created_by", peg_id);
+    // DICOM
+    if (ENABLE_DICOM_UPLOAD && dicomFile) {
+      formData.append("dicom", dicomFile);
+    }
+
+    // JPEG
+    if (ENABLE_IMAGE_UPLOAD) {
+      if (imageFiles.foto1) {
+        formData.append("foto1", imageFiles.foto1);
+      }
+
+      if (imageFiles.foto2) {
+        formData.append("foto2", imageFiles.foto2);
+      }
+    }
+
+    if (peg_id) {
+      formData.append("created_by", peg_id);
+    }
 
     setUploading(true);
+
     try {
       const res = await uploadXRay(formData);
 
       if (res.success) {
-        toast.success(res.satusehat_imaging === "success" 
-          ? "Upload DICOM & ImagingStudy berhasil" 
-          : "Upload DICOM berhasil (SatuSehat Imaging pending)");
-        
+        toast.success("Upload berhasil");
+
         setShowUploadModal(false);
+
         loadData(currentPage, tanggal);
       } else {
         toast.error(res.message || "Upload gagal");
       }
     } catch (err) {
-      toast.error("Upload gagal");
       console.error(err);
+      toast.error("Upload gagal");
     } finally {
       setUploading(false);
     }
@@ -367,15 +432,10 @@ const MonitoringXRay = (
           const url = URL.createObjectURL(file);
 
           // default masuk ke foto1 kalau kosong
-          if (!foto1) {
-            setPreview1(url);
-            setCropImage(url);
-            setCropTarget("foto1");
-          } else {
-            setPreview2(url);
-            setCropImage(url);
-            setCropTarget("foto2");
-          }
+          const target = !imageFiles.foto1 ? "foto1" : "foto2";
+
+          setCropImage(url);
+          setCropTarget(target);
 
           setShowCropModal(true);
         }
@@ -389,12 +449,14 @@ const MonitoringXRay = (
 
   const handleFileChange = (e, target) => {
     const file = e.target.files[0];
+
     if (!file) return;
 
     const url = URL.createObjectURL(file);
 
     setCropImage(url);
     setCropTarget(target);
+
     setShowCropModal(true);
   };
 
@@ -557,7 +619,7 @@ const MonitoringXRay = (
         x_ray_dtl_id: selectedDetail.x_ray_dtl_id,
         pengirim_id: selectedDetail.pengirim_id,
         pemeriksa_id: selectedDetail.pemeriksa_id,
-        keluhan: keluhan,
+        notes: notes,
       });
 
       if (res.success) {
@@ -743,26 +805,58 @@ const MonitoringXRay = (
             </div>
 
             <div className="col-12">
-              <label>
-                <strong>Hasil Bacaan</strong>
-              </label>
+               <div className="mt-2">
+                <label className="fw-semibold">
+                  Keluhan / Anamnesa Klinis
+                </label>
 
-              {selectedDetail?.is_final ? (
-                <div className="text-success small mb-1">
-                  ✔ Menggunakan hasil dari Avesina (final)
-                </div>
-              ) : (
-                <div className="text-success small mb-1">
-                  ✔ Menggunakan hasil dari Avesina Reborn (lokal)
-                </div>
-              )}
+                <textarea
+                  className="form-control form-control-sm"
+                  rows={3}
+                  value={selectedBaca?.keluhan_anamnesa || "-"}
+                  disabled
+                />
+              </div>
 
-              <textarea
-                className="form-control form-control-sm"
-                rows={4}
-                value={selectedDetail?.hasil_bacaan || ""}
-                disabled
-              />
+              <div className="mt-2">
+                <label className="fw-semibold">
+                  Catatan Radiografer
+                </label>
+
+                <textarea
+                  className="form-control form-control-sm"
+                  rows={2}
+                  value={selectedBaca?.catatan_radiografer || "-"}
+                  disabled
+                />
+              </div>
+
+              <div className="mt-2">
+                <label>
+                  <strong>Hasil Bacaan</strong>
+                </label>
+
+                {selectedDetail?.is_final ? (
+                  <div className="text-success small mb-1">
+                    ✔ Menggunakan hasil dari Avesina (final)
+                  </div>
+                ) : selectedDetail?.is_lokal ? (
+                  <div className="text-primary small mb-1">
+                    ℹ Menggunakan hasil dari Avesina Reborn (lokal sementara)
+                  </div>
+                ) : (
+                  <div className="text-warning small mb-1">
+                    ⚠ Belum ada hasil bacaan radiologi
+                  </div>
+                )}
+
+                <textarea
+                  className="form-control form-control-sm"
+                  rows={4}
+                  value={selectedDetail?.hasil_bacaan || "-"}
+                  disabled
+                />
+              </div>
             </div>
           </div>
         </Modal.Body>
@@ -777,7 +871,7 @@ const MonitoringXRay = (
             onClick={() => handlePrintPDF(selectedDetail)}
             disabled={!selectedDetail}
           >
-            🖨️ Cetak Hasil PDF
+            Cetak PDF
           </Button>
         </Modal.Footer>
       </Modal>
@@ -863,21 +957,20 @@ const MonitoringXRay = (
             </div>
 
             <div className="col-12">
-              <div>
-                <label className="fw-semibold">Keluhan</label>
+               <div className="mt-2">
+                <label className="fw-semibold">
+                  Keluhan / Anamnesa Klinis
+                </label>
 
                 <textarea
                   className="form-control form-control-sm"
-                  rows={isMobile ? 1 : 3}
-                  value={keluhan ? keluhan : "-"}
-                  onChange={(e) => setKeluhan(e.target.value)}
-                  style={{
-                    flex: isMobile ? 1 : "unset",
-                    resize: "none",
-                  }}
+                  rows={3}
+                  value={selectedBaca?.keluhan_anamnesa || "-"}
+                  disabled
                 />
               </div>
             </div>
+
           </div>
         </Modal.Body>
 
@@ -885,7 +978,7 @@ const MonitoringXRay = (
           <Button
             variant="success"
             onClick={() => handleProsesXRay(selectedDetail)}
-            disabled={uploading && !keluhan}
+            disabled={uploading && !notes}
             className="ms-2"
           >
             {uploading ? "Mengirim..." : "Request & Kirim SatuSehat"}
@@ -941,77 +1034,105 @@ const MonitoringXRay = (
             </div>
           </div>
 
-          {/* ================= DICOM UPLOAD (PRIMARY) ================= */}
-          <div className="mt-3">
-            <label className="fw-semibold">Upload File DICOM (.dcm)</label>
+          {ENABLE_DICOM_UPLOAD && (
+            <div className="mt-3">
+              <label className="fw-semibold">
+                Upload File DICOM (.dcm)
+              </label>
 
-            <input
-              type="file"
-              className="form-control form-control-sm"
-              accept=".dcm,application/dicom"
-              onChange={handleDicomChange}
-            />
+              <input
+                type="file"
+                className="form-control form-control-sm"
+                accept=".dcm,application/dicom"
+                onChange={handleDicomChange}
+              />
 
-            <div className="small text-muted mt-1">
-              Wajib upload file DICOM asli dari PACS (bukan screenshot)
+              {dicomFile && (
+                <div className="mt-2 text-success small">
+                  ✔ File dipilih: {dicomFile.name}
+                </div>
+              )}
+            </div>
+          )}
+            
+          {ENABLE_IMAGE_UPLOAD && (
+            <div className="mt-3 row">
+              {[1, 2].map((num) => {
+                const key = `foto${num}`;
+                const preview = imagePreview[key];
+
+                return (
+                  <div className="col-md-6 mb-3" key={num}>
+                    <label className="fw-semibold">
+                      Foto {num}
+                    </label>
+
+                    <input
+                      type="file"
+                      className="form-control form-control-sm mb-2"
+                      accept="image/*"
+                      onChange={(e) => handleFileChange(e, key)}
+                    />
+
+                    <div className="border rounded text-center p-2">
+                      {preview ? (
+                        <img
+                          src={preview}
+                          className="img-fluid rounded"
+                        />
+                      ) : (
+                        <small className="text-muted">
+                          Bisa paste screenshot di sini
+                        </small>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="alert alert-warning mt-0 py-2 small">
+            {ENABLE_DICOM_UPLOAD
+              ? "Mode upload DICOM aktif"
+              : "Mode upload DICOM dinonaktifkan"}
+
+            ,
+
+            {ENABLE_IMAGE_UPLOAD
+              ? " Mode upload JPEG aktif"
+              : " Mode upload JPEG dinonaktifkan"}
+          </div>
+          
+          <div className="col-12">
+            {/* Keluhan dari dokter */}
+            <div className="mb-3">
+              <label className="form-label fw-semibold">
+                Keluhan / Anamnesa Klinis
+              </label>
+
+              <textarea
+                className="form-control"
+                rows={3}
+                value={selectedDetail?.keluhan_anamnesa || "-"}
+                disabled
+              />
             </div>
 
-            {dicomFile && (
-              <div className="mt-2 text-success small">
-                ✔ File dipilih: {dicomFile.name}
-              </div>
-            )}
-          </div>
+            {/* Catatan radiografer */}
+            <div className="mb-3">
+              <label className="form-label fw-semibold">
+                Catatan Radiografer
+              </label>
 
-          <div className="alert alert-warning mt-3 py-2 small">
-            Mode upload gambar (JPG) dinonaktifkan. 
-            Gunakan file DICOM untuk kirim SatuSehat dan kualitas pembacaan terbaik.
-          </div>
-            
-          {/* ================= LEGACY JPG UPLOAD (DISABLED) ================= */}
-          {/*<div className="mt-3 row">
-            {[1, 2].map((num) => {
-              const preview = num === 1 ? preview1 : preview2;
-
-              return (
-                <div className="col-md-6 mb-3" key={num}>
-                  <label className="fw-semibold">Foto {num}</label>
-
-                  <input
-                    type="file"
-                    className="form-control form-control-smmb-2"
-                    onChange={(e) => handleFileChange(e, `foto${num}`)}
-                  />
-
-                  <div className="border rounded text-center p-2">
-                    {preview ? (
-                      <img src={preview} className="img-fluid rounded" />
-                    ) : (
-                      <small className="text-muted">
-                        Bisa paste (Ctrl + V) screenshot di sini
-                      </small>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          */}
-
-          <div>
-            <label className="fw-semibold">Keluhan</label>
-
-            <textarea
-              className="form-control form-control-sm"
-              rows={isMobile ? 1 : 3}
-              value={selectedUpload?.keluhan}
-              onChange={(e) => setKeluhan(e.target.value)}
-              style={{
-                flex: isMobile ? 1 : "unset",
-                resize: "none",
-              }}
-              disabled
-            />
+              <textarea
+                className="form-control"
+                rows={3}
+                placeholder="Tambahan catatan saat pemeriksaan / upload gambar..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            </div>
           </div>
         </Modal.Body>
 
@@ -1070,12 +1191,16 @@ const MonitoringXRay = (
                 type: "image/jpeg",
               });
 
-              if (cropTarget === "foto1") {
-                setFoto1(file);
-                setPreview1(URL.createObjectURL(file));
-              } else {
-                setFoto2(file);
-                setPreview2(URL.createObjectURL(file));
+              if (cropTarget) {
+                setImageFiles((prev) => ({
+                  ...prev,
+                  [cropTarget]: file,
+                }));
+
+                setImagePreview((prev) => ({
+                  ...prev,
+                  [cropTarget]: URL.createObjectURL(file),
+                }));
               }
 
               setShowCropModal(false);
@@ -1161,8 +1286,8 @@ const MonitoringXRay = (
             <textarea
               className="form-control form-control-sm"
               rows={isMobile ? 1 : 3}
-              value={keluhan ? keluhan : "-"}
-              onChange={(e) => setKeluhan(e.target.value)}
+              value={notes ? notes : "-"}
+              onChange={(e) => setNotes(e.target.value)}
               style={{
                 flex: isMobile ? 1 : "unset",
                 resize: "none",
@@ -1304,7 +1429,7 @@ const MonitoringXRay = (
                 
                 // === SOLUSI WIDTH ===
                 wrapperClassName="w-100"
-                style={{ width: "100%" }}
+                style={{ width: "100%", zIndex: "99999" }}
               />
             </div>
 
@@ -1513,9 +1638,13 @@ const MonitoringXRay = (
                               <span className="badge bg-dark">
                                 Final Reborn
                               </span>
-                            ) : (
+                            ) : row.is_final ? (
                               <span className="badge bg-purple">
                                 Final Avesina
+                              </span>
+                            ) : (
+                              <span className="badge bg-danger">
+                                Belum Dibaca
                               </span>
                             )}
 
@@ -1689,9 +1818,13 @@ const MonitoringXRay = (
                             <span className="badge bg-dark">
                               Final Reborn
                             </span>
-                          ) : (
+                          ) : row.is_final ? (
                             <span className="badge bg-purple">
                               Final Avesina
+                            </span>
+                          ) : (
+                            <span className="badge bg-danger">
+                              Belum Dibaca
                             </span>
                           )}
 

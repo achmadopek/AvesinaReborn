@@ -7,7 +7,8 @@ import {
   fetchPaginatedDataMonitoringIcare,
   fetchPaginatedDataMonitoringAntrian,
   fetchPaginatedDataMonitoringTHP,
-  fetchMonitoringDisplaySummary
+  fetchMonitoringDisplaySummary,
+  fetchMonitoringVisite
 } from "../../../api/wj_monapp/MasterMonitoring";
 import { AuthContext } from "../../../context/AuthContext";
 import { useNotification } from "../../../context/NotificationContext";
@@ -22,6 +23,7 @@ import MonitoringICare from "./MonitoringICare";
 import MonitoringTHP from "./MonitoringTHP";
 import MonitoringWSRekamMedis from "./MonitoringWSRekamMedis";
 import MonitoringSatuSehat from "./MonitoringSatuSehat";
+import MonitoringVisite from "./MonitoringVisite";
 
 // Initial form state
 const initialFormState = {
@@ -77,6 +79,13 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
     online: 0,
     offline: 0,
     total: 0,
+  });
+
+  // VISITE DOKTER
+  const [visiteStats, setVisiteStats] = useState({
+    totalVisite: 0,
+    visiteStandar: 0,
+    visiteTidakStandar: 0,
   });
 
   const today = new Date().toLocaleDateString("sv-SE");
@@ -185,6 +194,35 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
     // cleanup
     return () => clearInterval(interval);
   }, [today]);
+
+  useEffect(() => {
+    const loadVisiteStats = async () => {
+      try {
+
+        const today = new Date().toISOString().slice(0, 10);
+
+        const res = await fetchMonitoringVisite({
+          page: 1,
+          limit: 1,
+          startDate: today,
+          endDate: today,
+          poli: "ALL",
+          search: "",
+        });
+
+        setVisiteStats({
+          totalVisite: res.summary?.totalVisite || 0,
+          visiteStandar: res.summary?.visiteStandar || 0,
+          visiteTidakStandar: res.summary?.visiteTidakStandar || 0,
+        });
+
+      } catch (error) {
+        console.error("Gagal ambil statistik visite:", error);
+      }
+    };
+
+    loadVisiteStats();
+  }, []);
 
   // daftar menu monitoring
   const menuMonitoring = [
@@ -314,24 +352,37 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
     },
 
     {
-      id: "Apotek",
-      label: "Monitoring Apotek",
+      id: "Visite",
+      label: "Monitoring Visite Dokter",
+
       wslist: [
-        "DPHO",
-        "Non Racikan",
-        "Racikan",
-        "Riwayat Pelayanan Obat",
-        "Daftar Resep",
-        "Data Klaim",
+        "Visite Harian",
+        "Rapor Mingguan Dokter",
+        "Kepatuhan Jam Visite"
       ],
+
       stats: [
-        { label: "Sukses", value: sukses },
-        { label: "Gagal", value: gagal },
-        { label: "Total", value: total }
+        {
+          label: "Total Visite",
+          value: visiteStats.totalVisite
+        },
+
+        {
+          label: "Jam Standar",
+          value: visiteStats.visiteStandar
+        },
+
+        {
+          label: "Belum Standar",
+          value: visiteStats.visiteTidakStandar
+        }
       ],
-      disabled: true,
-      component: (props) => <MonitoringApotek {...props} />,
+
+      disabled: false,
+
+      component: (props) => <MonitoringVisite {...props} />,
     },
+
     {
       id: "PCare",
       label: "Monitoring PCare",
