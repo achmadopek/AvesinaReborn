@@ -170,7 +170,7 @@ exports.getData = async (req, res) => {
 
     // Data Lokal
     const [lokal] = await dbLokal.promise().query(
-      `SELECT * FROM sirad_xray 
+      `SELECT * FROM radar_xray 
        WHERE (registry_id, x_ray_dtl_id) IN (?) AND is_active = 1`,
       [registryDtlIds]
     );
@@ -323,7 +323,7 @@ exports.getDetail = async (req, res) => {
     }
 
     const [[lokal]] = await dbLokal.promise().query(
-      `SELECT * FROM sirad_xray 
+      `SELECT * FROM radar_xray 
        WHERE registry_id = ? 
          AND x_ray_dtl_id = ? 
          AND is_active = 1 
@@ -419,7 +419,7 @@ exports.requestXRay = async (req, res) => {
 
     // === 1. SIMPAN LOKAL DULU (WAJIB) ===
     await connLokal.query(`
-      INSERT INTO sirad_xray 
+      INSERT INTO radar_xray 
       (registry_id, x_ray_id, x_ray_dtl_id, keluhan, status, ordered_by, created_at)
       VALUES (?, ?, ?, ?, 'ordered', ?, NOW())
       ON DUPLICATE KEY UPDATE 
@@ -535,7 +535,7 @@ exports.uploadXRay = async (req, res) => {
     // Update Database Lokal
     await connLokal.query(
       `
-      UPDATE sirad_xray
+      UPDATE radar_xray
       SET dicom_path = ?, 
           foto1 = ?,
           created_by = ?,
@@ -557,7 +557,7 @@ exports.uploadXRay = async (req, res) => {
     };
 
     await connLokal.query(
-      `UPDATE sirad_xray SET uid_study = ?, uid_series = ?, uid_instance1 = ? 
+      `UPDATE radar_xray SET uid_study = ?, uid_series = ?, uid_instance1 = ? 
        WHERE registry_id = ? AND x_ray_dtl_id = ?`,
       [uid.study, uid.series, uid.instance, registry_id, x_ray_dtl_id]
     );
@@ -640,7 +640,7 @@ exports.saveHasil = async (req, res) => {
     // Ambil data lokal
     const [[lokalData]] = await connLokal.query(
       `SELECT x_ray_id, x_ray_dtl_id, status 
-       FROM sirad_xray 
+       FROM radar_xray 
        WHERE registry_id = ? AND x_ray_dtl_id = ? AND is_active = 1 
        LIMIT 1`,
       [registry_id, x_ray_dtl_id]
@@ -668,7 +668,7 @@ exports.saveHasil = async (req, res) => {
 
     await connLokal.query(
       `
-      UPDATE sirad_xray
+      UPDATE radar_xray
       SET 
         hasil_bacaan = ?,
         status = 'read',
@@ -842,7 +842,7 @@ exports.sendDiagnostic = async (req, res) => {
 
     // Update status lokal menjadi DONE
     await connLokal.query(
-      `UPDATE sirad_xray 
+      `UPDATE radar_xray 
        SET status = 'done', updated_at = NOW() 
        WHERE registry_id = ? AND x_ray_dtl_id = ?`,
       [registry_id, x_ray_dtl_id]
