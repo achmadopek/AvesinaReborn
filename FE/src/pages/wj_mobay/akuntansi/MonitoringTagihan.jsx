@@ -297,7 +297,7 @@ const MonitoringTagihan = () => {
                 <tr>
                   <th>No</th>
                   <th>Provider</th>
-                  <th>Status</th>
+                  <th>Status Pengolahan</th>
                   <th>Tagihan</th>
                   <th>Diajukan</th>
                   <th>Pengiriman</th>
@@ -333,12 +333,52 @@ const MonitoringTagihan = () => {
                         </td>
 
                         <td className="text-center">
-                          Total {surat.total_invoice} faktur
-                          <div className="small">
-                            <span className={`badge ${getStatusBadgeClass(surat.status_pengolahan)}`}>
-                              {surat.status_pengolahan}
-                            </span>
-                          </div>
+                          {(() => {
+                            // grouping status invoice
+                            const statusCount = {};
+
+                            surat.invoices?.forEach((inv) => {
+                              const status = inv.status_pengolahan || "Unknown";
+
+                              if (!statusCount[status]) {
+                                statusCount[status] = 0;
+                              }
+
+                              statusCount[status]++;
+                            });
+
+                            // cari status terbanyak
+                            const sortedStatus = Object.entries(statusCount).sort(
+                              (a, b) => b[1] - a[1]
+                            );
+
+                            const mainStatus = sortedStatus[0];
+
+                            return (
+                              <>
+                                {mainStatus && (
+                                  <div className="small mt-1 d-flex flex-wrap gap-1 justify-content-center">
+                                    <span
+                                      className={`badge ${getStatusBadgeClass(mainStatus[0])}`}
+                                    >
+                                      {mainStatus[1]} : {mainStatus[0]}
+                                    </span>
+                                  </div>
+                                )}
+
+                                <div className="small mt-1 d-flex flex-wrap gap-1 justify-content-center">
+                                  {sortedStatus.slice(1).map(([status, total]) => (
+                                    <span
+                                      key={status}
+                                      className={`badge ${getStatusBadgeClass(status)}`}
+                                    >
+                                      {total} : {status}
+                                    </span>
+                                  ))}
+                                </div>
+                              </>
+                            );
+                          })()}
                         </td>
 
                         <td>
@@ -422,6 +462,7 @@ const MonitoringTagihan = () => {
                                     <th>No</th>
                                     <th>Invoice</th>
                                     <th>Total Diajukan</th>
+                                    <th>Status Per Invoice</th>
                                     <th className="text-center">Aksi</th>
                                   </tr>
                                 </thead>
@@ -437,6 +478,11 @@ const MonitoringTagihan = () => {
                                           <td>{inv.invoice_no}</td>
                                           <td className="text-end">
                                             {formatCurrency(inv.total_diajukan)}
+                                          </td>
+                                          <td className="text-end">
+                                            <span className={`badge ${getStatusBadgeClass(inv.status_pengolahan)}`}>
+                                              {inv.status_pengolahan}
+                                            </span>
                                           </td>
                                           <td className="text-center">
                                             <button

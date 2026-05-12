@@ -38,3 +38,16 @@ export const bayarBendel = async (payload) => {
   );
   return res.data;
 };
+
+
+// ===============================
+// PROSES PEMBATAN PEMBAYARAN (HEADER)
+// ===============================
+export const batalkanInvoice = async (payload) => {
+  const res = await API.post(
+    "/api/mobay/PembayaranTagihan/batalkan-invoice",
+    payload
+  );
+
+  return res.data;
+};

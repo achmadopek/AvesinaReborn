@@ -414,6 +414,7 @@ async function getMonitoringBySuratPengantar(start, end, typeTglFilter) {
         total_tagihan: 0,
         total_diajukan: Number(r.total_diajukan || 0),
         total_bayar: Number(r.total_bayar || 0),
+        status_pengolahan: r.status_pengolahan,
         items: [],
       };
 

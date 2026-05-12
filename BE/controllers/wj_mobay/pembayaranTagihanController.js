@@ -246,65 +246,173 @@ exports.bayarBendel = async (req, res) => {
   try {
     await conn.beginTransaction();
 
-    const { pengajuan_id, catatan, tgl_bayar } = req.body;
+    const {
+      pengajuan_id,
+      catatan,
+      tgl_bayar,
+      invoice_actions = []
+    } = req.body;
 
     if (!pengajuan_id) {
       throw new Error("pengajuan_id wajib");
     }
 
-    // 1️⃣ Ambil semua invoice dalam surat ini
+    if (!invoice_actions.length) {
+      throw new Error("Invoice pembayaran belum dipilih");
+    }
+
+    // ===============================
+    // VALIDASI INVOICE
+    // ===============================
+    const poIds = invoice_actions.map(i => i.po_acce_id);
+
     const [invoices] = await conn.query(
       `
-      SELECT id, po_acce_id, total_tagihan, total_diajukan
+      SELECT
+        id,
+        po_acce_id,
+        total_tagihan,
+        total_diajukan
       FROM mobay_mirror_po
       WHERE pengajuan_id = ?
-      AND status_validasi = 'Valid'
+        AND status_validasi = 'Valid'
+        AND po_acce_id IN (?)
       `,
-      [pengajuan_id]
+      [pengajuan_id, poIds]
     );
 
     if (!invoices.length) {
-      throw new Error("Tidak ada invoice valid dalam surat ini");
+      throw new Error("Invoice valid tidak ditemukan");
     }
 
-    // 2️⃣ Update semua invoice → LUNAS
-    for (const inv of invoices) {
+    // ===============================
+    // PROCESS EACH INVOICE
+    // ===============================
+    for (const actionInv of invoice_actions) {
+
+      const dbInvoice = invoices.find(
+        i => i.po_acce_id === actionInv.po_acce_id
+      );
+
+      if (!dbInvoice) {
+        continue;
+      }
+
+      const selisih =
+        Number(dbInvoice.total_tagihan || 0) -
+        Number(dbInvoice.total_diajukan || 0);
 
       await conn.query(
         `
         UPDATE mobay_mirror_po
         SET
           total_bayar = total_diajukan,
-          selisih_bayar = total_tagihan - total_diajukan,
+          selisih_bayar = ?,
+          status_pengolahan = 'Selesai',
           status_pembayaran =
             CASE
-              WHEN total_tagihan - total_diajukan = 0 THEN 'Lunas'
-              ELSE 'Hutang'
+              WHEN ? = 0 THEN 'Lunas'
+              ELSE 'Kurang Bayar'
             END,
-          status_pengolahan = 'Selesai',
           invoice_paid_dt = ?,
           catatan_bayar = ?
-        WHERE id = ?
+        WHERE po_acce_id = ?
         `,
-        [tgl_bayar || new Date(), catatan || null, inv.id]
+        [
+          selisih,
+          selisih,
+          tgl_bayar || new Date(),
+          catatan || null,
+          actionInv.po_acce_id
+        ]
       );
-
     }
+
+    // ===============================
+    // OPTIONAL:
+    // UPDATE STATUS SURAT
+    // ===============================
+
+    const [summary] = await conn.query(
+      `
+      SELECT
+        COUNT(*) total,
+        SUM(
+          CASE WHEN status_pengolahan = 'Selesai'
+          THEN 1 ELSE 0 END
+        ) selesai,
+        SUM(
+          CASE WHEN status_pengolahan = 'Batal'
+          THEN 1 ELSE 0 END
+        ) batal
+      FROM mobay_mirror_po
+      WHERE pengajuan_id = ?
+      `,
+      [pengajuan_id]
+    );
 
     await conn.commit();
 
     res.json({
       message: "Pembayaran bendel berhasil",
+      summary: summary[0]
     });
 
   } catch (err) {
+
     await conn.rollback();
+
+    console.error("Error bayarBendel:", err);
+
     res.status(500).json({
       message: err.message
     });
+
   } finally {
     conn.release();
   }
+};
+
+// ===============================
+// VBATALKAN INVOICE
+// ===============================
+exports.batalkanInvoice = async (req, res) => {
+
+  try {
+
+    const { po_acce_id } = req.body;
+
+    if (!po_acce_id) {
+      throw new Error("po_acce_id wajib");
+    }
+
+    await db.promise().query(
+      `
+      UPDATE mobay_mirror_po
+      SET
+        status_pengolahan = 'Batal',
+        status_pembayaran = 'Tidak Dibayar',
+        total_bayar = 0,
+        invoice_paid_dt = NULL
+      WHERE po_acce_id = ?
+      `,
+      [po_acce_id]
+    );
+
+    res.json({
+      message: "Invoice berhasil dibatalkan"
+    });
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.status(500).json({
+      message: err.message
+    });
+
+  }
+
 };
 
 // ===============================

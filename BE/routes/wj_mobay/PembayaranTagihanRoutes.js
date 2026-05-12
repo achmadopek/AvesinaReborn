@@ -9,5 +9,6 @@ pembayaranTagihanController = require("../../controllers/wj_mobay/pembayaranTagi
 
 router.get("/data", pembayaranTagihanController.getData);             // tampilkan data sumber + status mirror
 router.put("/bayarBendel", pembayaranTagihanController.bayarBendel); // pembayaran per item (update status di mirror)
+router.post("/batalkan-invoice", pembayaranTagihanController.batalkanInvoice);
 
 module.exports = router;

@@ -3,7 +3,8 @@ import { formatSortDateTime, formatDate } from "../../../utils/FormatDate";
 import { formatNumber, formatCurrency } from "../../../utils/FormatNumber";
 import {
   fetchPaginatedDataPengajuanPembayaran,
-  bayarBendel
+  bayarBendel,
+  batalkanInvoice
 } from "../../../api/wj_mobay/PembayaranTagihan";
 import { toast } from "react-toastify";
 import { useAuth } from "../../../context/AuthContext";
@@ -39,10 +40,22 @@ const PembayaranTagihan = () => {
   const [invoice, setInvoice] = useState("");
   const [drug, setDrug] = useState("");
 
+  const [selectedInvoices, setSelectedInvoices] = useState({});
+
   const handleProsesPembayaranSurat = (surat) => {
-    // Hitung total seluruh invoice dalam surat
+
     const semuaInvoice = Object.values(surat.provider)
-      .flatMap(p => p.invoices);
+      .flatMap(p => p.invoices)
+      .filter(inv => inv.status_pengolahan !== "Batal");
+
+    // default semua checked
+    const initialSelected = {};
+
+    semuaInvoice.forEach(inv => {
+      initialSelected[inv.po_acce_id] = true;
+    });
+
+    setSelectedInvoices(initialSelected);
 
     const totalTagihan = semuaInvoice.reduce(
       (acc, inv) => acc + (inv.total_tagihan || 0),
@@ -56,17 +69,36 @@ const PembayaranTagihan = () => {
 
     setSuratSelected({
       surat_id: surat.surat_id,
-      no_verifikasi: surat.no_verifikasi,
       no_surat: surat.no_surat,
-      tgl_bayar: surat.tgl_bayar
-        ? surat.tgl_bayar.slice(0, 10)
-        : new Date().toISOString().slice(0, 10), // default hari ini
-      catatan: surat.catatan || "Ok, selesai",
+      provider: surat.provider,
+
+      tgl_bayar: new Date().toISOString().slice(0, 10),
+
+      catatan: "Ok, selesai",
+
       totalTagihan,
       totalDiajukan
     });
 
     setOpenPembayaranSurat(true);
+  };
+
+  const toggleInvoice = (po_acce_id) => {
+    setSelectedInvoices(prev => ({
+      ...prev,
+      [po_acce_id]: !prev[po_acce_id]
+    }));
+  };
+
+  const setInvoiceAction = (po_acce_id, action) => {
+    setSelectedInvoices(prev => ({
+      ...prev,
+      [po_acce_id]: {
+        ...prev[po_acce_id],
+        checked: action === "bayar",
+        action
+      }
+    }));
   };
 
   const handleExpandSurat = (id) => {
@@ -128,6 +160,37 @@ const PembayaranTagihan = () => {
       return;
     }
     loadData(startDate, endDate, filterDateType);
+  };
+
+  const handleBatalkanInvoice = async (inv) => {
+
+    const result = await Swal.fire({
+      title: "Batalkan Invoice?",
+      text: `Invoice ${inv.invoice_no} akan dibatalkan`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Ya, Batalkan"
+    });
+
+    if (!result.isConfirmed) {
+      return;
+    }
+
+    try {
+
+      await batalkanInvoice({
+        po_acce_id: inv.po_acce_id
+      });
+
+      toast.success("Invoice berhasil dibatalkan");
+
+      handleLoadData();
+
+    } catch (err) {
+
+      toast.error("Gagal membatalkan invoice");
+
+    }
   };
 
   // -----------------------
@@ -198,6 +261,68 @@ const PembayaranTagihan = () => {
           </table>
 
           <div className="mt-3">
+            <div className="fw-semibold mb-2">
+              Pilih Invoice Dibayar
+            </div>
+
+            <table className="table table-sm table-bordered">
+              <thead>
+                <tr>
+                  <th width="40"></th>
+                  <th>Invoice</th>
+                  <th>Total</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {Object.values(suratSelected?.provider || {})
+                  .flatMap(p => p.invoices)
+                  .filter(inv => inv.status_pengolahan !== "Batal")
+                  .map((inv) => {
+
+                    const checked =
+                      selectedInvoices[inv.po_acce_id] || false;
+
+                    return (
+                      <tr key={inv.po_acce_id}>
+
+                        <td className="text-center">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() =>
+                              toggleInvoice(inv.po_acce_id)
+                            }
+                          />
+                        </td>
+
+                        <td>{inv.invoice_no}</td>
+
+                        <td className="text-end">
+                          {formatCurrency(inv.total_diajukan)}
+                        </td>
+
+                        <td className="text-center">
+                          {checked ? (
+                            <span className="badge bg-success">
+                              Akan Dibayar
+                            </span>
+                          ) : (
+                            <span className="badge bg-warning text-dark">
+                              Ditunda
+                            </span>
+                          )}
+                        </td>
+
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-3">
             <label className="form-label fw-semibold">
               Catatan Pembayaran
             </label>
@@ -230,10 +355,17 @@ const PembayaranTagihan = () => {
             onClick={async () => {
               try {
 
+                const invoiceActions = Object.entries(selectedInvoices)
+                  .filter(([_, checked]) => checked)
+                  .map(([po_acce_id]) => ({
+                    po_acce_id
+                  }));
+
                 await bayarBendel({
                   pengajuan_id: suratSelected.surat_id,
                   catatan: suratSelected.catatan,
-                  tgl_bayar: suratSelected.tgl_bayar
+                  tgl_bayar: suratSelected.tgl_bayar,
+                  invoice_actions: invoiceActions
                 });
 
                 toast.success("Pembayaran bendel berhasil");
@@ -416,10 +548,16 @@ const PembayaranTagihan = () => {
 
                         <td className="text-center">
                           <button
-                            className="btn btn-sm btn-primary"
+                            className={`btn btn-sm ${
+                              expandedSurat === surat.surat_id
+                                ? "btn-outline-secondary"
+                                : "btn-primary"
+                            }`}
                             onClick={() => handleExpandSurat(surat.surat_id)}
                           >
-                            Detail
+                            {expandedSurat === surat.surat_id
+                              ? "Tutup"
+                              : "Detail"}
                           </button>
 
                           <button
@@ -494,7 +632,11 @@ const PembayaranTagihan = () => {
 
                                               <td className="text-center">
                                                 <button
-                                                  className="btn btn-sm btn-outline-secondary"
+                                                  className={`btn btn-sm ${
+                                                    isExpanded
+                                                      ? "btn-outline-secondary"
+                                                      : "btn-info"
+                                                  }`}
                                                   onClick={() =>
                                                     toggleDetail(inv.po_acce_id)
                                                   }
@@ -502,6 +644,13 @@ const PembayaranTagihan = () => {
                                                   {isExpanded
                                                     ? "Tutup Item"
                                                     : "Detail Item"}
+                                                </button>
+
+                                                <button
+                                                  className="btn btn-sm btn-outline-danger ms-1"
+                                                  onClick={() => handleBatalkanInvoice(inv)}
+                                                >
+                                                  Batalkan
                                                 </button>
                                               </td>
                                             </tr>
