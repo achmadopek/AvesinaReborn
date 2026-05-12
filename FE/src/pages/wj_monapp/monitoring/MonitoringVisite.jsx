@@ -11,7 +11,11 @@ import {
   ResponsiveContainer,
   CartesianGrid,
   LineChart,
-  Line
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  Legend
 } from "recharts";
 
 
@@ -251,7 +255,8 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
         </div>
       </div>
 
-      {/* GRAFIK ANTRIAN */}
+      {/* GRAFIK VISITE */}
+
       {/* SUMMARY */}
       <div className="row g-3 mb-3 ms-1 me-1">
 
@@ -317,45 +322,48 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
 
           <div className="row g-3">
 
-            {/* TOP DOKTER */}
-            <div className="col-lg-6">
-
+            {/* PIE KEPATUHAN VISITE */}
+            <div className="col-md-6">
               <div className="card shadow-sm h-100">
                 <div className="card-body">
 
                   <h6 className="fw-bold mb-3">
-                    Top 10 Dokter Visite
+                    Kepatuhan Jam Visite
                   </h6>
 
                   <ResponsiveContainer width="100%" height={350}>
-                    <BarChart
-                      data={dokterChartData}
-                      layout="vertical"
-                      margin={{ left: 30 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
+                    <PieChart>
 
-                      <XAxis type="number" />
-
-                      <YAxis
-                        dataKey="dokter"
-                        type="category"
-                        width={140}
-                      />
+                      <Pie
+                        data={[
+                          {
+                            name: "Standar",
+                            value: Number(summary?.visiteStandar || 0)
+                          },
+                          {
+                            name: "Belum Standar",
+                            value: Number(summary?.visiteTidakStandar || 0)
+                          }
+                        ]}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={120}
+                        label
+                      >
+                        <Cell fill="#198754" />
+                        <Cell fill="#dc3545" />
+                      </Pie>
 
                       <Tooltip />
+                      <Legend />
 
-                      <Bar
-                        dataKey="total"
-                        fill="#0d6efd"
-                        radius={[0, 6, 6, 0]}
-                      />
-                    </BarChart>
+                    </PieChart>
                   </ResponsiveContainer>
 
                 </div>
               </div>
-
             </div>
 
             {/* TREN */}
