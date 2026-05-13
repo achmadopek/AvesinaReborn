@@ -10,9 +10,12 @@ exports.getData = async (req, res) => {
       page = 1,
       limit = 10,
       dokter = null,
+      statusFilter = "",
       startDate = "",
       endDate = "",
-      search = ""
+      search = "",
+      sortBy = "v.visite_dt",
+      sortOrder = "DESC"
     } = req.query;
 
     page = parseInt(page);
@@ -22,6 +25,70 @@ exports.getData = async (req, res) => {
 
     let filter = `WHERE 1=1`;
     const params = [];
+
+    if (statusFilter === "spm_ok") {
+      filter += `
+        AND TIME(v.visite_dt)
+          BETWEEN '06:00:00' AND '14:00:00'
+      `;
+    }
+    
+    if (statusFilter === "spm_no") {
+      filter += `
+        AND (
+          TIME(v.visite_dt) < '06:00:00'
+          OR TIME(v.visite_dt) > '14:00:00'
+        )
+      `;
+    }
+    
+    if (statusFilter === "inm_ok") {
+      filter += `
+        AND TIME(v.visite_dt)
+          BETWEEN '08:00:00' AND '14:00:00'
+      `;
+    }
+    
+    if (statusFilter === "inm_no") {
+      filter += `
+        AND (
+          TIME(v.visite_dt) < '08:00:00'
+          OR TIME(v.visite_dt) > '14:00:00'
+        )
+      `;
+    }
+
+    const allowedSort = {
+      visite_dt: "v.visite_dt",
+      employee_nm: "e.employee_nm",
+      medical_service_name: "ms.medical_service_name",
+      srvc_unit_nm: "su.srvc_unit_nm",
+      patient_nm: "p.patient_nm",
+      mr_code: "p.mr_code",
+      spm_status: `
+        CASE
+          WHEN TIME(v.visite_dt)
+            BETWEEN '06:00:00' AND '14:00:00'
+          THEN 1
+          ELSE 0
+        END
+      `,
+
+      inm_status: `
+        CASE
+          WHEN TIME(v.visite_dt)
+            BETWEEN '08:00:00' AND '14:00:00'
+          THEN 1
+          ELSE 0
+        END
+      `
+    };
+    
+    const orderBy =
+      allowedSort[sortBy] || "v.visite_dt";
+    
+    const orderDirection =
+      sortOrder === "ASC" ? "ASC" : "DESC";
 
     // FILTER DOKTER
     if (dokter && dokter !== "ALL") {
@@ -94,7 +161,7 @@ exports.getData = async (req, res) => {
       JOIN employee e ON e.employee_id = v.employee_id
       JOIN medical_service ms ON ms.medical_service_id = v.medical_service_id
       ${filter}
-      ORDER BY v.visite_dt ASC
+      ORDER BY ${orderBy} ${orderDirection}
       LIMIT ? OFFSET ?
     `;
 
@@ -141,23 +208,43 @@ exports.getData = async (req, res) => {
 
         COUNT(v.visite_id) AS totalVisite,
 
+        -- ======================
+        -- SPM 06:00 - 14:00
+        -- ======================
         SUM(
           CASE
             WHEN TIME(v.visite_dt)
-              BETWEEN '06:00:00' AND '23:59:59'
-            THEN 1
-            ELSE 0
+              BETWEEN '06:00:00' AND '14:00:00'
+            THEN 1 ELSE 0
           END
-        ) AS visiteStandar,
+        ) AS spmStandar,
 
         SUM(
           CASE
-            WHEN TIME(v.visite_dt)
-              BETWEEN '00:00:00' AND '05:59:59'
-            THEN 1
-            ELSE 0
+            WHEN TIME(v.visite_dt) < '06:00:00'
+              OR TIME(v.visite_dt) > '14:00:00'
+            THEN 1 ELSE 0
           END
-        ) AS visiteTidakStandar
+        ) AS spmTidakStandar,
+
+        -- ======================
+        -- INM 08:00 - 14:00
+        -- ======================
+        SUM(
+          CASE
+            WHEN TIME(v.visite_dt)
+              BETWEEN '08:00:00' AND '14:00:00'
+            THEN 1 ELSE 0
+          END
+        ) AS inmStandar,
+
+        SUM(
+          CASE
+            WHEN TIME(v.visite_dt) < '08:00:00'
+              OR TIME(v.visite_dt) > '14:00:00'
+            THEN 1 ELSE 0
+          END
+        ) AS inmTidakStandar
 
       FROM visite v
 

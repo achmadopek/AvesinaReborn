@@ -18,12 +18,9 @@ import {
   Legend
 } from "recharts";
 
-
 import {
   fetchMonitoringVisite
 } from "../../../api/wj_monapp/MasterMonitoring";
-
-
 
 const MonitoringVisite = ({ isMobile, limit = 10 }) => {
   const { role } = useAuth();
@@ -37,7 +34,7 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
   
-  const [dokter, setDokter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [dokterList, setDokterList] = useState([]);
 
   const [search, setSearch] = useState("");
@@ -48,6 +45,9 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
   const [rekapDokter, setRekapDokter] = useState([]);
 
   const visiteHarianMap = {};
+
+  const [sortBy, setSortBy] = useState("v.visite_dt");
+  const [sortOrder, setSortOrder] = useState("DESC");
 
   data.forEach((item) => {
     const tgl = item.visite_dt?.split(" ")[0];
@@ -66,6 +66,19 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
       total: Number(d.total_visite)
     }));
 
+  const handleSort = (column) => {
+    if (sortBy === column) {
+      setSortOrder((prev) =>
+        prev === "ASC" ? "DESC" : "ASC"
+      );
+    } else {
+      setSortBy(column);
+      setSortOrder("ASC");
+    }
+
+    setCurrentPage(1);
+  };
+
   const lineData = Object.entries(visiteHarianMap).map(
     ([tanggal, total]) => ({
       tanggal,
@@ -80,7 +93,7 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
       const res = await fetchMonitoringVisite({
         page: currentPage,
         limit,
-        dokter: dokter || "ALL",
+        statusFilter,
         startDate,
         endDate,
         search,
@@ -102,16 +115,28 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
 
   useEffect(() => {
     fetchData();
-  }, [currentPage, startDate, endDate, dokter, search]);
+  }, [
+    currentPage,
+    startDate,
+    endDate,
+    statusFilter,
+    search,
+    sortBy,
+    sortOrder
+  ]);
 
   useEffect(() => {
     const fetchDokter = async () => {
       try {
         const res = await fetchMonitoringVisite({
-          page: 1,
-          limit: 1,
+          page: currentPage,
+          limit,
+          statusFilter,
           startDate,
           endDate,
+          search,
+          sortBy,
+          sortOrder
         });
 
         setDokterList(res.dokterList || []);
@@ -204,22 +229,37 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
             </div>
 
             <div className="col-md-3 col-6">
-              <label className="form-label">Dokter</label>
+              <label className="form-label">
+                Filter Status
+              </label>
+
               <select
                 className="form-control form-control-sm"
-                value={dokter}
-                onChange={(e) => setDokter(e.target.value)}
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
               >
-                <option value="">Semua Dokter</option>
+                <option value="">
+                  Semua Data
+                </option>
 
-                {dokterList.map((d) => (
-                  <option
-                    key={d.employee_id}
-                    value={d.employee_id}
-                  >
-                    {d.employee_nm}
-                  </option>
-                ))}
+                <option value="spm_ok">
+                  SPM Standar
+                </option>
+
+                <option value="spm_no">
+                  SPM Tidak Standar
+                </option>
+
+                <option value="inm_ok">
+                  INM Standar
+                </option>
+
+                <option value="inm_no">
+                  INM Tidak Standar
+                </option>
               </select>
             </div>
 
@@ -230,7 +270,7 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
                 onClick={() => {
                   setStartDate("");
                   setEndDate("");
-                  setDokter("");
+                  setStatusFilter("");
                   setSearch("");
                   setCurrentPage(1);
                 }}
@@ -260,52 +300,106 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
       {/* SUMMARY */}
       <div className="row g-3 mb-3 ms-1 me-1">
 
-        <div className="col-md-4">
-          <div className="card shadow-sm border-0 h-100">
-            <div className="card-body">
-              <small className="text-muted">Total Visite</small>
-              <h2 className="fw-bold text-primary mb-0">
-                {summary?.totalVisite || 0}
-              </h2>
-            </div>
+      {/* TOTAL */}
+      <div className="col-md col-6">
+        <div className="card shadow-sm border-0 h-100">
+          <div className="card-body">
+
+            <small className="text-muted">
+              Total Visite
+            </small>
+
+            <h2 className="fw-bold text-primary mb-0">
+              {summary?.totalVisite || 0}
+            </h2>
+
           </div>
         </div>
+      </div>
 
-        <div className="col-md-4">
-          <div className="card shadow-sm border-0 h-100">
-            <div className="card-body">
-              <small className="text-muted">
-                Visite Jam Standar
-              </small>
+      {/* SPM STANDAR */}
+      <div className="col-md col-6">
+        <div className="card shadow-sm border-0 h-100">
+          <div className="card-body">
 
-              <h2 className="fw-bold text-success mb-0">
-                {summary?.visiteStandar || 0}
-              </h2>
+            <small className="text-muted">
+              SPM Standar
+            </small>
 
-              <small className="text-muted">
-                06:00 - 23:59
-              </small>
-            </div>
+            <h2 className="fw-bold text-success mb-0">
+              {summary?.spmStandar || 0}
+            </h2>
+
+            <small className="text-muted">
+              06:00 - 14:00
+            </small>
+
           </div>
         </div>
+      </div>
 
-        <div className="col-md-4">
-          <div className="card shadow-sm border-0 h-100">
-            <div className="card-body">
-              <small className="text-muted">
-                Diluar Jam Standar
-              </small>
+      {/* SPM TIDAK */}
+      <div className="col-md col-6">
+        <div className="card shadow-sm border-0 h-100">
+          <div className="card-body">
 
-              <h2 className="fw-bold text-danger mb-0">
-                {summary?.visiteTidakStandar || 0}
-              </h2>
+            <small className="text-muted">
+              SPM Tidak Standar
+            </small>
 
-              <small className="text-muted">
-                00:00 - 05:59
-              </small>
-            </div>
+            <h2 className="fw-bold text-danger mb-0">
+              {summary?.spmTidakStandar || 0}
+            </h2>
+
+            <small className="text-muted">
+              &lt; 06:00 / &gt; 14:00
+            </small>
+
           </div>
         </div>
+      </div>
+
+      {/* INM STANDAR */}
+      <div className="col-md col-6">
+        <div className="card shadow-sm border-0 h-100">
+          <div className="card-body">
+
+            <small className="text-muted">
+              INM Standar
+            </small>
+
+            <h2 className="fw-bold text-info mb-0">
+              {summary?.inmStandar || 0}
+            </h2>
+
+            <small className="text-muted">
+              08:00 - 14:00
+            </small>
+
+          </div>
+        </div>
+      </div>
+
+      {/* INM TIDAK */}
+      <div className="col-md col-6">
+        <div className="card shadow-sm border-0 h-100">
+          <div className="card-body">
+
+            <small className="text-muted">
+              INM Tidak Standar
+            </small>
+
+            <h2 className="fw-bold text-warning mb-0">
+              {summary?.inmTidakStandar || 0}
+            </h2>
+
+            <small className="text-muted">
+              &lt; 08:00 / &gt; 14:00
+            </small>
+
+          </div>
+        </div>
+      </div>
 
       </div>
 
@@ -323,13 +417,13 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
           <div className="row g-3">
 
             {/* PIE KEPATUHAN VISITE */}
-            <div className="col-md-6">
+            <div className="col-md-4">
               <div className="card shadow-sm h-100">
                 <div className="card-body">
 
-                  <h6 className="fw-bold mb-3">
-                    Kepatuhan Jam Visite
-                  </h6>
+                <h6 className="fw-bold mb-3">
+                  Kepatuhan SPM
+                </h6>
 
                   <ResponsiveContainer width="100%" height={350}>
                     <PieChart>
@@ -338,11 +432,11 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
                         data={[
                           {
                             name: "Standar",
-                            value: Number(summary?.visiteStandar || 0)
+                            value: Number(summary?.spmStandar || 0)
                           },
                           {
-                            name: "Belum Standar",
-                            value: Number(summary?.visiteTidakStandar || 0)
+                            name: "Tidak Standar",
+                            value: Number(summary?.spmTidakStandar || 0)
                           }
                         ]}
                         dataKey="value"
@@ -350,7 +444,9 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
                         cx="50%"
                         cy="50%"
                         outerRadius={120}
-                        label
+                        label={({ percent }) =>
+                          `${name} ${(percent * 100).toFixed(1)}%`
+                        }
                       >
                         <Cell fill="#198754" />
                         <Cell fill="#dc3545" />
@@ -366,8 +462,54 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
               </div>
             </div>
 
+            {/* PIE KEPATUHAN VISITE */}
+            <div className="col-md-4">
+              <div className="card shadow-sm h-100">
+                <div className="card-body">
+
+                <h6 className="fw-bold mb-3">
+                  Kepatuhan INM
+                </h6>
+
+                  <ResponsiveContainer width="100%" height={350}>
+                    <PieChart>
+
+                    <Pie
+                      data={[
+                        {
+                          name: "Standar",
+                          value: Number(summary?.inmStandar || 0)
+                        },
+                        {
+                          name: "Tidak Standar",
+                          value: Number(summary?.inmTidakStandar || 0)
+                        }
+                      ]}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={120}
+                      label={({ percent }) =>
+                        `${name} ${(percent * 100).toFixed(1)}%`
+                      }
+                    >
+                      <Cell fill="#0d6efd" />
+                      <Cell fill="#ffc107" />
+                    </Pie>
+
+                      <Tooltip />
+                      <Legend />
+
+                    </PieChart>
+                  </ResponsiveContainer>
+
+                </div>
+              </div>
+            </div>
+
             {/* TREN */}
-            <div className="col-lg-6">
+            <div className="col-lg-4">
 
               <div className="card shadow-sm h-100">
                 <div className="card-body">
@@ -419,18 +561,97 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
         <div className="card-body px-0 py-2">
           <div className="table-responsive">
             <table className="table table-theme table-bordered table-sm">
-              <thead>
-                <tr>
-                  <th>No</th>
-                  <th>Tanggal/Jam Visite</th>
-                  <th>Status Jam</th>
-                  <th>Dokter</th>
-                  <th>Pelayanan</th>
-                  <th>Poli</th>
-                  <th>NRM</th>
-                  <th>Nama Pasien</th>
-                </tr>
-              </thead>
+            <thead>
+              <tr>
+
+                <th style={{ width: "60px" }}>
+                  No
+                </th>
+
+                <th
+                  role="button"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => handleSort("visite_dt")}
+                >
+                  Tanggal/Jam Visite
+                  {sortBy === "visite_dt" &&
+                    (sortOrder === "ASC" ? " ▲" : " ▼")}
+                </th>
+
+                <th
+                  role="button"
+                  className="text-center"
+                  style={{ cursor: "pointer", width: "120px" }}
+                  onClick={() => handleSort("spm_status")}
+                >
+                  Status SPM
+                  {sortBy === "spm_status" &&
+                    (sortOrder === "ASC" ? " ▲" : " ▼")}
+                </th>
+
+                <th
+                  role="button"
+                  className="text-center"
+                  style={{ cursor: "pointer", width: "120px" }}
+                  onClick={() => handleSort("inm_status")}
+                >
+                  Status INM
+                  {sortBy === "inm_status" &&
+                    (sortOrder === "ASC" ? " ▲" : " ▼")}
+                </th>
+
+                <th
+                  role="button"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => handleSort("employee_nm")}
+                >
+                  Dokter
+                  {sortBy === "employee_nm" &&
+                    (sortOrder === "ASC" ? " ▲" : " ▼")}
+                </th>
+
+                <th
+                  role="button"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => handleSort("medical_service_name")}
+                >
+                  Pelayanan
+                  {sortBy === "medical_service_name" &&
+                    (sortOrder === "ASC" ? " ▲" : " ▼")}
+                </th>
+
+                <th
+                  role="button"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => handleSort("srvc_unit_nm")}
+                >
+                  Poli
+                  {sortBy === "srvc_unit_nm" &&
+                    (sortOrder === "ASC" ? " ▲" : " ▼")}
+                </th>
+
+                <th
+                  role="button"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => handleSort("mr_code")}
+                >
+                  NRM
+                  {sortBy === "mr_code" &&
+                    (sortOrder === "ASC" ? " ▲" : " ▼")}
+                </th>
+
+                <th
+                  role="button"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => handleSort("patient_nm")}
+                >
+                  Nama Pasien
+                  {sortBy === "patient_nm" &&
+                    (sortOrder === "ASC" ? " ▲" : " ▼")}
+                </th>
+
+              </tr>
+            </thead>
 
               <tbody>
                 {data.length > 0 ? (
@@ -445,21 +666,49 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
                       </td>
                       <td className="text-center">
                         {(() => {
-                          const jam = new Date(item.visite_dt).getHours();
+                          const dt = new Date(item.visite_dt);
 
-                          const isStandar = jam >= 6;
+                          const totalMenit =
+                            dt.getHours() * 60 + dt.getMinutes();
+
+                          const isSPM =
+                            totalMenit >= 360 &&
+                            totalMenit <= 840;
 
                           return (
                             <span
                               className={`badge ${
-                                isStandar
+                                isSPM
                                   ? "bg-success"
                                   : "bg-danger"
                               }`}
                             >
-                              {isStandar
-                                ? "Standar"
-                                : "Belum Standar"}
+                              {isSPM ? "Sudah Standar" : "Belum Standar"}
+                            </span>
+                          );
+                        })()}
+                      </td>
+
+                      <td className="text-center">
+                        {(() => {
+                          const dt = new Date(item.visite_dt);
+
+                          const totalMenit =
+                            dt.getHours() * 60 + dt.getMinutes();
+
+                          const isINM =
+                            totalMenit >= 480 &&
+                            totalMenit <= 840;
+
+                          return (
+                            <span
+                              className={`badge ${
+                                isINM
+                                  ? "bg-primary"
+                                  : "bg-warning text-dark"
+                              }`}
+                            >
+                              {isINM ? "Sudah Standar" : "Belum Standar"}
                             </span>
                           );
                         })()}
