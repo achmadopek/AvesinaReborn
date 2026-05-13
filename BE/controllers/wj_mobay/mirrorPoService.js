@@ -383,12 +383,12 @@ async function getMonitoringBySuratPengantar(start, end, typeTglFilter) {
         status_pengolahan: r.status_pengolahan,
 
         // timeline (ambil paling awal / representative)
-        tgl_konsolidasi: r.tgl_konsolidasi,
-        tgl_pengajuan: r.tgl_pengajuan,
-        tgl_kirim: r.tgl_kirim,
-        tgl_terima: r.tgl_terima,
-        tgl_verifikasi: r.tgl_verifikasi,
-        tgl_bayar: r.tgl_bayar,
+        tgl_konsolidasi: null,
+        tgl_pengajuan: null,
+        tgl_kirim: null,
+        tgl_terima: null,
+        tgl_verifikasi: null,
+        tgl_bayar: null,
 
         total_invoice: 0,
         total_tagihan: 0,
@@ -401,6 +401,14 @@ async function getMonitoringBySuratPengantar(start, end, typeTglFilter) {
     }
 
     const surat = suratMap.get(r.pengajuan_id);
+
+    // ambil tanggal terbaru yang valid
+    if (r.tgl_konsolidasi) surat.tgl_konsolidasi = r.tgl_konsolidasi;
+    if (r.tgl_pengajuan) surat.tgl_pengajuan = r.tgl_pengajuan;
+    if (r.tgl_kirim) surat.tgl_kirim = r.tgl_kirim;
+    if (r.tgl_terima) surat.tgl_terima = r.tgl_terima;
+    if (r.tgl_verifikasi) surat.tgl_verifikasi = r.tgl_verifikasi;
+    if (r.tgl_bayar) surat.tgl_bayar = r.tgl_bayar;
 
     // ================= INVOICE =================
     let invoice = surat.invoices.find(

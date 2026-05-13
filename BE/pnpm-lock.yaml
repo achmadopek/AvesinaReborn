@@ -44,6 +44,9 @@ importers:
       mysql2:
         specifier: ^3.14.1
         version: 3.22.3(@types/node@14.18.63)
+      node-cron:
+        specifier: ^4.2.1
+        version: 4.2.1
       pdfkit:
         specifier: ^0.17.2
         version: 0.17.2
@@ -733,6 +736,10 @@ packages:
   negotiator@0.6.3:
     resolution: {integrity: sha512-+EUsqGPLsM+j/zdChZjsnX51g4XrHFOIXwfnCVPGlQk/k5giakcKsuxCObBRu6DSm9opw/O6slWbJdghQM4bBg==}
     engines: {node: '>= 0.6'}
+
+  node-cron@4.2.1:
+    resolution: {integrity: sha512-lgimEHPE/QDgFlywTd8yTR61ptugX3Qer29efeyWw2rv259HtGBNn1vZVmp8lB9uo9wC0t/AT4iGqXxia+CJFg==}
+    engines: {node: '>=6.0.0'}
 
   nodemon@3.1.14:
     resolution: {integrity: sha512-jakjZi93UtB3jHMWsXL68FXSAosbLfY0In5gtKq3niLSkrWznrVBzXFNOEMJUfc9+Ke7SHWoAZsiMkNP3vq6Jw==}
@@ -1790,6 +1797,8 @@ snapshots:
       lru.min: 1.1.4
 
   negotiator@0.6.3: {}
+
+  node-cron@4.2.1: {}
 
   nodemon@3.1.14:
     dependencies:

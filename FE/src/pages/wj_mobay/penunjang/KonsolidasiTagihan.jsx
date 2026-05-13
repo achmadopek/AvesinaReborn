@@ -170,7 +170,7 @@ const KonsolidasiTagihan = () => {
   // -----------------------
   // FILTERED DATA
   // -----------------------
-  const normalize = (v) => (v || "").toLowerCase();
+  const normalize = (v) => String(v || "").toLowerCase();
 
   const filteredData = useMemo(() => {
     return data.filter((inv) => {

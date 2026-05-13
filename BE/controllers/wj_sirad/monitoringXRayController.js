@@ -7,6 +7,8 @@ const path = require("path");
 
 const { buildServiceRequest } = require("../../services/satusehat/builders/serviceRequestBuilder");
 
+const outboxService = require("../../services/satusehat/outboxService");
+
 const { satusehatClient } = require("../../services/satusehat/satusehatClient");
 const { parseDicomUID } = require("../../utility/dicomParser");
 const { dicomToJpg } = require("../../utility/dicomToJpg");
@@ -16,7 +18,11 @@ const satuSehatService = require("../../services/satusehat/satusehatService");
 // =============================================================
 // BUILD PAYLOAD HELPER (SUDAH DI-IMPROVE)
 // =============================================================
-const buildPayloadFromDB = async (registry_id, x_ray_dtl_id) => {
+exports.buildPayloadFromDB = async (
+  registry_id,
+  x_ray_dtl_id,
+  resourceType = null
+) => {
   if (!registry_id || !x_ray_dtl_id) {
     throw new Error("registry_id dan x_ray_dtl_id wajib");
   }
@@ -63,16 +69,14 @@ const buildPayloadFromDB = async (registry_id, x_ray_dtl_id) => {
 
 if (!utama) throw new Error("Data utama tidak ditemukan");
 
+  let encounter_uuid = null;
+
   const [[enc]] = await dbERM.promise().query(
-    `
-    SELECT encounter_uuid
-    FROM satusehat
-    WHERE registry_id = ?
-      AND encounter_uuid IS NOT NULL
-    LIMIT 1
-    `,
+    `SELECT encounter_uuid FROM satusehat WHERE registry_id = ? LIMIT 1`,
     [registry_id]
   );
+
+  encounter_uuid = enc?.encounter_uuid || null;
 
   const [[sr]] = await dbERM.promise().query(
     `SELECT service_request_uuid FROM satusehat_service_request WHERE registry_id = ? AND x_ray_dtl_id = ? LIMIT 1`,
@@ -85,9 +89,71 @@ if (!utama) throw new Error("Data utama tidak ditemukan");
 
   const missing = [];
   if (!utama?.patient_ihs_number) missing.push("Patient IHS");
-  if (!enc?.encounter_uuid) missing.push("Encounter");
-  if (!sr?.service_request_uuid) missing.push("ServiceRequest");
   if (!dokter?.satusehat_ihs_number) missing.push("Practitioner IHS");
+
+  // ===================================
+  // COMMON
+  // ===================================
+
+  if (!utama?.patient_ihs_number) {
+    missing.push("Patient IHS");
+  }
+
+  if (!dokter?.satusehat_ihs_number) {
+    missing.push("Practitioner IHS");
+  }
+
+  // ===================================
+  // RESOURCE DEPENDENCY
+  // ===================================
+
+  switch (resourceType) {
+
+    case "ServiceRequest":
+
+      if (!encounter_uuid) {
+        missing.push("Encounter");
+      }
+
+      break;
+
+    case "ImagingStudy":
+
+      if (!encounter_uuid) {
+        missing.push("Encounter");
+      }
+
+      if (!sr?.service_request_uuid) {
+        missing.push("ServiceRequest");
+      }
+
+      break;
+
+    case "Observation":
+
+      if (!encounter_uuid) {
+        missing.push("Encounter");
+      }
+
+      if (!sr?.service_request_uuid) {
+        missing.push("ServiceRequest");
+      }
+
+      break;
+
+    case "DiagnosticReport":
+
+      if (!encounter_uuid) {
+        missing.push("Encounter");
+      }
+
+      if (!sr?.service_request_uuid) {
+        missing.push("ServiceRequest");
+      }
+
+      break;
+
+  }
 
   return {
     registry_id,
@@ -455,7 +521,12 @@ exports.requestXRay = async (req, res) => {
           loinc_display,
         });
 
-        ssResult = await satuSehatService.sendServiceRequest(payload);
+        ssResult = await outboxService.enqueue({
+          registry_id,
+          x_ray_id,
+          x_ray_dtl_id,
+          resource_type: "ServiceRequest"
+        });
       } else {
         console.warn("Skip SatuSehat ServiceRequest - missing:", check.missingFields);
       }
