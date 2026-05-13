@@ -107,11 +107,11 @@ const MonitoringTagihan = () => {
   }, []);
 
   // load ketika filter berubah
-  useEffect(() => {
+  /*useEffect(() => {
     if (!startDate || !endDate) return;
 
     loadData();
-  }, [startDate, endDate, filterDateType]);
+  }, [startDate, endDate, filterDateType]);*/
 
   useEffect(() => {
     if (invoice || drug) {
@@ -198,6 +198,50 @@ const MonitoringTagihan = () => {
     }
   };
 
+  const handleCetakRekapInvoice = async () => {
+    if (filteredData.length === 0) {
+      toast.warn("Tidak ada data untuk dicetak");
+      return;
+    }
+  
+    try {
+      const response = await cetakMonitoringPDF({
+        is_rekap_invoice: true,
+        data: filteredData,
+        periode: { start: startDate, end: endDate }
+      });
+  
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, "_blank");
+    } catch (err) {
+      console.error(err);
+      toast.error("Gagal mencetak Rekap Invoice");
+    }
+  };
+
+  const handleCetakRekapGlobal = async () => {
+    if (filteredData.length === 0) {
+      toast.warn("Tidak ada data untuk dicetak");
+      return;
+    }
+  
+    try {
+      const response = await cetakMonitoringPDF({
+        is_rekap_global: true,
+        data: filteredData,           // kirim semua data
+        periode: { start: startDate, end: endDate, type: filterDateType }
+      });
+  
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, "_blank");
+    } catch (err) {
+      console.error(err);
+      toast.error("Gagal mencetak Rekap Global");
+    }
+  };
+
   // -----------------------
   // RENDER
   // -----------------------
@@ -262,6 +306,23 @@ const MonitoringTagihan = () => {
               >
                 {loading ? "Memuat..." : "Tampilkan"}
               </button>
+
+              {/* di dalam div filter, sebelah tombol Tampilkan */}
+              <button
+                onClick={handleCetakRekapGlobal}
+                className="btn btn-sm btn-outline-success ms-2"
+                disabled={loading || filteredData.length === 0}
+              >
+                <i className="fas fa-print"></i> Cetak Rekap Global
+              </button>
+
+              <button
+                onClick={handleCetakRekapInvoice}
+                className="btn btn-sm btn-outline-info ms-2"
+                disabled={loading || filteredData.length === 0}
+              >
+                <i className="fas fa-print"></i> Cetak Rekap Invoice
+              </button>
             </div>
 
             {/* filter kanan */}
@@ -294,10 +355,10 @@ const MonitoringTagihan = () => {
           <div className="table-responsive">
             <table className="table table-theme table-bordered table-sm align-middle">
               <thead>
-                <tr>
+                <tr className="text-center">
                   <th>No</th>
                   <th>Provider</th>
-                  <th>Status Pengolahan</th>
+                  <th>Progres</th>
                   <th>Tagihan</th>
                   <th>Diajukan</th>
                   <th>Pengiriman</th>
@@ -326,7 +387,7 @@ const MonitoringTagihan = () => {
                       {/* ================= ROW SURAT ================= */}
                       <tr>
                         <td>{i + 1}</td>
-                        <td>
+                        <td style={{width: "300px"}}>
                             <strong>{surat.prvdr_str}</strong>
                             <br/>
                             <span className="small">{surat.prvdr_address}</span>
@@ -456,6 +517,7 @@ const MonitoringTagihan = () => {
                           <td colSpan="8">
                             <div className="p-2 bg-light">
 
+                             {/* ===== DETAIL INVOICE TABLE ===== */}
                               <table className="table table-sm table-bordered mb-0">
                                 <thead>
                                   <tr>
@@ -472,13 +534,10 @@ const MonitoringTagihan = () => {
 
                                     return (
                                       <React.Fragment key={inv.po_acce_id}>
-                                        {/* ===== ROW INVOICE ===== */}
                                         <tr>
                                           <td>{j + 1}</td>
                                           <td>{inv.invoice_no}</td>
-                                          <td className="text-end">
-                                            {formatCurrency(inv.total_diajukan)}
-                                          </td>
+                                          <td className="text-end">{formatCurrency(inv.total_diajukan)}</td>
                                           <td className="text-end">
                                             <span className={`badge ${getStatusBadgeClass(inv.status_pengolahan)}`}>
                                               {inv.status_pengolahan}
@@ -487,11 +546,7 @@ const MonitoringTagihan = () => {
                                           <td className="text-center">
                                             <button
                                               className="btn btn-sm btn-secondary"
-                                              onClick={() =>
-                                                setExpandedInvoice(
-                                                  isOpen ? null : inv.po_acce_id
-                                                )
-                                              }
+                                              onClick={() => setExpandedInvoice(isOpen ? null : inv.po_acce_id)}
                                             >
                                               Detail Item
                                             </button>
@@ -502,7 +557,7 @@ const MonitoringTagihan = () => {
                                         {isOpen && (
                                           <tr>
                                             <td>&nbsp;</td>
-                                            <td colSpan="3">
+                                            <td colSpan="4">
                                               <table className="table table-sm table-bordered mb-0">
                                                 <thead>
                                                   <tr>
@@ -533,7 +588,8 @@ const MonitoringTagihan = () => {
                                       </React.Fragment>
                                     );
                                   })}
-                                </tbody>
+
+                                 </tbody>
                               </table>
 
                             </div>

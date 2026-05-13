@@ -239,7 +239,7 @@ exports.getData = async (req, res) => {
   }
 };
 
-// BAYAR BENDEL
+// BAYAR BENDEL - VERSI FINAL (Full Payment)
 exports.bayarBendel = async (req, res) => {
   const conn = await db.promise().getConnection();
 
@@ -250,102 +250,85 @@ exports.bayarBendel = async (req, res) => {
       pengajuan_id,
       catatan,
       tgl_bayar,
-      invoice_actions = []
+      invoice_actions = []   // invoice yang dicentang untuk dibayar
     } = req.body;
 
-    if (!pengajuan_id) {
-      throw new Error("pengajuan_id wajib");
-    }
+    if (!pengajuan_id) throw new Error("pengajuan_id wajib");
+    if (!invoice_actions.length) throw new Error("Pilih minimal satu invoice untuk dibayar");
 
-    if (!invoice_actions.length) {
-      throw new Error("Invoice pembayaran belum dipilih");
-    }
+    const poIdsDibayar = invoice_actions.map(i => i.po_acce_id);
 
-    // ===============================
-    // VALIDASI INVOICE
-    // ===============================
-    const poIds = invoice_actions.map(i => i.po_acce_id);
-
-    const [invoices] = await conn.query(
+    // Ambil semua invoice di pengajuan ini
+    const [allInvoices] = await conn.query(
       `
-      SELECT
-        id,
-        po_acce_id,
-        total_tagihan,
-        total_diajukan
-      FROM mobay_mirror_po
+      SELECT po_acce_id, total_diajukan 
+      FROM mobay_mirror_po 
       WHERE pengajuan_id = ?
         AND status_validasi = 'Valid'
-        AND po_acce_id IN (?)
       `,
-      [pengajuan_id, poIds]
+      [pengajuan_id]
     );
 
-    if (!invoices.length) {
-      throw new Error("Invoice valid tidak ditemukan");
+    if (!allInvoices.length) {
+      throw new Error("Tidak ada invoice valid di pengajuan ini");
     }
 
     // ===============================
-    // PROCESS EACH INVOICE
+    // 1. PROSES INVOICE YANG DIBAYAR (Dicentang)
     // ===============================
-    for (const actionInv of invoice_actions) {
-
-      const dbInvoice = invoices.find(
-        i => i.po_acce_id === actionInv.po_acce_id
-      );
-
-      if (!dbInvoice) {
-        continue;
-      }
-
-      const selisih =
-        Number(dbInvoice.total_tagihan || 0) -
-        Number(dbInvoice.total_diajukan || 0);
-
+    for (const action of invoice_actions) {
       await conn.query(
         `
         UPDATE mobay_mirror_po
         SET
-          total_bayar = total_diajukan,
-          selisih_bayar = ?,
+          total_bayar = total_diajukan,        -- Full sesuai pengajuan
+          selisih_bayar = 0,                    -- Karena sudah full
           status_pengolahan = 'Selesai',
-          status_pembayaran =
-            CASE
-              WHEN ? = 0 THEN 'Lunas'
-              ELSE 'Kurang Bayar'
-            END,
+          status_pembayaran = 'Lunas',
           invoice_paid_dt = ?,
           catatan_bayar = ?
         WHERE po_acce_id = ?
+          AND pengajuan_id = ?
         `,
-        [
-          selisih,
-          selisih,
-          tgl_bayar || new Date(),
-          catatan || null,
-          actionInv.po_acce_id
-        ]
+        [tgl_bayar || new Date(), catatan || null, action.po_acce_id, pengajuan_id]
       );
     }
 
     // ===============================
-    // OPTIONAL:
-    // UPDATE STATUS SURAT
+    // 2. PROSES INVOICE YANG TIDAK DIBAYAR (Tidak Dicentang)
     // ===============================
+    const poIdsTidakDibayar = allInvoices
+      .filter(inv => !poIdsDibayar.includes(inv.po_acce_id))
+      .map(inv => inv.po_acce_id);
 
+    if (poIdsTidakDibayar.length > 0) {
+      await conn.query(
+        `
+        UPDATE mobay_mirror_po
+        SET
+          status_pembayaran = 'Ditunda',   -- atau 'Hutang' sesuai kebijakan
+          status_pengolahan = 'Proses Pembayaran',
+          total_bayar = 0,
+          invoice_paid_dt = NULL,
+          catatan_bayar = NULL
+        WHERE pengajuan_id = ?
+          AND po_acce_id IN (?)
+        `,
+        [pengajuan_id, poIdsTidakDibayar]
+      );
+    }
+
+    // ===============================
+    // 3. UPDATE SUMMARY
+    // ===============================
     const [summary] = await conn.query(
       `
-      SELECT
-        COUNT(*) total,
-        SUM(
-          CASE WHEN status_pengolahan = 'Selesai'
-          THEN 1 ELSE 0 END
-        ) selesai,
-        SUM(
-          CASE WHEN status_pengolahan = 'Batal'
-          THEN 1 ELSE 0 END
-        ) batal
-      FROM mobay_mirror_po
+      SELECT 
+        COUNT(*) as total_invoice,
+        SUM(CASE WHEN status_pembayaran = 'Lunas' THEN 1 ELSE 0 END) as lunas,
+        SUM(CASE WHEN status_pembayaran = 'Belum Bayar' THEN 1 ELSE 0 END) as belum_bayar,
+        SUM(CASE WHEN status_pembayaran = 'Hutang' THEN 1 ELSE 0 END) as hutang
+      FROM mobay_mirror_po 
       WHERE pengajuan_id = ?
       `,
       [pengajuan_id]
@@ -354,20 +337,14 @@ exports.bayarBendel = async (req, res) => {
     await conn.commit();
 
     res.json({
-      message: "Pembayaran bendel berhasil",
+      message: "Pembayaran bendel berhasil diproses",
       summary: summary[0]
     });
 
   } catch (err) {
-
     await conn.rollback();
-
     console.error("Error bayarBendel:", err);
-
-    res.status(500).json({
-      message: err.message
-    });
-
+    res.status(500).json({ message: err.message });
   } finally {
     conn.release();
   }
@@ -391,7 +368,7 @@ exports.batalkanInvoice = async (req, res) => {
       UPDATE mobay_mirror_po
       SET
         status_pengolahan = 'Batal',
-        status_pembayaran = 'Tidak Dibayar',
+        status_pembayaran = 'Belum Bayar',
         total_bayar = 0,
         invoice_paid_dt = NULL
       WHERE po_acce_id = ?

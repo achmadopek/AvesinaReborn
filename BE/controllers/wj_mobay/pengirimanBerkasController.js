@@ -238,7 +238,7 @@ exports.createPengiriman = async (req, res) => {
     const pengirimanId = result.insertId;
 
     // ================= AMBIL DATA PENGAJUAN =================
-    const [pengajuanList] = await conn.query(`
+    const [pengajuanRows] = await conn.query(`
       SELECT 
         mp.id,
         mp.no_surat,
@@ -246,13 +246,65 @@ exports.createPengiriman = async (req, res) => {
         mp.tujuan,
         mp.keterangan,
         mp.total_pengajuan,
-        GROUP_CONCAT(DISTINCT mpo.prvdr_str SEPARATOR ', ') AS prvdr_str
+
+        mpo.po_acce_id,
+        mpo.invoice_no,
+        mpo.total_diajukan,
+        mpo.status_pengolahan,
+
+        -- Cara lama yang compatible dengan MySQL 5
+        prv.prvdr_str
+
       FROM mobay_pengajuan mp
-      LEFT JOIN mobay_mirror_po mpo
-        ON mpo.pengajuan_id = mp.id
-      WHERE mp.id IN (?)
-      GROUP BY mp.id
+      LEFT JOIN mobay_mirror_po mpo ON mpo.pengajuan_id = mp.id
+
+      -- Subquery untuk ambil prvdr_str per pengajuan
+      LEFT JOIN (
+        SELECT 
+          pengajuan_id,
+          GROUP_CONCAT(DISTINCT prvdr_str SEPARATOR ', ') AS prvdr_str
+        FROM mobay_mirror_po
+        WHERE prvdr_str IS NOT NULL
+        GROUP BY pengajuan_id
+      ) prv ON prv.pengajuan_id = mp.id
+
+      WHERE mp.id IN (?)   -- contoh
+      ORDER BY mp.id, mpo.invoice_no
     `, [pengajuan_ids]);
+
+    const pengajuanMap = {};
+
+    pengajuanRows.forEach(row => {
+
+      if (!pengajuanMap[row.id]) {
+
+        pengajuanMap[row.id] = {
+          id: row.id,
+          no_surat: row.no_surat,
+          tanggal_surat: row.tanggal_surat,
+          tujuan: row.tujuan,
+          keterangan: row.keterangan,
+          total_pengajuan: row.total_pengajuan,
+          prvdr_str: row.prvdr_str,
+          invoices: []
+        };
+
+      }
+
+      if (row.po_acce_id) {
+
+        pengajuanMap[row.id].invoices.push({
+          po_acce_id: row.po_acce_id,
+          invoice_no: row.invoice_no,
+          total_diajukan: row.total_diajukan,
+          status_pengolahan: row.status_pengolahan
+        });
+
+      }
+
+    });
+
+    const pengajuanList = Object.values(pengajuanMap);
 
     // ================= INSERT DETAIL + UPDATE STATUS =================
     for (const p of pengajuanList) {
@@ -325,7 +377,7 @@ const generatePDFPengiriman = (res, data) => {
   doc.fontSize(14).text("UOBK RSUD WALUYO JATI", {
     align: "center",
   });
-  doc.fontSize(14).text("DAFTAR PENGIRIMAN BERKAS PENGAJUAN", {
+  doc.fontSize(14).text("EKPEDISI PENGIRIMAN BERKAS PENGAJUAN", {
     align: "center",
   });
 
@@ -363,6 +415,7 @@ const generatePDFPengiriman = (res, data) => {
 
   y += 20;
   doc.font("Helvetica");
+  doc.fontSize(8);
 
   const pageHeight = doc.page.height;
 
@@ -375,8 +428,8 @@ const generatePDFPengiriman = (res, data) => {
       doc.font("Helvetica-Bold");
       doc.text("No", 50, y);
       doc.text("No Surat", 80, y);
-      doc.text("Tgl Surat", 170, y);
-      doc.text("Keterangan", 230, y);
+      //doc.text("Tgl Surat", 170, y);
+      doc.text("Keterangan", 180, y); //doc.text("Keterangan", 230, y);
       doc.text("Total", 330, y);
       doc.text("Provider", 430, y);
 
@@ -386,12 +439,74 @@ const generatePDFPengiriman = (res, data) => {
 
     doc.text(index + 1, 50, y);
     doc.text(p.no_surat, 80, y);
-    doc.text(formatTanggalIndo(p.tanggal_surat), 170, y);
-    doc.text(p.keterangan || "-", 230, y, { width: 110 });
+    //doc.text(formatTanggalIndo(p.tanggal_surat), 170, y);
+    doc.text(p.keterangan || "-", 180, y, { width: 160 }); //doc.text(p.keterangan || "-", 230, y, { width: 110 });
     doc.text(formatRupiah(p.total_pengajuan) || "-", 330, y, { width: 130 });
     doc.text(p.prvdr_str || "-", 430, y, { width: 150 });
 
     y += 20;
+
+    // =========================
+    // DETAIL INVOICE
+    // =========================
+    if (p.invoices?.length) {
+
+      doc.fontSize(8);
+      //doc.font("Helvetica-Bold");
+
+      /*doc.text("Invoice", 90, y);
+      doc.text("Status", 250, y);
+      doc.text("Total", 430, y, {
+        width: 80,
+        align: "right"
+      });
+
+      y += 15;*/
+
+      doc.font("Helvetica");
+
+      p.invoices.forEach((inv, idxInv) => {
+
+        if (y > pageHeight - 80) {
+          doc.addPage();
+          y = 50;
+        }
+
+        doc.text(
+          `${idxInv + 1}. ${inv.invoice_no || "-"}`,
+          180,
+          y,
+          {
+            width: 290
+          }
+        );
+
+        /*doc.text(
+          inv.status_pengolahan || "-",
+          250,
+          y,
+          {
+            width: 120
+          }
+        );*/
+
+        doc.text(
+          formatRupiah(inv.total_diajukan || 0),
+          430,
+          y,
+          {
+            width: 150,
+            align: "left"
+          }
+        );
+
+        y += 14;
+
+      });
+
+      y += 10;
+    }
+
   });
 
   y += 20;

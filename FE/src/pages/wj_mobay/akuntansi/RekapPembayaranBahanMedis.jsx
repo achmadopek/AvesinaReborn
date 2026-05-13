@@ -40,7 +40,7 @@ const RekapPembayaranBahanMedis = () => {
 
       const status_pembayaran =
         it.status_pembayaran ??
-        (it.status_pengolahan === "Lunas" ? "Lunas" : "Hutang");
+        (it.status_pengolahan === "Selesai" ? "Lunas" : "Hutang");
 
       const bayarFlag = status_pembayaran === "Lunas";
 
