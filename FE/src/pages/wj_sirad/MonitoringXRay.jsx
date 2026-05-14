@@ -278,6 +278,11 @@ const MonitoringXRay = (
 
     const formData = new FormData();
 
+    formData.append(
+      "upload_mode",
+      ENABLE_DICOM_UPLOAD ? "dicom" : "image"
+    );
+
     formData.append("registry_id", selectedUpload.registry_id);
     formData.append("x_ray_id", selectedUpload.x_ray_id);
     formData.append("x_ray_dtl_id", selectedUpload.x_ray_dtl_id);
@@ -318,8 +323,13 @@ const MonitoringXRay = (
         toast.error(res.message || "Upload gagal");
       }
     } catch (err) {
-      console.error(err);
-      toast.error("Upload gagal");
+      console.error("UPLOAD ERROR:", err);
+    
+      toast.error(
+        err?.response?.data?.message ||
+        err.message ||
+        "Upload gagal"
+      );
     } finally {
       setUploading(false);
     }
@@ -369,7 +379,7 @@ const MonitoringXRay = (
         hasil_bacaan: hasilBacaan,
         read_by: peg_id,
       });
-
+      console.log("RES SAVE:", res);
       if (res.success) {
         toast.success(res.observation_sent 
           ? "Hasil bacaan berhasil disimpan & dikirim ke SatuSehat" 
@@ -377,11 +387,11 @@ const MonitoringXRay = (
       } else {
         toast.error(res.message || "Gagal menyimpan hasil");
       }
-
+      console.log("SEBELUM LOAD DATA");
       setShowBacaModal(false);
       setHasilBacaan("");
       loadData(currentPage, tanggal);
-
+      console.log("SETELAH LOAD DATA");
     } catch (err) {
       console.error(err);
       toast.error(err?.response?.data?.message || "Gagal menyimpan hasil");
@@ -717,6 +727,62 @@ const MonitoringXRay = (
       // Simpan PDF
       doc.save(`Hasil_Radiologi_${data.mr_code || 'unknown'}.pdf`);
     });
+  };
+
+  const getSSBadge = (item) => {
+    if (!item) {
+      return {
+        className: "bg-light text-muted border",
+        title: "Belum diproses",
+      };
+    }
+  
+    switch (item.status) {
+      case "success":
+        return {
+          className: "bg-success",
+          title: `SUCCESS\nUUID: ${item.uuid || "-"}`,
+        };
+  
+      case "queued":
+        return {
+          className: "bg-warning text-dark",
+          title: item.message || "Masuk antrian",
+        };
+  
+      case "processing":
+        return {
+          className: "bg-info text-dark",
+          title: "Sedang diproses worker",
+        };
+  
+      case "debug":
+        return {
+          className: "bg-secondary",
+          title: "DEBUG MODE",
+        };
+  
+      case "failed":
+        return {
+          className: "bg-danger",
+          title:
+          `${item.message || "Gagal kirim"}${
+            item.uuid ? `\nUUID: ${item.uuid}` : ""
+          }`,
+        };
+  
+      case "skipped":
+        return {
+          className: "bg-dark",
+          title: item.message || "Dependency belum lengkap",
+        };
+  
+      default:
+        return {
+          className: "bg-light text-muted border",
+          title: item.message || "Unknown",
+        };
+    }
   };
 
   // -----------------------
@@ -1557,10 +1623,12 @@ const MonitoringXRay = (
                   //console.log(filteredData);
 
                   const {
-                    patient = false,
-                    encounter = false,
-                    service_request = false,
-                    imaging = false,
+                    patient = null,
+                    encounter = null,
+                    service_request = null,
+                    imaging = null,
+                    observation = null,
+                    report = null,
                   } = satu_sehat;
 
                   const isNotFinal = !is_final;
@@ -1577,39 +1645,140 @@ const MonitoringXRay = (
                   // radiolog ada (optional kalau dipakai)
                   const hasPemeriksa = !!pemeriksa_ihs;
 
+                  const isSSSuccess = (item) =>
+                    item?.status === "success";
+
+                  const isSSPending = (item) =>
+                    ["queued", "processing"].includes(item?.status);
+
+                  const isSSFailed = (item) =>
+                    ["failed", "skipped"].includes(item?.status);
+
                   // ==================== LOGIC TOMBOL (DI-RELAX) ====================
-                  const canRequest = 
-                    hasPengirim && 
-                    hasPemeriksa && 
-                    !service_request;                    // Mapping tidak wajib lagi
+                  // ====================
+                  // SATUSEHAT STATUS
+                  // ====================
+                  const reqSuccess = isSSSuccess(service_request);
+                  const imgSuccess = isSSSuccess(imaging);
+                  const obsSuccess = isSSSuccess(observation);
+                  const repSuccess = isSSSuccess(report);
 
-                  const canUpload = 
-                    (status === "ordered" || status === "none") && 
-                    !imaging;                            // Mapping tidak wajib
+                  const reqPending = isSSPending(service_request);
+                  const imgPending = isSSPending(imaging);
+                  const repPending = isSSPending(report);
 
-                  const canBaca = status === "uploaded" || status === "ordered";
+                  // ====================
+                  // ACTION RULES
+                  // ====================
 
+                  // REQUEST
+                  const canRequest =
+                    hasPengirim &&
+                    hasPemeriksa &&
+                    !reqSuccess &&
+                    !reqPending;
+
+                  // UPLOAD
+                  const canUpload =
+                    ["ordered", "none"].includes(status) &&
+                    !imgSuccess &&
+                    !imgPending;
+
+                  // BACA
+                  const canBaca =
+                    ["uploaded", "ordered", "read"].includes(status);
+
+                  // REPORT
                   const canSendDiagnostic =
                     status === "read" &&
-                    imaging &&
-                    !row.satu_sehat?.report;
+                    imgSuccess &&
+                    !repSuccess &&
+                    !repPending;
 
-                  // bisa simpan (Observasi / Avesina) kalau sudah dibaca
-                  const canSimpan =
-                    //isNotFinal;
-                    status === "read";
-
-                  // Imaging hanya kalau belum pernah kirim
-                  const canSendImaging =
-                    status === "uploaded" &&
-                    service_request &&
-                    !imaging;
-
-                  // Observation optional (boleh setelah read)
+                  // OBSERVATION
                   const canSendObservation =
                     status === "read" &&
-                    row.satu_sehat?.report && 
-                    !row.satu_sehat?.observation;
+                    repSuccess &&
+                    !obsSuccess;
+
+                  // SAVE LOCAL
+                  const canSimpan =
+                    status === "read";
+
+                  const encBadge = getSSBadge(row.satu_sehat?.encounter);
+                  const reqBadge = getSSBadge(row.satusehat?.service_request);
+                  const imgBadge = getSSBadge(row.satusehat?.imaging);
+                  const obsBadge = getSSBadge(row.satusehat?.observation);
+                  const repBadge = getSSBadge(row.satusehat?.report);
+
+                  const renderStatusBadge = (row) => {
+                    if (row.is_lokal) {
+                      return (
+                        <span className="badge bg-dark">
+                          Final Reborn
+                        </span>
+                      );
+                    }
+                  
+                    if (row.is_final) {
+                      return (
+                        <span className="badge bg-purple">
+                          Final Avesina
+                        </span>
+                      );
+                    }
+                  
+                    switch (row.status) {
+                      case "none":
+                        return (
+                          <span className="badge bg-secondary">
+                            Belum Upload
+                          </span>
+                        );
+                  
+                      case "ordered":
+                        return (
+                          <span className="badge bg-info text-dark">
+                            Sudah Diminta
+                          </span>
+                        );
+                  
+                      case "uploaded":
+                        return (
+                          <span className="badge bg-warning text-dark">
+                            Sudah Upload
+                          </span>
+                        );
+                  
+                      case "read":
+                        return (
+                          <span className="badge bg-primary">
+                            Sudah Dibaca
+                          </span>
+                        );
+                  
+                      case "done":
+                        return (
+                          <span className="badge bg-success">
+                            Selesai
+                          </span>
+                        );
+                  
+                      case "failed":
+                        return (
+                          <span className="badge bg-danger">
+                            Gagal
+                          </span>
+                        );
+                  
+                      default:
+                        return (
+                          <span className="badge bg-light text-dark border">
+                            Unknown
+                          </span>
+                        );
+                    }
+                  };
 
                   return (
                     <tr key={row.unit_visit_id || i}>
@@ -1634,49 +1803,7 @@ const MonitoringXRay = (
                             ))}
                           </div>
                           <div>
-                            {row.is_lokal ? (
-                              <span className="badge bg-dark">
-                                Final Reborn
-                              </span>
-                            ) : row.is_final ? (
-                              <span className="badge bg-purple">
-                                Final Avesina
-                              </span>
-                            ) : (
-                              <span className="badge bg-danger">
-                                Belum Dibaca
-                              </span>
-                            )}
-
-                            {row.status === "none" && (
-                              <span className="badge bg-secondary">
-                                Belum Upload
-                              </span>
-                            )}
-
-                            {row.status === "ordered" && (
-                              <span className="badge bg-info text-dark">
-                                Sudah Diminta
-                              </span>
-                            )}
-
-                            {row.status === "uploaded" && (
-                              <span className="badge bg-warning text-dark">
-                                Sudah Upload
-                              </span>
-                            )}
-
-                            {row.status === "read" && (
-                              <span className="badge bg-primary">
-                                Sudah Dibaca
-                              </span>
-                            )}
-
-                            {row.status === "done" && (
-                              <span className="badge bg-success">
-                                Selesai
-                              </span>
-                            )}
+                            {renderStatusBadge(row)}
                           </div>
                         </td>
                       )}
@@ -1685,7 +1812,7 @@ const MonitoringXRay = (
                         <td>
                           <span
                             className={`badge me-1 ${
-                              row.satu_sehat?.patient
+                              row.satu_sehat?.patient?.status === "success"
                                 ? "bg-success"
                                 : "bg-danger"
                             }`}
@@ -1764,56 +1891,61 @@ const MonitoringXRay = (
 
                       {!isMobile && (
                         <td className="text-center">
-                          {row.satu_sehat?.encounter ? (
-                            <span className="badge bg-secondary">ENC</span>
-                          ) : (
-                            <span className="badge bg-light text-muted border">ENC</span>
-                          )}
+                          <span
+                            className={`badge ${encBadge.className}`}
+                            title={encBadge.title}
+                          >
+                            ENC
+                          </span>
                         </td>
                       )}
 
                       {!isMobile && (
                         <td className="text-center">
-                          {row.satu_sehat?.service_request ? (
-                            <span className="badge bg-primary">REQ</span>
-                          ) : (
-                            <span className="badge bg-light text-muted border">REQ</span>
-                          )}
+                          <span
+                            className={`badge ${reqBadge.className}`}
+                            title={reqBadge.title}
+                          >
+                            REQ
+                          </span>
                         </td>
                       )}
 
                       {!isMobile && (
                         <td className="text-center">
-                          {row.satu_sehat?.imaging ? (
-                            <span className="badge bg-info text-dark">IMG</span>
-                          ) : (
-                            <span className="badge bg-light text-muted border">IMG</span>
-                          )}
+                          <span
+                            className={`badge ${imgBadge.className}`}
+                            title={imgBadge.title}
+                          >
+                            IMG
+                          </span>
                         </td>
                       )}
 
                       {!isMobile && (
                         <td className="text-center">
-                          {row.satu_sehat?.observation ? (
-                            <span className="badge bg-dark">OBS</span>
-                          ) : (
-                            <span className="badge bg-light text-muted border">OBS</span>
-                          )}
+                          <span
+                            className={`badge ${obsBadge.className}`}
+                            title={obsBadge.title}
+                          >
+                            OBS
+                          </span>
                         </td>
                       )}
 
                       {!isMobile && (
                         <td className="text-center">
-                          {row.satu_sehat?.report ? (
-                            <span className="badge bg-warning text-dark">REP</span>
-                          ) : (
-                            <span className="badge bg-light text-muted border">REP</span>
-                          )}
+                          <span
+                            className={`badge ${repBadge.className}`}
+                            title={repBadge.title}
+                          >
+                            REP
+                          </span>
                         </td>
                       )}
 
                       {!isMobile && (
-                        <div className="text-center">
+                        <td className="text-center">
                           {row.is_lokal ? (
                             <span className="badge bg-dark">
                               Final Reborn
@@ -1859,7 +1991,7 @@ const MonitoringXRay = (
                               Selesai
                             </span>
                           )}
-                        </div>
+                        </td>
                       )}
 
                       <td className="text-center">
@@ -1929,6 +2061,11 @@ const MonitoringXRay = (
                             className="btn btn-sm btn-outline-info ms-1"
                             disabled={!canSendDiagnostic}
                             onClick={() => openModalReport(row)}
+                            title={
+                              !imgSuccess
+                                ? "ImagingStudy SATUSEHAT belum selesai"
+                                : ""
+                            }
                           >
                             Report
                           </button>

@@ -42,9 +42,18 @@ class SatuSehatService {
     
     return {
       success: false,
-      error: lastError?.message || "Unknown error",
+    
+      error:
+        lastError?.response?.data ||
+        lastError?.message ||
+        "Unknown error",
+    
+      httpStatus:
+        lastError?.response?.status || 500,
+    
       attempt: this.maxRetries,
-      isPermanentFail: true
+    
+      isPermanentFail: true,
     };
   }
 
