@@ -5,8 +5,9 @@ MOBAY: 9 Mei 2026
 4. Fitur Cetak per pengajuan di rincian di Monitoring
 
 MOBAY: 16 Mei 2026
-1. Menu pengiriman tambah SubTotal per jenis (Obbat/BMHP/dll)
-2. Tambah checkbox per invoice dan jenis (bisa kirim by part)
+1. Menu pengiriman tambah SubTotal per jenis (Obbat/BMHP/dll) ==> OK
+2. Tambah checkbox per invoice dan jenis (bisa kirim by part) ==> OK
+3. Tambah history di tiap halaman, jadi saat filter bisa cek yg sudah diproses
 
 SIGMA : Sub: Monitoring Visite
 1. Nama Sub Menu : WJ VISION (Visite System Integrated & Observation)

@@ -274,7 +274,7 @@ const PengirimanBerkas = () => {
 
       toast.success("PDF berhasil didownload");
 
-      setSelectedPengajuan([]);
+      setSelectedInvoices([]);
       setNoPengiriman(generateNoPengiriman());
 
       loadData(startDate, endDate, filterDateType);
@@ -311,7 +311,9 @@ const PengirimanBerkas = () => {
   };
 
   const handleCheckGroup = (invoices, checked) => {
-    const ids = invoices.map(inv => inv.po_acce_id);
+    const ids = invoices
+    .filter(inv => inv.kunci_invoice !== 1)
+    .map(inv => inv.po_acce_id);
 
     if (checked) {
       setSelectedInvoices(prev => [
@@ -325,9 +327,14 @@ const PengirimanBerkas = () => {
   };
 
   const isGroupChecked = (invoices) => {
-    if (invoices.length === 0) return false;
 
-    return invoices.every(inv =>
+    const activeInvoices = invoices.filter(
+      inv => inv.kunci_invoice !== 1
+    );
+
+    if (activeInvoices.length === 0) return false;
+
+    return activeInvoices.every(inv =>
       selectedInvoices.includes(inv.po_acce_id)
     );
   };
@@ -489,7 +496,7 @@ const PengirimanBerkas = () => {
                           Jumlah Berkas Dipilih
                         </div>
                         <div className="text-muted small">
-                          {selectedInvoices.length} pengajuan
+                          {selectedInvoices.length} invoice
                         </div>
                       </div>
 
@@ -547,6 +554,7 @@ const PengirimanBerkas = () => {
                           type="checkbox"
                           onChange={(e) => handleCheckAllProvider(grp, e.target.checked)}
                           checked={
+                            grp.data.filter(inv => inv.kunci_invoice !== 1).length > 0 &&
                             grp.data
                               .filter(inv => inv.kunci_invoice !== 1)
                               .every(inv =>
@@ -660,6 +668,7 @@ const PengirimanBerkas = () => {
                                       <input
                                         type="checkbox"
                                         checked={isInvoiceSelected(inv.po_acce_id)}
+                                        disabled={isLocked}
                                         onChange={(e) =>
                                           handleCheckInvoice(inv, e.target.checked)
                                         }

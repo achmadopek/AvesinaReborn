@@ -7,6 +7,7 @@ const { validatePayload } = require("./validator");
 const { buildImagingStudy } = require("./builders/imagingStudyBuilder");
 const { buildObservation } = require("./builders/observationBuilder");
 const { buildDiagnosticReport } = require("./builders/diagnosticReportBuilder");
+const { buildServiceRequest } = require("./builders/serviceRequestBuilder");
 
 // ==========================
 // NORMALIZER
@@ -17,6 +18,38 @@ const normalize = (data) => ({
   encounter_id: data.encounter_uuid,
   doctor_id: data.practitioner_ihs,
 });
+
+// ==========================
+// 0. SERVICE REQUEST
+// ==========================
+const sendServiceRequestToSatuSehat = async (data) => {
+  try {
+    validatePayload(data);
+
+    const normalized = normalize(data);
+
+    const payload =
+      buildServiceRequest(normalized);
+
+    logSection("SERVICE REQUEST");
+
+    logJSON("Payload", payload);
+
+    const res =
+      await satusehatClient.post(
+        "/ServiceRequest",
+        payload
+      );
+
+    logJSON("RESPONSE", res.data);
+
+    return res.data;
+  } catch (err) {
+    logError("SERVICE REQUEST ERROR", err);
+    throw err;
+  }
+
+};
 
 // ==========================
 // 1. IMAGING STUDY
@@ -104,6 +137,7 @@ const sendDiagnosticToSatuSehat = async (
 };
 
 module.exports = {
+  sendServiceRequestToSatuSehat,
   sendImagingStudyToSatuSehat,
   sendObservationToSatuSehat,
   sendDiagnosticToSatuSehat,

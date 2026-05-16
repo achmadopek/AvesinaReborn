@@ -215,14 +215,14 @@ exports.createPengiriman = async (req, res) => {
       tanggal_pengiriman,
       tujuan,
       keterangan,
-      pengajuan_ids
+      po_acce_ids
     } = req.body;
 
     if (!no_pengiriman || !tanggal_pengiriman) {
       throw new Error("No dan tanggal pengiriman wajib diisi");
     }
 
-    if (!pengajuan_ids?.length) {
+    if (!po_acce_ids?.length) {
       throw new Error("Minimal 1 pengajuan dipilih");
     }
 
@@ -268,9 +268,9 @@ exports.createPengiriman = async (req, res) => {
         GROUP BY pengajuan_id
       ) prv ON prv.pengajuan_id = mp.id
 
-      WHERE mp.id IN (?)   -- contoh
+      WHERE mpo.po_acce_id IN (?)
       ORDER BY mp.id, mpo.invoice_no
-    `, [pengajuan_ids]);
+    `, [po_acce_ids]);
 
     const pengajuanMap = {};
 
@@ -306,19 +306,24 @@ exports.createPengiriman = async (req, res) => {
 
     const pengajuanList = Object.values(pengajuanMap);
 
+    const uniquePengajuanIds = [
+      ...new Set(pengajuanList.map(p => p.id))
+    ];
+
     // ================= INSERT DETAIL + UPDATE STATUS =================
-    for (const p of pengajuanList) {
+    for (const pengajuanId of uniquePengajuanIds) {
+
       await conn.query(`
         INSERT INTO mobay_pengiriman_dtl
         (pengiriman_id, pengajuan_id)
         VALUES (?, ?)
-      `, [pengirimanId, p.id]);
+      `, [pengirimanId, pengajuanId]);
 
       await conn.query(`
         UPDATE mobay_pengajuan
         SET status = 'Proses Pengantaran'
         WHERE id = ?
-      `, [p.id]);
+      `, [pengajuanId]);
     }
 
     // ================= UPDATE STATUS PO (FIX DISINI) =================
@@ -326,8 +331,8 @@ exports.createPengiriman = async (req, res) => {
       UPDATE mobay_mirror_po
       SET status_pengolahan = 'Proses Pengantaran',
       invoice_sent_dt = NOW()
-      WHERE pengajuan_id IN (?)
-    `, [pengajuan_ids]);
+      WHERE po_acce_id IN (?)
+    `, [po_acce_ids]);
 
     await conn.commit();
 

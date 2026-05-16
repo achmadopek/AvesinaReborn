@@ -314,8 +314,7 @@ async function processOutbox(item) {
   } catch (err) {
 
     console.error("WORKER ERROR:", err.message);
-
-    await markFailed(item.id, err.message);
+    await markFailed(item, err.message);
 
   }
 

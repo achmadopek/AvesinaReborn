@@ -1,7 +1,10 @@
-export const buildServiceRequest = (data) => {
+const buildServiceRequest = (data) => {
+
   return {
     resourceType: "ServiceRequest",
+
     status: "active",
+
     intent: "original-order",
 
     category: [
@@ -20,7 +23,7 @@ export const buildServiceRequest = (data) => {
       coding: [
         {
           system: "http://loinc.org",
-          code: data.loinc_code || "30745-4",     // fallback
+          code: data.loinc_code || "30745-4",
           display: data.loinc_display || "Radiology study"
         }
       ]
@@ -40,10 +43,18 @@ export const buildServiceRequest = (data) => {
 
     performer: [
       {
-        reference: `Practitioner/${data.pemeriksa_ihs}`
+        reference: `Practitioner/${data.practitioner_ihs}`
       }
     ],
 
-    occurrenceDateTime: new Date(data.tanggal).toISOString()
+    occurrenceDateTime:
+      new Date(
+        data.measured_dt
+      ).toISOString()
   };
+
+};
+
+module.exports = {
+  buildServiceRequest,
 };
