@@ -35,7 +35,7 @@ const PengirimanBerkas = () => {
   const [invoice, setInvoice] = useState("");
   const [drug, setDrug] = useState("");
 
-  const [selectedPengajuan, setSelectedPengajuan] = useState([]);
+  const [selectedInvoices, setSelectedInvoices] = useState([]);
   const [isKeteranganManual, setIsKeteranganManual] = useState(false);
 
   const generateNoSurat = () => {
@@ -58,6 +58,23 @@ const PengirimanBerkas = () => {
   const [keterangan, setKeterangan] = useState("");
   const [jenisPengajuan, setJenisPengajuan] = useState("V5");
 
+  const isInvoiceSelected = (po_acce_id) => {
+    return selectedInvoices.includes(po_acce_id);
+  };
+
+  const handleCheckInvoice = (inv, checked) => {
+    if (checked) {
+      setSelectedInvoices(prev => [
+        ...prev,
+        inv.po_acce_id
+      ]);
+    } else {
+      setSelectedInvoices(prev =>
+        prev.filter(id => id !== inv.po_acce_id)
+      );
+    }
+  };
+
   const getTotalPengajuanProvider = (grp) => {
     return grp.data.reduce(
       (sum, inv) => sum + Number(inv.total_diajukan || 0),
@@ -66,20 +83,20 @@ const PengirimanBerkas = () => {
   };
 
   const totalTagihan = useMemo(() => {
-    if (selectedPengajuan.length === 0) return 0;
+    if (selectedInvoices.length === 0) return 0;
 
     let total = 0;
 
     data.forEach(provider => {
       provider.data.forEach(inv => {
-        if (selectedPengajuan.some(p => p.pengajuan_id === inv.pengajuan_id)) {
+        if (selectedInvoices.includes(inv.po_acce_id)) {
           total += Number(inv.total_diajukan || 0);
         }
       });
     });
 
     return total;
-  }, [selectedPengajuan, data]);
+  }, [selectedInvoices, data]);
 
   const getStatusBadgeClass = (status) => {
     switch (status) {
@@ -137,10 +154,10 @@ const PengirimanBerkas = () => {
   }, []);
 
   useEffect(() => {
-    if (!keterangan && selectedPengajuan.length > 0) {
-      setKeterangan(`Pengiriman ${selectedPengajuan.length} berkas pengajuan`);
+    if (!keterangan && selectedInvoices.length > 0) {
+      setKeterangan(`Pengiriman ${selectedInvoices.length} berkas pengajuan`);
     }
-  }, [selectedPengajuan]);
+  }, [selectedInvoices]);
 
   // -----------------------
   // FILTERED DATA
@@ -227,7 +244,7 @@ const PengirimanBerkas = () => {
   };
 
   const handleCreatePengiriman = async () => {
-    if (selectedPengajuan.length === 0) {
+    if (selectedInvoices.length === 0) {
       toast.warning("Pilih minimal 1 pengajuan");
       return;
     }
@@ -238,7 +255,7 @@ const PengirimanBerkas = () => {
         tanggal_pengiriman: tanggalPengiriman,
         tujuan,
         keterangan,
-        pengajuan_ids: selectedPengajuan.map(p => p.pengajuan_id)
+        po_acce_ids: selectedInvoices
       });
 
       // bikin URL dari blob
@@ -277,49 +294,43 @@ const PengirimanBerkas = () => {
   const [tanggalPengiriman, setTanggalPengiriman] = useState(today);
 
   const handleCheckAllProvider = (grp, checked) => {
-    // ambil semua pengajuan unik dari provider
-    const pengajuanList = [];
 
-    grp.data.forEach(inv => {
-      if (inv.kunci_invoice !== 1) {
-        pengajuanList.push({
-          pengajuan_id: inv.pengajuan_id,
-          no_surat: inv.no_surat,
-          tanggal_surat: inv.tanggal_surat
-        });
-      }
-    });
-
-    // bikin unique
-    const uniquePengajuan = Object.values(
-      Object.fromEntries(
-        pengajuanList.map(p => [p.pengajuan_id, p])
-      )
-    );
+    const ids = grp.data
+      .filter(inv => inv.kunci_invoice !== 1)
+      .map(inv => inv.po_acce_id);
 
     if (checked) {
-      setSelectedPengajuan(prev => {
-        const existingIds = prev.map(p => p.pengajuan_id);
-
-        const newOnes = uniquePengajuan.filter(
-          p => !existingIds.includes(p.pengajuan_id)
-        );
-
-        return [...prev, ...newOnes];
-      });
+      setSelectedInvoices(prev => [
+        ...new Set([...prev, ...ids])
+      ]);
     } else {
-      setSelectedPengajuan(prev =>
-        prev.filter(p => !uniquePengajuan.some(u => u.pengajuan_id === p.pengajuan_id))
+      setSelectedInvoices(prev =>
+        prev.filter(id => !ids.includes(id))
       );
     }
   };
 
-  const activeProviderId =
-    selectedPengajuan.length > 0
-      ? data.find(p =>
-        p.data.some(inv => inv.pengajuan_id === selectedPengajuan[0].pengajuan_id)
-      )?.prvdr_id
-      : null;
+  const handleCheckGroup = (invoices, checked) => {
+    const ids = invoices.map(inv => inv.po_acce_id);
+
+    if (checked) {
+      setSelectedInvoices(prev => [
+        ...new Set([...prev, ...ids])
+      ]);
+    } else {
+      setSelectedInvoices(prev =>
+        prev.filter(id => !ids.includes(id))
+      );
+    }
+  };
+
+  const isGroupChecked = (invoices) => {
+    if (invoices.length === 0) return false;
+
+    return invoices.every(inv =>
+      selectedInvoices.includes(inv.po_acce_id)
+    );
+  };
 
   // -----------------------
   // RENDER
@@ -460,7 +471,7 @@ const PengirimanBerkas = () => {
                 <div className="col-md-2 d-flex align-items-end">
                   <button
                     className="btn btn-success w-100"
-                    disabled={selectedPengajuan.length === 0}
+                    disabled={selectedInvoices.length === 0}
                     onClick={handleCreatePengiriman}
                   >
                     Kirim Berkas
@@ -478,7 +489,7 @@ const PengirimanBerkas = () => {
                           Jumlah Berkas Dipilih
                         </div>
                         <div className="text-muted small">
-                          {selectedPengajuan.length} pengajuan
+                          {selectedInvoices.length} pengajuan
                         </div>
                       </div>
 
@@ -536,10 +547,11 @@ const PengirimanBerkas = () => {
                           type="checkbox"
                           onChange={(e) => handleCheckAllProvider(grp, e.target.checked)}
                           checked={
-                            grp.data.length > 0 &&
-                            grp.data.every(inv =>
-                              selectedPengajuan.some(p => p.pengajuan_id === inv.pengajuan_id)
-                            )
+                            grp.data
+                              .filter(inv => inv.kunci_invoice !== 1)
+                              .every(inv =>
+                                selectedInvoices.includes(inv.po_acce_id)
+                              )
                           }
                         />
                       </td>
@@ -572,10 +584,23 @@ const PengirimanBerkas = () => {
                       Object.entries(grp.groups).map(([groupName, invoices]) => {
                         if (invoices.length === 0) return null;
 
+                        const subtotalGroup = invoices.reduce(
+                          (sum, inv) => sum + Number(inv.total_diajukan || 0),
+                          0
+                        );
+
                         return (
                           <React.Fragment key={groupName}>
                             <tr className="table-light">
-                              <td></td>
+                              <td className="text-center" style={{ backgroundColor: '#dae6f0' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={isGroupChecked(invoices)}
+                                  onChange={(e) =>
+                                    handleCheckGroup(invoices, e.target.checked)
+                                  }
+                                />
+                              </td>
 
                               {groupName === "OBAT" && (
                                 <>
@@ -584,6 +609,10 @@ const PengirimanBerkas = () => {
                                   </td>
                                   <td colSpan="10" className="fw-semibold" style={{ backgroundColor: '#dae6f0' }}>
                                     Invoice OBAT
+
+                                    <span className="float-end text-success">
+                                      {formatCurrency(subtotalGroup)}
+                                    </span>
                                   </td>
                                 </>
                               )}
@@ -595,6 +624,10 @@ const PengirimanBerkas = () => {
                                   </td>
                                   <td colSpan="10" className="fw-semibold" style={{ backgroundColor: '#dae6f0' }}>
                                     Invoice BMHP
+
+                                    <span className="float-end text-success">
+                                      {formatCurrency(subtotalGroup)}
+                                    </span>
                                   </td>
                                 </>
                               )}
@@ -606,6 +639,10 @@ const PengirimanBerkas = () => {
                                   </td>
                                   <td colSpan="9" className="fw-semibold" style={{ backgroundColor: '#dae6f0' }}>
                                     Invoice Campuran
+
+                                    <span className="float-end text-success">
+                                      {formatCurrency(subtotalGroup)}
+                                    </span>
                                   </td>
                                 </>
                               )}
@@ -619,7 +656,15 @@ const PengirimanBerkas = () => {
                                   <tr
                                     className={`table-secondary fw-semibold`}
                                   >
-                                    <td></td>
+                                    <td className="text-center">
+                                      <input
+                                        type="checkbox"
+                                        checked={isInvoiceSelected(inv.po_acce_id)}
+                                        onChange={(e) =>
+                                          handleCheckInvoice(inv, e.target.checked)
+                                        }
+                                      />
+                                    </td>
                                     <td className="text-center">{i + 1}</td>
                                     <td>
                                       {inv.srvc_unit_nm}

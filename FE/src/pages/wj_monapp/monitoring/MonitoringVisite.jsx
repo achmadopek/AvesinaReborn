@@ -44,19 +44,63 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
 
   const [rekapDokter, setRekapDokter] = useState([]);
 
-  const visiteHarianMap = {};
-
   const [sortBy, setSortBy] = useState("v.visite_dt");
   const [sortOrder, setSortOrder] = useState("DESC");
+
+  const [chartHarian, setChartHarian] = useState([]);
+
+  // ======================================
+  // BAR CHART DATA HARIAN
+  // ======================================
+  const visiteHarianMap = {};
 
   data.forEach((item) => {
     const tgl = item.visite_dt?.split(" ")[0];
 
     if (!visiteHarianMap[tgl]) {
-      visiteHarianMap[tgl] = 0;
+      visiteHarianMap[tgl] = {
+        tanggal: tgl,
+
+        spmStandar: 0,
+        spmTidak: 0,
+
+        inmStandar: 0,
+        inmTidak: 0
+      };
     }
 
-    visiteHarianMap[tgl]++;
+    const dt = new Date(item.visite_dt);
+
+    const totalMenit =
+      dt.getHours() * 60 + dt.getMinutes();
+
+    // ====================================
+    // SPM
+    // 06:00 - 14:00
+    // ====================================
+    const isSPM =
+      totalMenit >= 360 &&
+      totalMenit <= 840;
+
+    if (isSPM) {
+      visiteHarianMap[tgl].spmStandar += 1;
+    } else {
+      visiteHarianMap[tgl].spmTidak += 1;
+    }
+
+    // ====================================
+    // INM
+    // 08:00 - 14:00
+    // ====================================
+    const isINM =
+      totalMenit >= 480 &&
+      totalMenit <= 840;
+
+    if (isINM) {
+      visiteHarianMap[tgl].inmStandar += 1;
+    } else {
+      visiteHarianMap[tgl].inmTidak += 1;
+    }
   });
 
   const dokterChartData = rekapDokter
@@ -79,13 +123,6 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
     setCurrentPage(1);
   };
 
-  const lineData = Object.entries(visiteHarianMap).map(
-    ([tanggal, total]) => ({
-      tanggal,
-      total
-    })
-  );
-
   const fetchData = async () => {
     setLoading(true);
 
@@ -105,6 +142,7 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
       setRekapDokter(res.recapDokter || []);
       setTotalPages(res.totalPages || 1);
       setSummary(res.summary || {});
+      setChartHarian(res.chartHarian || []);
     } catch (err) {
       console.error("Gagal ambil data:", err);
       setData([]);
@@ -508,35 +546,61 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
               </div>
             </div>
 
-            {/* TREN */}
+            {/* GRAFIK HARIAN */}
             <div className="col-lg-4">
 
               <div className="card shadow-sm h-100">
                 <div className="card-body">
 
                   <h6 className="fw-bold mb-3">
-                    Tren Visite Harian
+                    Kepatuhan Jam Visite Harian
                   </h6>
 
                   <ResponsiveContainer width="100%" height={350}>
-                    <LineChart data={lineData}>
+
+                    <BarChart data={chartHarian}>
 
                       <CartesianGrid strokeDasharray="3 3" />
 
-                      <XAxis dataKey="tanggal" />
+                      <XAxis
+                        dataKey="tanggal"
+                        tick={{ fontSize: 11 }}
+                      />
 
                       <YAxis />
 
                       <Tooltip />
 
-                      <Line
-                        type="monotone"
-                        dataKey="total"
-                        stroke="#198754"
-                        strokeWidth={3}
+                      <Legend />
+
+                      {/* SPM */}
+                      <Bar
+                        dataKey="spmStandar"
+                        name="SPM Standar"
+                        fill="#198754"
                       />
 
-                    </LineChart>
+                      <Bar
+                        dataKey="spmTidak"
+                        name="SPM Tidak Standar"
+                        fill="#dc3545"
+                      />
+
+                      {/* INM */}
+                      <Bar
+                        dataKey="inmStandar"
+                        name="INM Standar"
+                        fill="#0d6efd"
+                      />
+
+                      <Bar
+                        dataKey="inmTidak"
+                        name="INM Tidak Standar"
+                        fill="#ffc107"
+                      />
+
+                    </BarChart>
+
                   </ResponsiveContainer>
 
                 </div>

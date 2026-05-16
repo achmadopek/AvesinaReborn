@@ -1,7 +1,16 @@
-9 Mei 2026
-
-MOBAY:
+MOBAY: 9 Mei 2026
 1. Cetak lembar verifikasi V5 masih munvul V6 dan opsi cheklisnya jg masih V6 ==> OK
 2. Pada cetak lembar pengantaran tambahkan kolom Provider pada list ==> OK
 3. TTD pada cetakan dibuat Rata Tengah ==> OK
 4. Fitur Cetak per pengajuan di rincian di Monitoring
+
+MOBAY: 16 Mei 2026
+1. Menu pengiriman tambah SubTotal per jenis (Obbat/BMHP/dll)
+2. Tambah checkbox per invoice dan jenis (bisa kirim by part)
+
+SIGMA : Sub: Monitoring Visite
+1. Nama Sub Menu : WJ VISION (Visite System Integrated & Observation)
+2. Visite dokter Spesialis onsite saja ==> OK
+3. Jam standar SPM : 06.00 s/d 14.00, INM : 08.00 s/d 14.00 ==> OK
+4. Grafik batang/line untuk Kepatuhan Jam Visite per hari (sesuai rentang dan filter) ==> OK
+5. Seacrh Select nama dokter dll di filter
