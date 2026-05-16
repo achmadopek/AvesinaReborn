@@ -3,7 +3,9 @@ import { formatSortDate, formatSortDateTime } from "../../../utils/FormatDate";
 import { formatNumber, formatCurrency } from "../../../utils/FormatNumber";
 import {
   fetchDataPengajuanSiapKirim,
-  createPengiriman
+  createPengiriman,
+  fetchHistoryPengiriman,
+  cetakPengirimanUlang
 } from "../../../api/wj_mobay/PengirimanBerkas";
 import { toast } from "react-toastify";
 import Swal from "sweetalert2";
@@ -20,6 +22,10 @@ const PengirimanBerkas = () => {
   // STATE
   // -----------------------
   const [data, setData] = useState([]);
+
+  const [activeTab, setActiveTab] = useState("proses");
+  const [historyData, setHistoryData] = useState([]);
+
   const [expandedRowPrv, setExpandedRowPrv] = useState(null);
   const [expandedRow, setExpandedRow] = useState(null);
 
@@ -142,6 +148,22 @@ const PengirimanBerkas = () => {
       setData([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadHistory = async () => {
+    try {
+
+      const res = await fetchHistoryPengiriman({
+        start: startDate,
+        end: endDate
+      });
+  
+      setHistoryData(res.data || []);
+  
+    } catch (err) {
+      console.error(err);
+      toast.error("Gagal load history");
     }
   };
 
@@ -339,6 +361,39 @@ const PengirimanBerkas = () => {
     );
   };
 
+  const handleCetakUlang = async (row) => {
+    try {
+      const res = await cetakPengirimanUlang({
+        pengiriman_id: row.id
+      });
+  
+      const url = window.URL.createObjectURL(
+        new Blob([res.data])
+      );
+  
+      const link = document.createElement("a");
+  
+      link.href = url;
+  
+      link.download =
+        `Pengiriman_${row.no_pengiriman}.pdf`;
+  
+      document.body.appendChild(link);
+  
+      link.click();
+  
+      link.remove();
+  
+      window.URL.revokeObjectURL(url);
+  
+      toast.success("PDF berhasil didownload");
+  
+    } catch (err) {
+      console.error(err);
+      toast.error("Gagal cetak ulang");
+    }
+  };
+
   // -----------------------
   // RENDER
   // -----------------------
@@ -514,342 +569,419 @@ const PengirimanBerkas = () => {
             </div>
           </div>
 
-          {/* ================= TABLE ================= */}
-          <div className="table-responsive">
-            <table className="table table-theme table-bordered table-sm align-middle">
-              <thead>
-                <tr>
-                  <th colSpan={2}>No</th>
-                  <th>Unit / <br />Provider</th>
-                  <th>Tgl PO / <br />PO Code</th>
-                  <th>No Faktur / <br />Tgl Faktur</th>
-                  <th>Tgl Diterima / <br />Tgl Jatuh Tempo</th>
-                  <th>Tgl Konsolidasi / <br />Tgl Diajukan</th>
-                  <th>Jml Tagihan / <br />Jml Diajukan</th>
-                  <th>Jml Dibayar / <br />Jml Hutang <br /><i className="small text-muted">(Diajukan - Dibayar)</i></th>
-                  <th>Status</th>
-                  <th>Progress</th>
-                  <th>Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan="10" className="text-center">Memuat data...</td>
-                  </tr>
-                ) : groupedByProvider.length === 0 ? (
-                  <tr>
-                    <td colSpan="10" className="text-center">Tidak ada data</td>
-                  </tr>
-                ) : groupedByProvider.map((grp) => (
-                  <React.Fragment key={`provider-${grp.prvdr_id}`}>
+          <ul className="nav nav-tabs mb-3">
+            <li className="nav-item">
+              <button
+                className={`nav-link ${
+                  activeTab === "proses" ? "active" : ""
+                }`}
+                onClick={() => setActiveTab("proses")}
+              >
+                Proses Pengantaran
+              </button>
+            </li>
 
-                    <tr><td colSpan="10" className="p-1" style={{ borderLeft: "0px", borderRight: "0px" }}></td></tr>
-                    {/* ===== ROW PROVIDER ===== */}
-                    <tr
-                      className={`table-secondary fw-semibold`}
-                    >
-                      <td className="text-center">
-                        <input
-                          type="checkbox"
-                          onChange={(e) => handleCheckAllProvider(grp, e.target.checked)}
-                          checked={
-                            grp.data.filter(inv => inv.kunci_invoice !== 1).length > 0 &&
-                            grp.data
-                              .filter(inv => inv.kunci_invoice !== 1)
-                              .every(inv =>
-                                selectedInvoices.includes(inv.po_acce_id)
-                              )
-                          }
-                        />
+            <li className="nav-item">
+              <button
+                className={`nav-link ${
+                  activeTab === "history" ? "active" : ""
+                }`}
+                onClick={() => {
+                  setActiveTab("history");
+                  loadHistory();
+                }}
+              >
+                History Pengiriman
+              </button>
+            </li>
+          </ul>
+
+          {/* ================= TABLE ================= */}
+          {activeTab === "history" && (
+            <div className="table-responsive">
+              <table className="table table-bordered table-sm">
+                <thead>
+                  <tr>
+                    <th>No</th>
+                    <th>No Pengiriman</th>
+                    <th>Tanggal</th>
+                    <th>Tujuan</th>
+                    <th>Jumlah Pengajuan</th>
+                    <th>Aksi</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {historyData.map((row, i) => (
+                    <tr key={row.id}>
+                      <td>{i + 1}</td>
+
+                      <td>{row.no_pengiriman}</td>
+
+                      <td>
+                        {formatSortDate(row.tanggal_pengiriman)}
                       </td>
-                      <td className="text-center">🏢</td>
-                      <td colSpan="7">
-                        {grp.prvdr_str}
-                        <span className="ms-2 text-muted">
-                          ({grp.data.length} invoice / {
-                            new Set(grp.data.map(i => i.pengajuan_id)).size
-                          } pengajuan)
-                        </span>
+
+                      <td>{row.tujuan}</td>
+
+                      <td>
+                        {row.pengajuan?.length || 0}
                       </td>
-                      <td colSpan="2" className="text-end">
-                        {formatCurrency(getTotalPengajuanProvider(grp))}
-                      </td>
-                      <td className="text-center">
+
+                      <td>
                         <button
-                          className="btn btn-sm btn-outline-primary mb-1"
-                          onClick={() => toggleDetailProvider(grp)}
+                          className="btn btn-sm btn-outline-danger"
+                          onClick={() =>
+                            handleCetakUlang(row)
+                          }
                         >
-                          {expandedRowPrv === grp.prvdr_id
-                            ? "Tutup"
-                            : "Detail"}
+                          Cetak Ulang
                         </button>
                       </td>
                     </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
-                    {/* ===== ROW INVOICE ===== */}
-                    {expandedRowPrv === grp.prvdr_id &&
-                      Object.entries(grp.groups).map(([groupName, invoices]) => {
-                        if (invoices.length === 0) return null;
+          {activeTab === "proses" && (
+            <div className="table-responsive">
+              <table className="table table-theme table-bordered table-sm align-middle">
+                <thead>
+                  <tr>
+                    <th colSpan={2}>No</th>
+                    <th>Unit / <br />Provider</th>
+                    <th>Tgl PO / <br />PO Code</th>
+                    <th>No Faktur / <br />Tgl Faktur</th>
+                    <th>Tgl Diterima / <br />Tgl Jatuh Tempo</th>
+                    <th>Tgl Konsolidasi / <br />Tgl Diajukan</th>
+                    <th>Jml Tagihan / <br />Jml Diajukan</th>
+                    <th>Jml Dibayar / <br />Jml Hutang <br /><i className="small text-muted">(Diajukan - Dibayar)</i></th>
+                    <th>Status</th>
+                    <th>Progress</th>
+                    <th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td colSpan="10" className="text-center">Memuat data...</td>
+                    </tr>
+                  ) : groupedByProvider.length === 0 ? (
+                    <tr>
+                      <td colSpan="10" className="text-center">Tidak ada data</td>
+                    </tr>
+                  ) : groupedByProvider.map((grp) => (
+                    <React.Fragment key={`provider-${grp.prvdr_id}`}>
 
-                        const subtotalGroup = invoices.reduce(
-                          (sum, inv) => sum + Number(inv.total_diajukan || 0),
-                          0
-                        );
+                      <tr><td colSpan="10" className="p-1" style={{ borderLeft: "0px", borderRight: "0px" }}></td></tr>
+                      {/* ===== ROW PROVIDER ===== */}
+                      <tr
+                        className={`table-secondary fw-semibold`}
+                      >
+                        <td className="text-center">
+                          <input
+                            type="checkbox"
+                            onChange={(e) => handleCheckAllProvider(grp, e.target.checked)}
+                            checked={
+                              grp.data.filter(inv => inv.kunci_invoice !== 1).length > 0 &&
+                              grp.data
+                                .filter(inv => inv.kunci_invoice !== 1)
+                                .every(inv =>
+                                  selectedInvoices.includes(inv.po_acce_id)
+                                )
+                            }
+                          />
+                        </td>
+                        <td className="text-center">🏢</td>
+                        <td colSpan="7">
+                          {grp.prvdr_str}
+                          <span className="ms-2 text-muted">
+                            ({grp.data.length} invoice / {
+                              new Set(grp.data.map(i => i.pengajuan_id)).size
+                            } pengajuan)
+                          </span>
+                        </td>
+                        <td colSpan="2" className="text-end">
+                          {formatCurrency(getTotalPengajuanProvider(grp))}
+                        </td>
+                        <td className="text-center">
+                          <button
+                            className="btn btn-sm btn-outline-primary mb-1"
+                            onClick={() => toggleDetailProvider(grp)}
+                          >
+                            {expandedRowPrv === grp.prvdr_id
+                              ? "Tutup"
+                              : "Detail"}
+                          </button>
+                        </td>
+                      </tr>
 
-                        return (
-                          <React.Fragment key={groupName}>
-                            <tr className="table-light">
-                              <td className="text-center" style={{ backgroundColor: '#dae6f0' }}>
-                                <input
-                                  type="checkbox"
-                                  checked={isGroupChecked(invoices)}
-                                  onChange={(e) =>
-                                    handleCheckGroup(invoices, e.target.checked)
-                                  }
-                                />
-                              </td>
+                      {/* ===== ROW INVOICE ===== */}
+                      {expandedRowPrv === grp.prvdr_id &&
+                        Object.entries(grp.groups).map(([groupName, invoices]) => {
+                          if (invoices.length === 0) return null;
 
-                              {groupName === "OBAT" && (
-                                <>
-                                  <td className="text-center" style={{ backgroundColor: '#dae6f0' }}>
-                                    <i className="fas fa-pills me-2 text-primary"></i>
-                                  </td>
-                                  <td colSpan="10" className="fw-semibold" style={{ backgroundColor: '#dae6f0' }}>
-                                    Invoice OBAT
+                          const subtotalGroup = invoices.reduce(
+                            (sum, inv) => sum + Number(inv.total_diajukan || 0),
+                            0
+                          );
 
-                                    <span className="float-end text-success">
-                                      {formatCurrency(subtotalGroup)}
-                                    </span>
-                                  </td>
-                                </>
-                              )}
+                          return (
+                            <React.Fragment key={groupName}>
+                              <tr className="table-light">
+                                <td className="text-center" style={{ backgroundColor: '#dae6f0' }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={isGroupChecked(invoices)}
+                                    onChange={(e) =>
+                                      handleCheckGroup(invoices, e.target.checked)
+                                    }
+                                  />
+                                </td>
 
-                              {groupName === "BMHP" && (
-                                <>
-                                  <td className="text-center" style={{ backgroundColor: '#dae6f0' }}>
-                                    <i className="fas fa-syringe me-2 text-success"></i>
-                                  </td>
-                                  <td colSpan="10" className="fw-semibold" style={{ backgroundColor: '#dae6f0' }}>
-                                    Invoice BMHP
-
-                                    <span className="float-end text-success">
-                                      {formatCurrency(subtotalGroup)}
-                                    </span>
-                                  </td>
-                                </>
-                              )}
-
-                              {groupName === "CAMPURAN" && (
-                                <>
-                                  <td className="text-center" style={{ backgroundColor: '#dae6f0' }}>
-                                    <i className="fas fa-layer-group me-2 text-warning"></i>
-                                  </td>
-                                  <td colSpan="9" className="fw-semibold" style={{ backgroundColor: '#dae6f0' }}>
-                                    Invoice Campuran
-
-                                    <span className="float-end text-success">
-                                      {formatCurrency(subtotalGroup)}
-                                    </span>
-                                  </td>
-                                </>
-                              )}
-                            </tr>
-                            {invoices.map((inv, i) => {
-
-                              const isLocked = inv.kunci_invoice === 1;
-
-                              return (
-                                <React.Fragment key={inv.po_acce_id}>
-                                  <tr
-                                    className={`table-secondary fw-semibold`}
-                                  >
-                                    <td className="text-center">
-                                      <input
-                                        type="checkbox"
-                                        checked={isInvoiceSelected(inv.po_acce_id)}
-                                        disabled={isLocked}
-                                        onChange={(e) =>
-                                          handleCheckInvoice(inv, e.target.checked)
-                                        }
-                                      />
+                                {groupName === "OBAT" && (
+                                  <>
+                                    <td className="text-center" style={{ backgroundColor: '#dae6f0' }}>
+                                      <i className="fas fa-pills me-2 text-primary"></i>
                                     </td>
-                                    <td className="text-center">{i + 1}</td>
-                                    <td>
-                                      {inv.srvc_unit_nm}
-                                    </td>
-                                    <td>
-                                      {formatSortDateTime(inv.po_dt)}
-                                      <br />
-                                      {inv.po_code || "-"}
-                                    </td>
-                                    <td>
-                                      {inv.invoice_no}
-                                      <br />
-                                      {formatSortDateTime(inv.invoice_dt) || "-"}
-                                    </td>
-                                    <td>
-                                      {formatSortDateTime(inv.invoice_received_dt) || "-"}
-                                      <br />
-                                      {formatSortDateTime(inv.invoice_due_dt) || "-"}
-                                    </td>
-                                    <td>
-                                      {formatSortDateTime(inv.invoice_consolidated_dt) || "-"}
-                                      <br />
-                                      {formatSortDateTime(inv.invoice_submitted_dt) || "-"}
-                                    </td>
-                                    <td className="text-end">
-                                      {formatCurrency(inv.total_tagihan)}
-                                      <br />
-                                      {formatCurrency(inv.total_diajukan)}
-                                    </td>
-                                    <td className="text-end">
-                                      {formatCurrency(inv.total_bayar)}
-                                      <br />
-                                      {formatCurrency(inv.total_diajukan - inv.total_bayar)} {/*Jml Hutang*/}
-                                    </td>
-                                    <td className="text-center">
-                                      <span className="badge bg-primary">
-                                        {inv.status_validasi}
-                                      </span>
-                                      <br />
-                                      <span className="badge bg-info">
-                                        {inv.status_pembayaran}
+                                    <td colSpan="10" className="fw-semibold" style={{ backgroundColor: '#dae6f0' }}>
+                                      Invoice OBAT
+
+                                      <span className="float-end text-success">
+                                        {formatCurrency(subtotalGroup)}
                                       </span>
                                     </td>
-                                    <td className="text-center">
-                                      <span
-                                        className={`badge ${getStatusBadgeClass(
-                                          inv.status_pengolahan
-                                        )}`}
-                                      >
-                                        {inv.status_pengolahan}
-                                      </span>
-                                      {isLocked && (
-                                        <>
-                                          <br />
-                                          <i className="fas fa-lock text-danger" />
-                                        </>
-                                      )}
+                                  </>
+                                )}
+
+                                {groupName === "BMHP" && (
+                                  <>
+                                    <td className="text-center" style={{ backgroundColor: '#dae6f0' }}>
+                                      <i className="fas fa-syringe me-2 text-success"></i>
                                     </td>
-                                    <td className="text-center">
-                                      <div className="justify-content-center">
-                                        <button
-                                          className="btn btn-sm btn-outline-info mb-1"
-                                          onClick={() => toggleDetail(inv)}
+                                    <td colSpan="10" className="fw-semibold" style={{ backgroundColor: '#dae6f0' }}>
+                                      Invoice BMHP
+
+                                      <span className="float-end text-success">
+                                        {formatCurrency(subtotalGroup)}
+                                      </span>
+                                    </td>
+                                  </>
+                                )}
+
+                                {groupName === "CAMPURAN" && (
+                                  <>
+                                    <td className="text-center" style={{ backgroundColor: '#dae6f0' }}>
+                                      <i className="fas fa-layer-group me-2 text-warning"></i>
+                                    </td>
+                                    <td colSpan="9" className="fw-semibold" style={{ backgroundColor: '#dae6f0' }}>
+                                      Invoice Campuran
+
+                                      <span className="float-end text-success">
+                                        {formatCurrency(subtotalGroup)}
+                                      </span>
+                                    </td>
+                                  </>
+                                )}
+                              </tr>
+                              {invoices.map((inv, i) => {
+
+                                const isLocked = inv.kunci_invoice === 1;
+
+                                return (
+                                  <React.Fragment key={inv.po_acce_id}>
+                                    <tr
+                                      className={`table-secondary fw-semibold`}
+                                    >
+                                      <td className="text-center">
+                                        <input
+                                          type="checkbox"
+                                          checked={isInvoiceSelected(inv.po_acce_id)}
+                                          disabled={isLocked}
+                                          onChange={(e) =>
+                                            handleCheckInvoice(inv, e.target.checked)
+                                          }
+                                        />
+                                      </td>
+                                      <td className="text-center">{i + 1}</td>
+                                      <td>
+                                        {inv.srvc_unit_nm}
+                                      </td>
+                                      <td>
+                                        {formatSortDateTime(inv.po_dt)}
+                                        <br />
+                                        {inv.po_code || "-"}
+                                      </td>
+                                      <td>
+                                        {inv.invoice_no}
+                                        <br />
+                                        {formatSortDateTime(inv.invoice_dt) || "-"}
+                                      </td>
+                                      <td>
+                                        {formatSortDateTime(inv.invoice_received_dt) || "-"}
+                                        <br />
+                                        {formatSortDateTime(inv.invoice_due_dt) || "-"}
+                                      </td>
+                                      <td>
+                                        {formatSortDateTime(inv.invoice_consolidated_dt) || "-"}
+                                        <br />
+                                        {formatSortDateTime(inv.invoice_submitted_dt) || "-"}
+                                      </td>
+                                      <td className="text-end">
+                                        {formatCurrency(inv.total_tagihan)}
+                                        <br />
+                                        {formatCurrency(inv.total_diajukan)}
+                                      </td>
+                                      <td className="text-end">
+                                        {formatCurrency(inv.total_bayar)}
+                                        <br />
+                                        {formatCurrency(inv.total_diajukan - inv.total_bayar)} {/*Jml Hutang*/}
+                                      </td>
+                                      <td className="text-center">
+                                        <span className="badge bg-primary">
+                                          {inv.status_validasi}
+                                        </span>
+                                        <br />
+                                        <span className="badge bg-info">
+                                          {inv.status_pembayaran}
+                                        </span>
+                                      </td>
+                                      <td className="text-center">
+                                        <span
+                                          className={`badge ${getStatusBadgeClass(
+                                            inv.status_pengolahan
+                                          )}`}
                                         >
-                                          {expandedRow === inv.po_acce_id
-                                            ? "Tutup"
-                                            : "Rincian"}
-                                        </button>
-                                      </div>
-
-                                    </td>
-                                  </tr>
-
-                                  {/* ===== DETAIL ROW ===== */}
-                                  {expandedRow === inv.po_acce_id && (
-                                    <tr className="bg-light">
-                                      <td />
-                                      <td colSpan="11">
-                                        <div className="p-2">
-                                          <strong>Detail Barang</strong>
-
-                                          {/* ===== TABLE ITEM ===== */}
-                                          <div className="table-responsive mt-2">
-                                            <table className="table table-sm table-bordered table-theme">
-                                              <thead>
-                                                <tr>
-                                                  <th>No</th>
-                                                  <th>Nama Barang</th>
-                                                  <th className="text-end">Jml</th>
-                                                  <th className="text-end">Harga</th>
-                                                  <th className="text-end">PPN</th>
-                                                  <th className="text-end">
-                                                    Harga + PPN
-                                                  </th>
-                                                  <th className="text-end">
-                                                    Disc
-                                                  </th>
-                                                  <th className="text-end">
-                                                    Subtotal
-                                                  </th>
-                                                  <th className="text-end">
-                                                    Diajukan / Dibayarkan
-                                                  </th>
-                                                  <th>Jenis Item</th>
-                                                </tr>
-                                              </thead>
-                                              <tbody>
-                                                {inv.items.map((it, j) => (
-                                                  <tr key={j}>
-                                                    <td className="text-center">{j + 1}</td>
-                                                    <td>{it.drug_nm || "-"}</td>
-                                                    <td className="text-end">
-                                                      {formatNumber(it.qty)}
-                                                    </td>
-                                                    <td className="text-end">
-                                                      {formatCurrency(it.price)}
-                                                    </td>
-                                                    <td className="text-end">
-                                                      {formatNumber(it.tax)}
-                                                    </td>
-                                                    <td className="text-end">
-                                                      {formatCurrency(it.nettoprice)}
-                                                    </td>
-                                                    <td className="text-end">
-                                                      {formatCurrency(it.discount)}
-                                                    </td>
-                                                    <td className="text-end">
-                                                      {formatCurrency(it.subtotal)}
-                                                    </td>
-                                                    <td className="text-end">
-                                                      {formatCurrency(it.nominal_ajukan)} / {it.nominal_bayar <= 0 ? (
-                                                        <span className="text-muted fst-italic">
-                                                          Disesuaikan di Total
-                                                        </span>
-                                                      ) : (
-                                                        formatCurrency(it.nominal_bayar)
-                                                      )}
-                                                    </td>
-                                                    <td className="text-center">{it.jenis_item}</td>
-                                                  </tr>
-                                                ))}
-                                                <tr className="fw-semibold bg-light">
-                                                  <td
-                                                    colSpan="7"
-                                                    className="text-end"
-                                                  >
-                                                    Total
-                                                  </td>
-                                                  <td className="text-end">
-                                                    {formatCurrency(inv.total_tagihan)}
-                                                  </td>
-                                                  <td className="text-end">
-                                                    {formatCurrency(inv.total_diajukan)} / {formatCurrency(inv.total_bayar)}
-                                                  </td>
-                                                  <td></td>
-                                                </tr>
-                                              </tbody>
-                                            </table>
-                                          </div>
-
+                                          {inv.status_pengolahan}
+                                        </span>
+                                        {isLocked && (
+                                          <>
+                                            <br />
+                                            <i className="fas fa-lock text-danger" />
+                                          </>
+                                        )}
+                                      </td>
+                                      <td className="text-center">
+                                        <div className="justify-content-center">
+                                          <button
+                                            className="btn btn-sm btn-outline-info mb-1"
+                                            onClick={() => toggleDetail(inv)}
+                                          >
+                                            {expandedRow === inv.po_acce_id
+                                              ? "Tutup"
+                                              : "Rincian"}
+                                          </button>
                                         </div>
+
                                       </td>
                                     </tr>
-                                  )}
-                                </React.Fragment>
-                              );
-                            })}
-                          </React.Fragment>
-                        );
-                      })
-                    }
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
-          </div>
+
+                                    {/* ===== DETAIL ROW ===== */}
+                                    {expandedRow === inv.po_acce_id && (
+                                      <tr className="bg-light">
+                                        <td />
+                                        <td colSpan="11">
+                                          <div className="p-2">
+                                            <strong>Detail Barang</strong>
+
+                                            {/* ===== TABLE ITEM ===== */}
+                                            <div className="table-responsive mt-2">
+                                              <table className="table table-sm table-bordered table-theme">
+                                                <thead>
+                                                  <tr>
+                                                    <th>No</th>
+                                                    <th>Nama Barang</th>
+                                                    <th className="text-end">Jml</th>
+                                                    <th className="text-end">Harga</th>
+                                                    <th className="text-end">PPN</th>
+                                                    <th className="text-end">
+                                                      Harga + PPN
+                                                    </th>
+                                                    <th className="text-end">
+                                                      Disc
+                                                    </th>
+                                                    <th className="text-end">
+                                                      Subtotal
+                                                    </th>
+                                                    <th className="text-end">
+                                                      Diajukan / Dibayarkan
+                                                    </th>
+                                                    <th>Jenis Item</th>
+                                                  </tr>
+                                                </thead>
+                                                <tbody>
+                                                  {inv.items.map((it, j) => (
+                                                    <tr key={j}>
+                                                      <td className="text-center">{j + 1}</td>
+                                                      <td>{it.drug_nm || "-"}</td>
+                                                      <td className="text-end">
+                                                        {formatNumber(it.qty)}
+                                                      </td>
+                                                      <td className="text-end">
+                                                        {formatCurrency(it.price)}
+                                                      </td>
+                                                      <td className="text-end">
+                                                        {formatNumber(it.tax)}
+                                                      </td>
+                                                      <td className="text-end">
+                                                        {formatCurrency(it.nettoprice)}
+                                                      </td>
+                                                      <td className="text-end">
+                                                        {formatCurrency(it.discount)}
+                                                      </td>
+                                                      <td className="text-end">
+                                                        {formatCurrency(it.subtotal)}
+                                                      </td>
+                                                      <td className="text-end">
+                                                        {formatCurrency(it.nominal_ajukan)} / {it.nominal_bayar <= 0 ? (
+                                                          <span className="text-muted fst-italic">
+                                                            Disesuaikan di Total
+                                                          </span>
+                                                        ) : (
+                                                          formatCurrency(it.nominal_bayar)
+                                                        )}
+                                                      </td>
+                                                      <td className="text-center">{it.jenis_item}</td>
+                                                    </tr>
+                                                  ))}
+                                                  <tr className="fw-semibold bg-light">
+                                                    <td
+                                                      colSpan="7"
+                                                      className="text-end"
+                                                    >
+                                                      Total
+                                                    </td>
+                                                    <td className="text-end">
+                                                      {formatCurrency(inv.total_tagihan)}
+                                                    </td>
+                                                    <td className="text-end">
+                                                      {formatCurrency(inv.total_diajukan)} / {formatCurrency(inv.total_bayar)}
+                                                    </td>
+                                                    <td></td>
+                                                  </tr>
+                                                </tbody>
+                                              </table>
+                                            </div>
+
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    )}
+                                  </React.Fragment>
+                                );
+                              })}
+                            </React.Fragment>
+                          );
+                        })
+                      }
+                    </React.Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </>

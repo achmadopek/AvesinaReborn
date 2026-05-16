@@ -76,6 +76,7 @@ exports.getData = async (req, res) => {
         sp.tanggal_surat,
         sp.created_at AS tgl_pengajuan,
         sp.jenis_pengajuan,
+        sp.checklist_verifikasi,
 
         d.id AS item_id,
         d.drug_equi_id,
@@ -100,7 +101,7 @@ exports.getData = async (req, res) => {
         ON sp.id = h.pengajuan_id
 
       WHERE 
-        h.status_pengolahan IN ('Berkas Diterima','Proses Verifikasi','Terverifikasi')
+        h.status_pengolahan IN ('Berkas Diterima','Proses Verifikasi','Terverifikasi', 'Proses Pembayaran')
         AND ${column} BETWEEN ? AND ?
 
       ORDER BY h.po_dt DESC
@@ -129,6 +130,9 @@ exports.getData = async (req, res) => {
           surat_id: r.pengajuan_id,
           no_surat: r.no_surat,
           no_verifikasi: r.no_verifikasi,
+          checklist_verifikasi: r.checklist_verifikasi
+            ? JSON.parse(r.checklist_verifikasi)
+            : null,
           tgl_surat: r.tanggal_surat,
           tgl_pengajuan: r.tgl_pengajuan,
           jenis_pengajuan: r.jenis_pengajuan,
@@ -201,9 +205,55 @@ exports.getData = async (req, res) => {
       }
     }
 
+    // =====================
+    // Split jadi dua kelompok data (Working List dan History)
+    // =====================
+    const verifikasiStatuses = [
+      "Berkas Diterima",
+      "Proses Verifikasi",
+      "Terverifikasi",
+      "Proses Revisi"
+    ];
+    
+    const historiStatuses = [
+      "Proses Pembayaran",
+      "Selesai",
+      "Batal"
+    ];
+    
+    const finalData = Object.values(map);
+    
+    const verifikasi = [];
+    const histori = [];
+    
+    for (const surat of finalData) {
+      let hasVerifikasi = false;
+      let hasHistori = false;
+    
+      for (const provider of Object.values(surat.provider)) {
+        for (const invoice of provider.invoices) {
+          if (verifikasiStatuses.includes(invoice.status_pengolahan)) {
+            hasVerifikasi = true;
+          }
+          if (historiStatuses.includes(invoice.status_pengolahan)) {
+            hasHistori = true;
+          }
+        }
+      }
+    
+      if (hasVerifikasi) {
+        verifikasi.push(surat);
+      }
+    
+      if (hasHistori) {
+        histori.push(surat);
+      }
+    }
+
     res.json({
       periode: { start, end },
-      data: Object.values(map)
+      verifikasi,
+      histori
     });
 
   } catch (error) {
@@ -356,11 +406,21 @@ exports.cetakVerifikasi = async (req, res) => {
       return res.status(500).json({ message: "Gagal ambil data surat" });
     }
 
-    //UPDATE STATUS KE PEMBAYARAN
+    // SIMPAN CHECKLIST
     await db.promise().query(`
-      UPDATE mobay_mirror_po
-      SET status_pengolahan = 'Proses Pembayaran'
-      WHERE pengajuan_id = ?
+    UPDATE mobay_pengajuan
+    SET checklist_verifikasi = ?
+    WHERE id = ?
+    `, [
+    JSON.stringify(checklist),
+    surat_id
+    ]);
+
+    // UPDATE STATUS
+    await db.promise().query(`
+    UPDATE mobay_mirror_po
+    SET status_pengolahan = 'Proses Pembayaran'
+    WHERE pengajuan_id = ?
     `, [surat_id]);
 
     generatePDF(res, data, checklist);
@@ -368,6 +428,35 @@ exports.cetakVerifikasi = async (req, res) => {
   } catch (err) {
     console.error("ERROR cetakVerifikasi:", err);
     res.status(500).json({ message: err.message });
+  }
+};
+
+exports.cetakVerifikasiUlang = async (req, res) => {
+  try {
+
+    const { surat_id } = req.body;
+
+    if (!surat_id) {
+      return res.status(400).json({
+        message: "surat_id wajib"
+      });
+    }
+
+    const data = await mirrorService.ambilDataBySurat(surat_id);
+
+    generatePDF(
+      res,
+      data,
+      data.checklist_verifikasi || {}
+    );
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.status(500).json({
+      message: err.message
+    });
   }
 };
 

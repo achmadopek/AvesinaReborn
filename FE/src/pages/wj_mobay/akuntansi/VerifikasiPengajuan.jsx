@@ -6,11 +6,12 @@ import {
   prosesValidasiPembayaran,
   mulaiVerifikasi,
   cetakVerifikasi,
+  cetakVerifikasiUlang,
   getNoVerifikasi
 } from "../../../api/wj_mobay/VerifikasiPengajuan";
 import { toast } from "react-toastify";
 import { useAuth } from "../../../context/AuthContext";
-import { Modal, Button } from "react-bootstrap";
+import { Modal, Button, Tabs, Tab } from "react-bootstrap";
 import Swal from "sweetalert2";
 
 /**
@@ -26,7 +27,11 @@ const VerifikasiPengajuan = () => {
   // -----------------------
   const { peg_id } = useAuth();
 
-  const [data, setData] = useState([]);
+  const [data, setData] = useState({
+    verifikasi: [],
+    histori: [],
+  });
+  
   const [expandedSurat, setExpandedSurat] = useState(null);
   const [expandedInvoice, setExpandedInvoice] = useState(null);
 
@@ -126,14 +131,20 @@ const VerifikasiPengajuan = () => {
         typeTglFilter: type,
       });
 
-      const normalized = res.data || [];
+      const normalized = {
+        verifikasi: res?.verifikasi || [],
+        histori: res?.histori || [],
+      };
+      
       setData(normalized);
 
       // === MAPPING JENIS PENGAJUAN ===
       const jenisMap = {};
-      normalized.forEach((surat) => {
+      [...normalized.verifikasi, ...normalized.histori]
+      .forEach((surat) => {
         if (surat.surat_id) {
-          jenisMap[surat.surat_id] = surat.jenis_pengajuan || 'V6';
+          jenisMap[surat.surat_id] =
+            surat.jenis_pengajuan || "V6";
         }
       });
 
@@ -165,25 +176,50 @@ const VerifikasiPengajuan = () => {
   // -----------------------
   const normalize = (v) => (v || "").toLowerCase();
 
-  const filteredData = useMemo(() => {
-    return data.filter((inv) => {
+  const filterFunction = (list = []) => {
+    return list.filter((surat) => {
+
+      const providers = Object.values(surat.provider || {});
+
       const matchProvider =
         !provider ||
-        normalize(inv.prvdr_str).includes(normalize(provider));
+        providers.some((p) =>
+          normalize(p.prvdr_str).includes(normalize(provider))
+        );
 
       const matchInvoice =
         !invoice ||
-        normalize(inv.invoice_no).includes(normalize(invoice));
+        providers.some((p) =>
+          (p.invoices || []).some((inv) =>
+            normalize(inv.invoice_no).includes(normalize(invoice))
+          )
+        );
 
       const matchDrug =
         !drug ||
-        (inv.items || []).some((it) =>
-          normalize(it.drug_nm).includes(normalize(drug))
+        providers.some((p) =>
+          (p.invoices || []).some((inv) =>
+            (inv.items || []).some((it) =>
+              normalize(it.drug_nm).includes(normalize(drug))
+            )
+          )
         );
 
-      return matchProvider && matchInvoice && matchDrug;
+      return (
+        matchProvider &&
+        matchInvoice &&
+        matchDrug
+      );
     });
-  }, [data, provider, invoice, drug]);
+};
+
+const filteredVerifikasi = useMemo(() => {
+  return filterFunction(data.verifikasi);
+}, [data.verifikasi, provider, invoice, drug]);
+
+const filteredHistori = useMemo(() => {
+  return filterFunction(data.histori);
+}, [data.histori, provider, invoice, drug]);
 
   // -----------------------
   // ACTION HANDLERS
@@ -215,7 +251,15 @@ const VerifikasiPengajuan = () => {
   const isAllInvoiceValidatedLocal = (surat_id) => {
     if (!surat_id) return false;
 
-    const surat = data.find(s => s.surat_id === surat_id);
+    const allData = [
+      ...data.verifikasi,
+      ...data.histori
+    ];
+    
+    const surat = allData.find(
+      s => s.surat_id === surat_id
+    );
+
     if (!surat) return false;
 
     const allInvoices = Object.values(surat.provider || {})
@@ -441,6 +485,395 @@ const VerifikasiPengajuan = () => {
       });
     }
   };
+
+  const handleCetakUlang = async (surat) => {
+
+    try {
+  
+      Swal.fire({
+        title: "Generating PDF...",
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+  
+      // ===============================
+      // CALL API CETAK ULANG
+      // ===============================
+      const res = await cetakVerifikasiUlang({
+        surat_id: surat.surat_id
+      });
+  
+      // ===============================
+      // VALIDASI RESPONSE
+      // ===============================
+      if (!res || !res.data) {
+        throw new Error("Response kosong dari server");
+      }
+  
+      const contentType = res.headers?.["content-type"];
+  
+      if (!contentType?.includes("application/pdf")) {
+        throw new Error("Response bukan PDF");
+      }
+  
+      // ===============================
+      // DOWNLOAD FILE
+      // ===============================
+      const blob = new Blob(
+        [res.data],
+        { type: "application/pdf" }
+      );
+  
+      const url = window.URL.createObjectURL(blob);
+  
+      const link = document.createElement("a");
+  
+      link.href = url;
+  
+      // ===============================
+      // AMBIL FILENAME
+      // ===============================
+      let fileName = "Lembar_Verifikasi.pdf";
+  
+      const disposition =
+        res.headers?.["content-disposition"];
+  
+      if (disposition) {
+  
+        const match =
+          disposition.match(/filename="?([^"]+)"?/);
+  
+        if (match?.[1]) {
+          fileName = match[1];
+        }
+      }
+  
+      link.setAttribute("download", fileName);
+  
+      document.body.appendChild(link);
+  
+      link.click();
+  
+      link.remove();
+  
+      window.URL.revokeObjectURL(url);
+  
+      Swal.close();
+  
+      Swal.fire({
+        icon: "success",
+        title: "Berhasil",
+        text: "PDF berhasil didownload",
+        timer: 1500,
+        showConfirmButton: false
+      });
+  
+    } catch (err) {
+  
+      console.error("PDF ERROR:", err);
+  
+      Swal.close();
+  
+      Swal.fire({
+        icon: "error",
+        title: "Gagal generate PDF",
+        text:
+          err.message ||
+          "Terjadi kesalahan saat generate PDF"
+      });
+    }
+  };
+
+  const renderTable = (tableData = [], isHistori = false) => (
+    <div className="table-responsive">
+      <table className="table table-theme table-bordered table-sm align-middle">
+  
+        <thead>
+          <tr>
+            <th className="text-center">No</th>
+            <th>No Pengantar</th>
+            <th>No Verifikasi</th>
+            <th>Tgl Surat</th>
+            <th>Tgl Konsolidasi</th>
+            <th>Tgl Pengajuan</th>
+            <th>Tgl Penerimaan</th>
+            <th>Tgl Verifikasi</th>
+            <th>Provider</th>
+            <th>Total Invoice</th>
+            <th>Total Diajukan</th>
+            <th className="text-center">Aksi</th>
+          </tr>
+        </thead>
+  
+        <tbody>
+  
+          {loading ? (
+            <tr>
+              <td colSpan="12" className="text-center">
+                Memuat data...
+              </td>
+            </tr>
+          ) : tableData.length === 0 ? (
+            <tr>
+              <td colSpan="12" className="text-center">
+                Tidak ada data
+              </td>
+            </tr>
+          ) : (
+            tableData.map((surat, i) => (
+              <React.Fragment key={surat.surat_id || i}>
+
+                {/* ===== ROW SURAT ===== */}
+                <tr>
+                  <td className="text-center">{i + 1}</td>
+                  <td>{surat.no_surat || "-"}</td>
+                  <td>{surat.no_verifikasi || "-"}</td>
+                  <td>{formatDate(surat.tgl_surat) || "-"}</td>
+                  <td>{formatSortDateTime(surat.tgl_konsolidasi) || "-"}</td>
+                  <td>{formatSortDateTime(surat.tgl_pengajuan) || "-"}</td>
+                  <td>{formatSortDateTime(surat.tgl_terima) || "-"}</td>
+                  <td>{formatSortDateTime(surat.tgl_verifikasi) || "-"}</td>
+                  <td>
+                    {Object.values(surat.provider).map((p) => (
+                      <div key={p.prvdr_id}>
+                        {p.prvdr_str}
+                      </div>
+                    ))}
+                  </td>
+
+                  <td>
+                    {Object.values(surat.provider).reduce(
+                      (acc, p) => acc + p.invoices.length,
+                      0
+                    )}
+                  </td>
+
+                  <td>
+                    {formatCurrency(
+                      Object.values(surat.provider).reduce(
+                        (acc, p) =>
+                          acc +
+                          p.invoices.reduce(
+                            (sum, inv) => sum + inv.total_diajukan,
+                            0
+                          ),
+                        0
+                      )
+                    )}
+                  </td>
+
+                  <td className="text-center">
+                    <button
+                      className="btn btn-sm btn-primary"
+                      onClick={() => handleExpandSurat(surat.surat_id)}
+                    >
+                      {expandedSurat === surat.surat_id
+                        ? "Tutup"
+                        : "Detail"}
+                    </button>
+
+                    {/* ================= MULAI VERIFIKASI ================= */}
+                    {!isHistori &&
+                      Object.values(surat.provider || {}).some((p) =>
+                        p.invoices.some(
+                          (inv) =>
+                            inv.status_pengolahan === "Berkas Diterima"
+                        )
+                      ) && (
+                        <button
+                          className="btn btn-sm btn-success ms-2 m-1"
+                          onClick={() => handleMulaiVerifikasi(surat)}
+                        >
+                          Mulai Verifikasi
+                        </button>
+                      )
+                    }
+
+                    {/* ================= FINAL VERIFIKASI ================= */}
+                    {!isHistori &&
+                      Object.values(surat.provider || {}).some((p) =>
+                        p.invoices.some(
+                          (inv) =>
+                            inv.status_pengolahan === "Terverifikasi" ||
+                            inv.status_pengolahan === "Proses Revisi"
+                        )
+                      ) && (
+                        <button
+                          className="btn btn-sm btn-danger ms-2 m-1"
+                          onClick={() =>
+                            handleFinalVerifikasi(surat.surat_id)
+                          }
+                        >
+                          Selesai & Cetak
+                        </button>
+                      )
+                    }
+
+                    {/* ================= HISTORY ================= */}
+                    {isHistori && (
+                      <button
+                        className="btn btn-sm btn-outline-danger ms-2"
+                        onClick={() => handleCetakUlang(surat)}
+                      >
+                        Cetak Ulang
+                      </button>
+                    )}
+
+                  </td>
+                </tr>
+
+                {/* ===== DETAIL SURAT ===== */}
+                {expandedSurat === surat.surat_id && (
+                  <tr>
+                    <td colSpan="12">
+                      <div className="p-3 bg-light">
+
+                        {Object.values(surat.provider).map((providerGroup) => (
+
+                          <div key={providerGroup.prvdr_id} className="mb-3">
+
+                            <div className="fw-bold mb-2">
+                              Provider: {providerGroup.prvdr_str}
+                            </div>
+
+                            <table className="table table-sm table-bordered">
+                              <thead>
+                                <tr>
+                                  <th>No</th>
+                                  <th>Invoice</th>
+                                  <th>Total Diajukan</th>
+                                  <th>Status</th>
+                                  <th className="text-center">Aksi</th>
+                                </tr>
+                              </thead>
+
+                              <tbody>
+                                {providerGroup.invoices.map((inv, j) => {
+
+                                  const isExpanded =
+                                    expandedInvoice === inv.po_acce_id;
+
+                                  return (
+                                    <React.Fragment key={inv.po_acce_id}>
+
+                                      <tr>
+                                        <td>{j + 1}</td>
+                                        <td>{inv.invoice_no}</td>
+                                        <td>
+                                          {formatCurrency(inv.total_diajukan)}
+                                        </td>
+                                        <td className="text-center">
+                                          <span className="badge bg-success">
+                                            {inv.status_pengolahan}
+                                          </span>
+                                        </td>
+
+                                        <td className="text-center">
+                                          <button
+                                            className="btn btn-sm btn-outline-secondary"
+                                            onClick={() =>
+                                              toggleDetail(inv.po_acce_id)
+                                            }
+                                          >
+                                            {isExpanded
+                                              ? "Tutup Item"
+                                              : "Detail Item"}
+                                          </button>
+
+                                          {inv.status_pengolahan ===
+                                            "Proses Verifikasi" && (
+                                              <button
+                                                className="btn btn-sm btn-outline-success ms-2"
+                                                onClick={() => handleProsesVerifikasi(inv, surat.surat_id)}
+                                              >
+                                                Verifikasi
+                                              </button>
+                                            )
+                                          }
+                                        </td>
+                                      </tr>
+
+                                      {/* ===== DETAIL ITEM ===== */}
+                                      {isExpanded && (
+                                        <tr>
+                                          <td colSpan="5" className="bg-light">
+                                            <div className="p-2">
+
+                                              <div className="fw-bold mb-2">
+                                                Rincian Barang :
+                                              </div>
+
+                                              <table className="table table-sm table-bordered">
+                                                <thead>
+                                                  <tr>
+                                                    <th>No</th>
+                                                    <th>Nama Barang</th>
+                                                    <th className="text-end">Qty</th>
+                                                    <th className="text-end">Subtotal</th>
+                                                    <th className="text-end">Diajukan</th>
+                                                    <th>Status</th>
+                                                  </tr>
+                                                </thead>
+
+                                                <tbody>
+                                                  {inv.items.map((item, idx) => (
+                                                    <tr key={item.item_id || idx}>
+                                                      <td>{idx + 1}</td>
+                                                      <td>{item.drug_nm}</td>
+                                                      <td className="text-end">
+                                                        {formatNumber(item.qty)}
+                                                      </td>
+                                                      <td className="text-end">
+                                                        {formatCurrency(item.subtotal)}
+                                                      </td>
+                                                      <td className="text-end">
+                                                        {formatCurrency(item.nominal_ajukan)}
+                                                      </td>
+                                                      <td className="text-center">
+                                                        {item.is_checked ? (
+                                                          <span className="badge bg-success">
+                                                            Diajukan
+                                                          </span>
+                                                        ) : (
+                                                          <span className="badge bg-secondary">
+                                                            Tidak
+                                                          </span>
+                                                        )}
+                                                      </td>
+                                                    </tr>
+                                                  ))}
+                                                </tbody>
+
+                                              </table>
+
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      )}
+
+                                    </React.Fragment>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+
+                          </div>
+                        ))}
+
+                      </div>
+                    </td>
+                  </tr>
+                )}
+
+              </React.Fragment>
+            ))
+          )}
+  
+        </tbody>
+  
+      </table>
+    </div>
+  );
 
   // -----------------------
   // RENDER
@@ -792,271 +1225,27 @@ const VerifikasiPengajuan = () => {
             </div>
           </div>
 
-          {/* ================= TABLE ================= */}
-          <div className="table-responsive">
-            <table className="table table-theme table-bordered table-sm align-middle">
-              <thead>
-                <tr>
-                  <th className="text-center">No</th>
-                  <th>No Pengantar</th>
-                  <th>No Verifikasi</th>
-                  <th>Tgl Surat</th>
-                  <th>Tgl Konsolidasi</th>
-                  <th>Tgl Pengajuan</th>
-                  <th>Tgl Penerimaan</th>
-                  <th>Tgl Verifikasi</th>
-                  <th>Provider</th>
-                  <th>Total Invoice</th>
-                  <th>Total Diajukan</th>
-                  <th className="text-center">Aksi</th>
-                </tr>
-              </thead>
+          {/* ================= TABS ================= */}
+          <Tabs
+            defaultActiveKey="verifikasi"
+            className="mb-3"
+          >
 
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan="7" className="text-center">
-                      Memuat data...
-                    </td>
-                  </tr>
-                ) : data.length === 0 ? (
-                  <tr>
-                    <td colSpan="7" className="text-center">
-                      Tidak ada data
-                    </td>
-                  </tr>
-                ) : (
-                  data.map((surat, i) => (
-                    <React.Fragment key={surat.surat_id || i}>
+            <Tab
+              eventKey="verifikasi"
+              title={`Proses Verifikasi (${filteredVerifikasi.length})`}
+            >
+              {renderTable(filteredVerifikasi)}
+            </Tab>
 
-                      {/* ===== ROW SURAT ===== */}
-                      <tr>
-                        <td className="text-center">{i + 1}</td>
-                        <td>{surat.no_surat || "-"}</td>
-                        <td>{surat.no_verifikasi || "-"}</td>
-                        <td>{formatDate(surat.tgl_surat) || "-"}</td>
-                        <td>{formatSortDateTime(surat.tgl_konsolidasi) || "-"}</td>
-                        <td>{formatSortDateTime(surat.tgl_pengajuan) || "-"}</td>
-                        <td>{formatSortDateTime(surat.tgl_terima) || "-"}</td>
-                        <td>{formatSortDateTime(surat.tgl_verifikasi) || "-"}</td>
-                        <td>
-                          {Object.values(surat.provider).map((p) => (
-                            <div key={p.prvdr_id}>
-                              {p.prvdr_str}
-                            </div>
-                          ))}
-                        </td>
+            <Tab
+              eventKey="histori"
+              title={`Histori Verifikasi (${filteredHistori.length})`}
+            >
+              {renderTable(filteredHistori, true)}
+            </Tab>
 
-                        <td>
-                          {Object.values(surat.provider).reduce(
-                            (acc, p) => acc + p.invoices.length,
-                            0
-                          )}
-                        </td>
-
-                        <td>
-                          {formatCurrency(
-                            Object.values(surat.provider).reduce(
-                              (acc, p) =>
-                                acc +
-                                p.invoices.reduce(
-                                  (sum, inv) => sum + inv.total_diajukan,
-                                  0
-                                ),
-                              0
-                            )
-                          )}
-                        </td>
-
-                        <td className="text-center">
-                          <button
-                            className="btn btn-sm btn-primary"
-                            onClick={() => handleExpandSurat(surat.surat_id)}
-                          >
-                            {expandedSurat === surat.surat_id ? "Tutup" : "Detail"}
-                          </button>
-
-                          {Object.values(surat.provider || {}).some((p) =>
-                            p.invoices.some(
-                              (inv) => inv.status_pengolahan === "Berkas Diterima"
-                            )
-                          ) && (
-                            <>
-                              <button
-                                className="btn btn-sm btn-success ms-2 m-1"
-                                onClick={() => handleMulaiVerifikasi(surat)}
-                              >
-                                Mulai Verifikasi
-                              </button>
-                            </>
-                          )}
-
-                          {Object.values(surat.provider || {}).some((p) =>
-                            p.invoices.some(
-                              (inv) => inv.status_pengolahan === "Terverifikasi" || inv.status_pengolahan === "Proses Revisi"
-                            )
-                          ) && (
-                            <>
-                              <button
-                                className="btn btn-sm btn-danger ms-2 m-1"
-                                onClick={() => handleFinalVerifikasi(surat.surat_id)}
-                              >
-                                Selesai & Cetak
-                              </button>
-                            </>
-                          )}
-                        </td>
-                      </tr>
-
-                      {/* ===== DETAIL SURAT ===== */}
-                      {expandedSurat === surat.surat_id && (
-                        <tr>
-                          <td colSpan="12">
-                            <div className="p-3 bg-light">
-
-                              {Object.values(surat.provider).map((providerGroup) => (
-
-                                <div key={providerGroup.prvdr_id} className="mb-3">
-
-                                  <div className="fw-bold mb-2">
-                                    Provider: {providerGroup.prvdr_str}
-                                  </div>
-
-                                  <table className="table table-sm table-bordered">
-                                    <thead>
-                                      <tr>
-                                        <th>No</th>
-                                        <th>Invoice</th>
-                                        <th>Total Diajukan</th>
-                                        <th>Status</th>
-                                        <th className="text-center">Aksi</th>
-                                      </tr>
-                                    </thead>
-
-                                    <tbody>
-                                      {providerGroup.invoices.map((inv, j) => {
-
-                                        const isExpanded =
-                                          expandedInvoice === inv.po_acce_id;
-
-                                        return (
-                                          <React.Fragment key={inv.po_acce_id}>
-
-                                            <tr>
-                                              <td>{j + 1}</td>
-                                              <td>{inv.invoice_no}</td>
-                                              <td>
-                                                {formatCurrency(inv.total_diajukan)}
-                                              </td>
-                                              <td className="text-center">
-                                                <span className="badge bg-success">
-                                                  {inv.status_pengolahan}
-                                                </span>
-                                              </td>
-
-                                              <td className="text-center">
-                                                <button
-                                                  className="btn btn-sm btn-outline-secondary"
-                                                  onClick={() =>
-                                                    toggleDetail(inv.po_acce_id)
-                                                  }
-                                                >
-                                                  {isExpanded
-                                                    ? "Tutup Item"
-                                                    : "Detail Item"}
-                                                </button>
-
-                                                {inv.status_pengolahan ===
-                                                  "Proses Verifikasi" && (
-                                                    <button
-                                                      className="btn btn-sm btn-outline-success ms-2"
-                                                      onClick={() => handleProsesVerifikasi(inv, surat.surat_id)}
-                                                    >
-                                                      Verifikasi
-                                                    </button>
-                                                  )
-                                                }
-                                              </td>
-                                            </tr>
-
-                                            {/* ===== DETAIL ITEM ===== */}
-                                            {isExpanded && (
-                                              <tr>
-                                                <td colSpan="5" className="bg-light">
-                                                  <div className="p-2">
-
-                                                    <div className="fw-bold mb-2">
-                                                      Rincian Barang :
-                                                    </div>
-
-                                                    <table className="table table-sm table-bordered">
-                                                      <thead>
-                                                        <tr>
-                                                          <th>No</th>
-                                                          <th>Nama Barang</th>
-                                                          <th className="text-end">Qty</th>
-                                                          <th className="text-end">Subtotal</th>
-                                                          <th className="text-end">Diajukan</th>
-                                                          <th>Status</th>
-                                                        </tr>
-                                                      </thead>
-
-                                                      <tbody>
-                                                        {inv.items.map((item, idx) => (
-                                                          <tr key={item.item_id || idx}>
-                                                            <td>{idx + 1}</td>
-                                                            <td>{item.drug_nm}</td>
-                                                            <td className="text-end">
-                                                              {formatNumber(item.qty)}
-                                                            </td>
-                                                            <td className="text-end">
-                                                              {formatCurrency(item.subtotal)}
-                                                            </td>
-                                                            <td className="text-end">
-                                                              {formatCurrency(item.nominal_ajukan)}
-                                                            </td>
-                                                            <td className="text-center">
-                                                              {item.is_checked ? (
-                                                                <span className="badge bg-success">
-                                                                  Diajukan
-                                                                </span>
-                                                              ) : (
-                                                                <span className="badge bg-secondary">
-                                                                  Tidak
-                                                                </span>
-                                                              )}
-                                                            </td>
-                                                          </tr>
-                                                        ))}
-                                                      </tbody>
-
-                                                    </table>
-
-                                                  </div>
-                                                </td>
-                                              </tr>
-                                            )}
-
-                                          </React.Fragment>
-                                        );
-                                      })}
-                                    </tbody>
-                                  </table>
-
-                                </div>
-                              ))}
-
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-
-                    </React.Fragment>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+          </Tabs>
         </div>
       </div>
     </>

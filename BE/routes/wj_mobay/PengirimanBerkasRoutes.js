@@ -11,4 +11,11 @@ router.get("/data", PengirimanBerkasController.getDataPengajuan);             //
 router.post("/create", PengirimanBerkasController.createPengiriman); // antarkan Pengajuan (update status mirror)
 router.post("/hapus-konsolidasi", PengirimanBerkasController.hapusKonsolidasi);
 
+router.get("/history", PengirimanBerkasController.getHistoryPengiriman);
+
+router.post(
+  "/cetak-pengiriman-ulang",
+  PengirimanBerkasController.cetakPengirimanUlang
+);
+
 module.exports = router;

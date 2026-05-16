@@ -357,6 +357,91 @@ exports.createPengiriman = async (req, res) => {
   }
 };
 
+// ===============================
+// HISTORY PENGIRIMAN
+// ===============================
+exports.getHistoryPengiriman = async (req, res) => {
+  try {
+    const { start, end } = req.query;
+
+    const [rows] = await db.promise().query(`
+      SELECT
+        mp.id,
+        mp.no_pengiriman,
+        mp.tanggal_pengiriman,
+        mp.tujuan,
+        mp.keterangan,
+        mp.created_at,
+
+        mpd.pengajuan_id,
+
+        pg.no_surat,
+        pg.total_pengajuan,
+
+        prv.prvdr_str
+
+      FROM mobay_pengiriman mp
+
+      LEFT JOIN mobay_pengiriman_dtl mpd
+        ON mpd.pengiriman_id = mp.id
+
+      LEFT JOIN mobay_pengajuan pg
+        ON pg.id = mpd.pengajuan_id
+
+      LEFT JOIN (
+        SELECT
+          pengajuan_id,
+          GROUP_CONCAT(DISTINCT prvdr_str SEPARATOR ', ') AS prvdr_str
+        FROM mobay_mirror_po
+        GROUP BY pengajuan_id
+      ) prv
+        ON prv.pengajuan_id = pg.id
+
+      WHERE mp.tanggal_pengiriman BETWEEN ? AND ?
+
+      ORDER BY mp.created_at DESC
+    `, [start, end]);
+
+    const map = {};
+
+    rows.forEach(r => {
+
+      if (!map[r.id]) {
+        map[r.id] = {
+          id: r.id,
+          no_pengiriman: r.no_pengiriman,
+          tanggal_pengiriman: r.tanggal_pengiriman,
+          tujuan: r.tujuan,
+          keterangan: r.keterangan,
+          created_at: r.created_at,
+          pengajuan: [],
+        };
+      }
+
+      if (r.pengajuan_id) {
+        map[r.id].pengajuan.push({
+          pengajuan_id: r.pengajuan_id,
+          no_surat: r.no_surat,
+          total_pengajuan: Number(r.total_pengajuan || 0),
+          prvdr_str: r.prvdr_str,
+        });
+      }
+
+    });
+
+    return res.json({
+      data: Object.values(map)
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      message: "Gagal load history pengiriman"
+    });
+  }
+};
+
 const generatePDFPengiriman = (res, data) => {
   const {
     no_pengiriman,
@@ -567,6 +652,82 @@ const generatePDFPengiriman = (res, data) => {
   });
 
   doc.end();
+};
+
+exports.cetakPengirimanUlang = async (req, res) => {
+  try {
+
+    const { pengiriman_id } = req.body;
+
+    if (!pengiriman_id) {
+      return res.status(400).json({
+        message: "pengiriman_id wajib diisi"
+      });
+    }
+
+    const [rows] = await db.promise().query(`
+      SELECT
+        mp.*,
+
+        pg.id AS pengajuan_id,
+        pg.no_surat,
+        pg.total_pengajuan,
+        pg.keterangan AS pengajuan_keterangan,
+
+        prv.prvdr_str
+
+      FROM mobay_pengiriman mp
+
+      LEFT JOIN mobay_pengiriman_dtl mpd
+        ON mpd.pengiriman_id = mp.id
+
+      LEFT JOIN mobay_pengajuan pg
+        ON pg.id = mpd.pengajuan_id
+
+      LEFT JOIN (
+        SELECT
+          pengajuan_id,
+          GROUP_CONCAT(DISTINCT prvdr_str SEPARATOR ', ') AS prvdr_str
+        FROM mobay_mirror_po
+        GROUP BY pengajuan_id
+      ) prv
+        ON prv.pengajuan_id = pg.id
+
+      WHERE mp.id = ?
+    `, [pengiriman_id]);
+
+    if (!rows.length) {
+      throw new Error("Data pengiriman tidak ditemukan");
+    }
+
+    const header = rows[0];
+
+    const pengajuanList = rows.map(r => ({
+      id: r.pengajuan_id,
+      no_surat: r.no_surat,
+      total_pengajuan: r.total_pengajuan,
+      keterangan: r.pengajuan_keterangan,
+      prvdr_str: r.prvdr_str,
+      invoices: []
+    }));
+
+    return generatePDFPengiriman(res, {
+      no_pengiriman: header.no_pengiriman,
+      tanggal_pengiriman: header.tanggal_pengiriman,
+      tujuan: header.tujuan,
+      keterangan: header.keterangan,
+      pengajuanList
+    });
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.status(500).json({
+      message: err.message || "Gagal cetak ulang"
+    });
+
+  }
 };
 
 exports.hapusKonsolidasi = async (req, res) => {

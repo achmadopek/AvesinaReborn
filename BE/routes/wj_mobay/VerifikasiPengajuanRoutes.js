@@ -13,5 +13,6 @@ router.get("/get-no-verifikasi", verifikasiPengajuanController.getNoVerifikasi);
 router.put("/mulai-verifikasi", verifikasiPengajuanController.mulaiVerifikasi);
 router.put("/validasi", verifikasiPengajuanController.validasiPembayaran); // validasi pembayaran (update status di mirror)
 router.post("/cetak-verifikasi", verifikasiPengajuanController.cetakVerifikasi);
+router.post("/cetak-verifikasi-ulang", verifikasiPengajuanController.cetakVerifikasiUlang);
 
 module.exports = router;

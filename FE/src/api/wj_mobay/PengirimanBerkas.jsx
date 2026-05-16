@@ -17,6 +17,39 @@ export const fetchDataPengajuanSiapKirim = async ({
 };
 
 // ===============================
+// GET DATA HISTORY PENGIRIMAN BERKAS
+// ===============================
+export const fetchHistoryPengiriman = async ({
+  start,
+  end
+}) => {
+
+  const res = await API.get(
+    "/api/mobay/PengirimanBerkas/history",
+    {
+      params: { start, end }
+    }
+  );
+
+  return res.data;
+};
+
+export const cetakPengirimanUlang = async (
+  payload
+) => {
+
+  const res = await API.post(
+    "/api/mobay/PengirimanBerkas/cetak-pengiriman-ulang",
+    payload,
+    {
+      responseType: "blob"
+    }
+  );
+
+  return res;
+};
+
+// ===============================
 // CREATE SURAT PENGANTAR
 // ===============================
 export const createPengiriman = async (payload) => {

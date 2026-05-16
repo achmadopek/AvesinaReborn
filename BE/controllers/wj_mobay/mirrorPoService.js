@@ -1331,7 +1331,8 @@ async function ambilDataBySurat(surat_id) {
       msp.no_verifikasi,
       msp.tanggal_surat,
       msp.jenis_pengajuan,
-      msp.keterangan
+      msp.keterangan,
+      msp.checklist_verifikasi
     FROM mobay_mirror_po po
     JOIN mobay_pengajuan msp 
       ON po.pengajuan_id = msp.id 
@@ -1344,12 +1345,31 @@ async function ambilDataBySurat(surat_id) {
   }
 
   // =========================
+  // CHECKLIST VERIFIKASI
+  // =========================
+  let checklist_verifikasi = {};
+
+  try {
+
+    checklist_verifikasi =
+      rows[0].checklist_verifikasi
+        ? JSON.parse(rows[0].checklist_verifikasi)
+        : {};
+
+  } catch {
+
+    checklist_verifikasi = {};
+  }
+
+  // =========================
   // DETAIL PER INVOICE
   // =========================
   const invoiceDetails = rows.map(r => {
+
     const total = Number(r.total_diajukan || 0);
 
     const kenaPajak = total > 2220000;
+
     const dpp = kenaPajak ? total / 1.11 : 0;
     const ppn = kenaPajak ? dpp * 0.11 : 0;
     const pph = kenaPajak ? dpp * 0.015 : 0;
@@ -1360,7 +1380,7 @@ async function ambilDataBySurat(surat_id) {
       dpp,
       ppn,
       pph,
-      status_validasi: r.status_validasi || "Belum Validasi"
+      status_validasi: r.status_validasi || "Belum Validasi",
     };
   });
 
@@ -1373,17 +1393,22 @@ async function ambilDataBySurat(surat_id) {
   const grandPPh = invoiceDetails.reduce((s, v) => s + v.pph, 0);
 
   return {
+
     no_surat: rows[0].no_surat,
     no_verifikasi: rows[0].no_verifikasi,
     tanggal_surat: rows[0].tanggal_surat,
     jenis_pengajuan: rows[0].jenis_pengajuan,
 
     tujuan: "Bagian Keuangan",
+
     prvdr_str: rows[0].prvdr_str,
     prvdr_address: rows[0].prvdr_address,
     keterangan: rows[0].keterangan,
 
+    checklist_verifikasi,
+
     invoiceDetails,
+
     grandTotal,
     grandDPP,
     grandPPN,

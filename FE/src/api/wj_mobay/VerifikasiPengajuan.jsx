@@ -57,6 +57,15 @@ export const cetakVerifikasi = async (payload) => {
   return res;
 };
 
+export const cetakVerifikasiUlang = async (payload) => {
+  const res = await API.post(
+    "/api/mobay/VerifikasiPengajuan/cetak-verifikasi-ulang",
+    payload,
+    { responseType: "blob" } // penting!
+  );
+  return res;
+};
+
 export const getNoVerifikasi = async () => {
   const res = await API.get("/api/mobay/VerifikasiPengajuan/get-no-verifikasi");
   return res.data;
