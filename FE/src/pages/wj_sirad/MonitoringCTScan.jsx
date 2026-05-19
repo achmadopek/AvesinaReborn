@@ -2,10 +2,8 @@ import { useEffect, useState } from "react";
 import {
   fetchPaginatedDataCTScan,
   fetchDetailCTScan,
-  requestCTScan,
   uploadCTScan,
   saveHasilCTScan,
-  sendDiagnostic,
 } from "../../api/wj_sirad/MonitoringCTScan";
 import { toast } from "react-toastify";
 import { useAuth } from "../../context/AuthContext";
@@ -307,25 +305,6 @@ const MonitoringCTScan = (
       toast.error(err?.response?.data?.message || "Gagal menyimpan hasil");
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleSendDiagnosticReport = async () => {
-    try {
-      setLoading(true);
-  
-      const res = await sendDiagnostic(selectedReport.registry_id, selectedReport.ct_scan_id, selectedReport.ct_scan_dtl_id);
-  
-      toast.success("DiagnosticReport berhasil dikirim");
-  
-      setShowReportModal(false);
-      loadData(currentPage, tanggal);
-  
-    } catch (err) {
-      console.error(err);
-      toast.error(err?.response?.data?.message || "Gagal kirim DiagnosticReport");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -1166,42 +1145,6 @@ const MonitoringCTScan = (
             disabled={saving}
           >
             {saving ? "Menyimpan..." : "Simpan & Kirim ke SatuSehat"}
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      {/* ================= MODAL KIRIM LAPORAN ================= */}
-      <Modal
-        show={showReportModal}
-        onHide={() => setShowReportModal(false)}
-        centered
-      >
-        <Modal.Header closeButton>
-          <Modal.Title>Kirim DiagnosticReport</Modal.Title>
-        </Modal.Header>
-
-        <Modal.Body>
-          <p><strong>NRM:</strong> {selectedReport?.mr_code}</p>
-          <p><strong>Nama:</strong> {selectedReport?.patient_nm}</p>
-
-          <textarea
-            className="form-control"
-            value={selectedReport?.hasil_bacaan || ""}
-            disabled
-          />
-        </Modal.Body>
-
-        <Modal.Footer>
-          <Button
-            variant="success"
-            onClick={handleSendDiagnosticReport}
-            disabled={loading}
-          >
-            {loading ? "Mengirim..." : "Kirim DiagnosticReport"}
-          </Button>
-
-          <Button variant="secondary" onClick={() => setShowReportModal(false)}>
-            Tutup
           </Button>
         </Modal.Footer>
       </Modal>

@@ -211,7 +211,67 @@ const PembayaranTagihan = () => {
     }
   };
 
+  const handleOpenEditTanggal = (surat) => {
+    const firstPaidInvoice =
+      Object.values(surat.provider || {})
+        .flatMap(p => p.invoices)
+        .find(inv =>
+          inv.status_pengolahan === "Selesai"
+        );
 
+    if (!firstPaidInvoice) {
+      toast.warning("Belum ada invoice selesai");
+      return;
+    }
+
+    setEditTanggalData({
+      pengajuan_id: surat.surat_id,
+      no_surat: surat.no_surat,
+
+      invoice_paid_dt:
+        firstPaidInvoice.invoice_paid_dt
+          ? new Date(firstPaidInvoice.invoice_paid_dt)
+              .toLocaleDateString("en-CA")
+          : "",
+
+      catatan_edit: ""
+    });
+
+    setOpenEditTanggal(true);
+  };
+
+  const handleSaveEditTanggal = async () => {
+    try {
+
+      await editTanggalPembayaran({
+        pengajuan_id:
+          editTanggalData.pengajuan_id,
+
+        invoice_paid_dt:
+          editTanggalData.invoice_paid_dt,
+
+        catatan_edit:
+          editTanggalData.catatan_edit
+      });
+
+      toast.success(
+        "Tanggal pembayaran berhasil diubah"
+      );
+
+      setOpenEditTanggal(false);
+
+      handleLoadData();
+
+    } catch (err) {
+
+      console.error(err);
+
+      toast.error(
+        err?.response?.data?.message ||
+        "Gagal edit tanggal pembayaran"
+      );
+    }
+  };
 
   // -----------------------
   // RENDER
@@ -409,35 +469,44 @@ const PembayaranTagihan = () => {
         show={openEditTanggal}
         onHide={() => setOpenEditTanggal(false)}
         centered
+        backdrop="static"
       >
+
         <Modal.Header closeButton>
-          <Modal.Title>Edit Tanggal Pembayaran</Modal.Title>
+          <Modal.Title>
+            Edit Tanggal Pembayaran
+          </Modal.Title>
         </Modal.Header>
 
         <Modal.Body>
 
-          <div className="mb-2">
-            <label className="form-label">
-              Invoice
+          {/* ================= INFO SURAT ================= */}
+          <div className="mb-3">
+
+            <label className="form-label fw-semibold">
+              No Surat
             </label>
 
             <input
               type="text"
               className="form-control"
-              value={editTanggalData.invoice_no}
+              value={editTanggalData.no_surat || ""}
               disabled
             />
+
           </div>
 
-          <div className="mb-2">
-            <label className="form-label">
+          {/* ================= TGL BAYAR ================= */}
+          <div className="mb-3">
+
+            <label className="form-label fw-semibold">
               Tanggal Pembayaran Baru
             </label>
 
             <input
               type="date"
               className="form-control"
-              value={editTanggalData.invoice_paid_dt}
+              value={editTanggalData.invoice_paid_dt || ""}
               onChange={(e) =>
                 setEditTanggalData(prev => ({
                   ...prev,
@@ -445,17 +514,26 @@ const PembayaranTagihan = () => {
                 }))
               }
             />
+
+            <small className="text-muted">
+              Tanggal akan diupdate ke seluruh invoice
+              yang sudah selesai pada pengajuan ini.
+            </small>
+
           </div>
 
+          {/* ================= CATATAN ================= */}
           <div>
-            <label className="form-label">
-              Catatan
+
+            <label className="form-label fw-semibold">
+              Catatan Edit
             </label>
 
             <textarea
               className="form-control"
               rows={3}
-              value={editTanggalData.catatan_edit}
+              placeholder="Opsional..."
+              value={editTanggalData.catatan_edit || ""}
               onChange={(e) =>
                 setEditTanggalData(prev => ({
                   ...prev,
@@ -463,6 +541,7 @@ const PembayaranTagihan = () => {
                 }))
               }
             />
+
           </div>
 
         </Modal.Body>
@@ -478,43 +557,13 @@ const PembayaranTagihan = () => {
 
           <Button
             variant="warning"
-            onClick={async () => {
-
-              try {
-
-                await editTanggalPembayaran({
-                  po_acce_id:
-                    editTanggalData.po_acce_id,
-
-                  invoice_paid_dt:
-                    editTanggalData.invoice_paid_dt,
-
-                  catatan_edit:
-                    editTanggalData.catatan_edit
-                });
-
-                toast.success(
-                  "Tanggal pembayaran berhasil diubah"
-                );
-
-                setOpenEditTanggal(false);
-
-                handleLoadData();
-
-              } catch (err) {
-
-                toast.error(
-                  "Gagal edit tanggal pembayaran"
-                );
-
-              }
-
-            }}
+            onClick={handleSaveEditTanggal}
           >
-            Simpan
+            Simpan Perubahan
           </Button>
 
         </Modal.Footer>
+
       </Modal>
 
       {/* ================= CARD ================= */}
@@ -733,42 +782,15 @@ const PembayaranTagihan = () => {
                               : "Detail"}
                           </button>
 
-                          {activeTab === "history" && (() => {
-                            const firstPaidInvoice =
-                              Object.values(surat.provider || {})
-                                .flatMap(p => p.invoices)
-                                .find(inv =>
-                                  inv.status_pengolahan === "Selesai"
-                                );
-
-                            if (!firstPaidInvoice) return null;
-
-                            return (
-                              <button
-                                className="btn btn-sm btn-outline-warning"
-                                style={{ margin: "2px" }}
-                                onClick={() => {
-
-                                  setEditTanggalData({
-                                    po_acce_id: firstPaidInvoice.po_acce_id,
-                                    invoice_no: firstPaidInvoice.invoice_no,
-                                    invoice_paid_dt:
-                                      firstPaidInvoice.invoice_paid_dt
-                                        ? String(firstPaidInvoice.invoice_paid_dt)
-                                            .substring(0, 10)
-                                        : "",
-                                    catatan_edit: ""
-                                  });
-
-                                  setOpenEditTanggal(true);
-
-                                }}
-                              >
-                                Edit Tgl Bayar
-                              </button>
-                            );
-
-                            })()}
+                          {activeTab === "history" && (
+                            <button
+                              className="btn btn-sm btn-outline-warning"
+                              style={{ margin: "2px" }}
+                              onClick={() => handleOpenEditTanggal(surat)}
+                            >
+                              Edit Tgl Bayar
+                            </button>
+                          )}
 
                           {activeTab === "todo" && (
                             <button

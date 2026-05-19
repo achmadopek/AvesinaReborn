@@ -25,8 +25,4 @@ router.post("/upload", (req, res, next) => {
 
 router.post("/save-hasil", dataController.saveHasil); //disini sekaligus sendObservation
 
-router.post("/proses-ctscan", dataController.requestCTScan);
-
-router.post("/send-diagnostic", dataController.sendDiagnostic);
-
 module.exports = router;

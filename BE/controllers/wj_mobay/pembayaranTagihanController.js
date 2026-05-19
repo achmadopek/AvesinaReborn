@@ -453,45 +453,68 @@ exports.editTanggalPembayaran = async (req, res) => {
   try {
 
     const {
-      po_acce_id,
+      pengajuan_id,
       invoice_paid_dt,
       catatan_edit
     } = req.body;
 
-    if (!po_acce_id) {
-      throw new Error("po_acce_id wajib");
+    // =========================
+    // VALIDASI
+    // =========================
+    if (!pengajuan_id) {
+      throw new Error("pengajuan_id wajib");
     }
 
     if (!invoice_paid_dt) {
       throw new Error("Tanggal bayar wajib");
     }
 
-    await db.promise().query(
+    // =========================
+    // UPDATE SEMUA INVOICE
+    // DALAM PENGAJUAN
+    // =========================
+    const [result] = await db.promise().query(
       `
       UPDATE mobay_mirror_po
       SET
         invoice_paid_dt = ?,
+        catatan_bayar = ?,
         updated_at = NOW()
-      WHERE po_acce_id = ?
+      WHERE pengajuan_id = ?
         AND status_pengolahan = 'Selesai'
       `,
       [
         invoice_paid_dt,
-        po_acce_id
+        catatan_edit || 'edit tgl bayar',
+        pengajuan_id
       ]
     );
 
+    // =========================
+    // VALIDASI HASIL UPDATE
+    // =========================
+    if (result.affectedRows === 0) {
+      throw new Error(
+        "Tidak ada invoice selesai yang dapat diupdate"
+      );
+    }
+
     res.json({
-      message: "Tanggal pembayaran berhasil diubah"
+      message: "Tanggal pembayaran berhasil diubah",
+      affectedRows: result.affectedRows
     });
 
   } catch (err) {
 
-    console.error(err);
+    console.error(
+      "Error editTanggalPembayaran:",
+      err
+    );
 
     res.status(500).json({
       message: err.message
     });
 
   }
+
 };

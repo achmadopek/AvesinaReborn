@@ -2,10 +2,8 @@ import { useEffect, useState } from "react";
 import {
   fetchPaginatedDataXRay,
   fetchDetailXRay,
-  requestXRay,
   uploadXRay,
   saveHasilXRay,
-  sendDiagnostic,
 } from "../../api/wj_sirad/MonitoringXRay";
 import { toast } from "react-toastify";
 import { useAuth } from "../../context/AuthContext";
@@ -43,14 +41,11 @@ const MonitoringXRay = (
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [selectedDetail, setSelectedDetail] = useState(null);
-  const [showKirimObservasiModal, setShowKirimDiagnosticReportModal] = useState(false);
 
   const [selectedXray, setSelectedXray] = useState(null);
 
-  const [showObservationModal, setShowObservationModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
 
-  const [selectedObservation, setSelectedObservation] = useState(null);
   const [selectedReport, setSelectedReport] = useState(null);
 
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -72,16 +67,16 @@ const MonitoringXRay = (
   // UPLOAD STATES
   // ========================
   const [dicomFile, setDicomFile] = useState(null);
-
   const [imageFiles, setImageFiles] = useState({
     foto1: null,
     foto2: null,
   });
-
   const [imagePreview, setImagePreview] = useState({
     foto1: null,
     foto2: null,
   });
+
+  const [uploadMode, setUploadMode] = useState("image");
 
   const [notes, setNotes] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -90,11 +85,6 @@ const MonitoringXRay = (
   const [selectedBaca, setSelectedBaca] = useState(null);
   const [hasilBacaan, setHasilBacaan] = useState("");
   const [saving, setSaving] = useState(false);
-
-  // SATU SEHAT
-  const [showSatuSehatModal, setShowSatuSehatModal] = useState(false);
-  const [uidBase, setUidBase] = useState("");
-  const [generatedUIDs, setGeneratedUIDs] = useState(null);
 
   // ----------------------
   // PASTE FROM SCREENSHOOT
@@ -160,6 +150,8 @@ const MonitoringXRay = (
   };
 
   const resetUploadState = () => {
+    setUploadMode("image");
+
     setDicomFile(null);
 
     setImageFiles({
@@ -261,18 +253,28 @@ const MonitoringXRay = (
   };
 
   const handleUpload = async () => {
-    // VALIDASI MODE
-    if (ENABLE_DICOM_UPLOAD && !dicomFile) {
-      toast.warn("File DICOM wajib diupload");
+
+    // ======================
+    // VALIDASI
+    // ======================
+    if (
+      uploadMode === "dicom" &&
+      !dicomFile
+    ) {
+      toast.warn(
+        "File DICOM wajib dipilih"
+      );
       return;
     }
 
     if (
-      ENABLE_IMAGE_UPLOAD &&
+      uploadMode === "image" &&
       !imageFiles.foto1 &&
       !imageFiles.foto2
     ) {
-      toast.warn("Minimal upload 1 gambar");
+      toast.warn(
+        "Minimal upload 1 gambar"
+      );
       return;
     }
 
@@ -280,57 +282,102 @@ const MonitoringXRay = (
 
     formData.append(
       "upload_mode",
-      ENABLE_DICOM_UPLOAD ? "dicom" : "image"
+      uploadMode
     );
 
-    formData.append("registry_id", selectedUpload.registry_id);
-    formData.append("x_ray_id", selectedUpload.x_ray_id);
-    formData.append("x_ray_dtl_id", selectedUpload.x_ray_dtl_id);
-    formData.append("notes", selectedUpload.notes || "");
+    formData.append(
+      "registry_id",
+      selectedUpload.registry_id
+    );
 
+    formData.append(
+      "x_ray_id",
+      selectedUpload.x_ray_id
+    );
+
+    formData.append(
+      "x_ray_dtl_id",
+      selectedUpload.x_ray_dtl_id
+    );
+
+    formData.append(
+      "created_by",
+      peg_id
+    );
+
+    // ======================
     // DICOM
-    if (ENABLE_DICOM_UPLOAD && dicomFile) {
-      formData.append("dicom", dicomFile);
+    // ======================
+    if (
+      uploadMode === "dicom" &&
+      dicomFile
+    ) {
+      formData.append(
+        "dicom",
+        dicomFile
+      );
     }
 
-    // JPEG
-    if (ENABLE_IMAGE_UPLOAD) {
+    // ======================
+    // IMAGE
+    // ======================
+    if (uploadMode === "image") {
+
       if (imageFiles.foto1) {
-        formData.append("foto1", imageFiles.foto1);
+        formData.append(
+          "foto1",
+          imageFiles.foto1
+        );
       }
 
       if (imageFiles.foto2) {
-        formData.append("foto2", imageFiles.foto2);
+        formData.append(
+          "foto2",
+          imageFiles.foto2
+        );
       }
     }
 
-    if (peg_id) {
-      formData.append("created_by", peg_id);
-    }
-
-    setUploading(true);
-
     try {
-      const res = await uploadXRay(formData);
+
+      setUploading(true);
+
+      const res =
+        await uploadXRay(formData);
 
       if (res.success) {
-        toast.success("Upload berhasil");
+
+        toast.success(
+          res.message ||
+          "Upload berhasil"
+        );
 
         setShowUploadModal(false);
 
-        loadData(currentPage, tanggal);
+        loadData(
+          currentPage,
+          tanggal
+        );
+
       } else {
-        toast.error(res.message || "Upload gagal");
+
+        toast.error(
+          res.message ||
+          "Upload gagal"
+        );
       }
+
     } catch (err) {
-      console.error("UPLOAD ERROR:", err);
-    
+
+      console.error(err);
+
       toast.error(
         err?.response?.data?.message ||
-        err.message ||
         "Upload gagal"
       );
+
     } finally {
+
       setUploading(false);
     }
   };
@@ -347,18 +394,6 @@ const MonitoringXRay = (
     } catch (err) {
       console.error(err);
       toast.error("Gagal memuat data baca X-Ray");
-    }
-  };
-
-  const openModalReport = async (row) => {
-    try {
-      const res = await fetchDetailXRay(row.registry_id, row.x_ray_dtl_id);
-      if (res.success) {
-        setSelectedReport(res.data);
-        setShowReportModal(true);
-      }
-    } catch (err) {
-      toast.error("Gagal memuat data report");
     }
   };
 
@@ -400,35 +435,6 @@ const MonitoringXRay = (
     }
   };
 
-  const handleSendDiagnosticReport = async () => {
-    try {
-      setLoading(true);
-    
-      const res = await sendDiagnostic(
-        selectedReport.registry_id, 
-        selectedReport.x_ray_id, 
-        selectedReport.x_ray_dtl_id
-      );
-
-      if (res.success) {
-        toast.success(res.satusehat === "success" 
-          ? "DiagnosticReport berhasil dikirim" 
-          : "Status lokal berhasil diupdate (SatuSehat pending)");
-      } else {
-        toast.error(res.message || "Gagal kirim DiagnosticReport");
-      }
-
-      setShowReportModal(false);
-      loadData(currentPage, tanggal);
-    
-    } catch (err) {
-      console.error(err);
-      toast.error(err?.response?.data?.message || "Gagal kirim DiagnosticReport");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // -----------------------
   // PASTE FROM SS
   // -----------------------
@@ -455,7 +461,15 @@ const MonitoringXRay = (
     window.addEventListener("paste", handlePaste);
 
     return () => window.removeEventListener("paste", handlePaste);
-  }, [foto1]);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      Object.values(imagePreview).forEach((url) => {
+        if (url) URL.revokeObjectURL(url);
+      });
+    };
+  }, [imagePreview]);
 
   const handleFileChange = (e, target) => {
     const file = e.target.files[0];
@@ -514,7 +528,7 @@ const MonitoringXRay = (
       ) : (
         <button
           key={page}
-          onClick={() => loadData(page)}
+          onClick={() => loadData(page, tanggal)}
           className={`btn btn-sm mx-1 ${
             currentPage === page
               ? "btn-outline-primary"
@@ -615,39 +629,6 @@ const MonitoringXRay = (
     };
   }, [isMobile]);
 
-  // SATU SEHAT
-  const handleProsesXRay = async () => {
-    try {
-      if (!selectedDetail?.x_ray_dtl_id) {
-        toast.error("x_ray_dtl_id tidak ditemukan");
-        return;
-      }
-
-      const res = await requestXRay({
-        registry_id: selectedDetail.registry_id,
-        x_ray_id: selectedDetail.x_ray_id,
-        x_ray_dtl_id: selectedDetail.x_ray_dtl_id,
-        pengirim_id: selectedDetail.pengirim_id,
-        pemeriksa_id: selectedDetail.pemeriksa_id,
-        notes: notes,
-      });
-
-      if (res.success) {
-        toast.success(res.satusehat === "success" 
-          ? "Berhasil membuat order X-Ray & SatuSehat" 
-          : "Berhasil membuat order X-Ray (SatuSehat pending)");
-        
-        setShowRequestModal(false);
-        loadData(currentPage, tanggal);
-      } else {
-        toast.error(res.message || "Gagal proses X-Ray");
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error(err?.response?.data?.message || "Gagal proses X-Ray");
-    }
-  };
-
   // ======================
   // CETAK PDF HASIL X-RAY
   // ======================
@@ -727,62 +708,6 @@ const MonitoringXRay = (
       // Simpan PDF
       doc.save(`Hasil_Radiologi_${data.mr_code || 'unknown'}.pdf`);
     });
-  };
-
-  const getSSBadge = (item) => {
-    if (!item) {
-      return {
-        className: "bg-light text-muted border",
-        title: "Belum diproses",
-      };
-    }
-  
-    switch (item.status) {
-      case "success":
-        return {
-          className: "bg-success",
-          title: `SUCCESS\nUUID: ${item.uuid || "-"}`,
-        };
-  
-      case "queued":
-        return {
-          className: "bg-warning text-dark",
-          title: item.message || "Masuk antrian",
-        };
-  
-      case "processing":
-        return {
-          className: "bg-info text-dark",
-          title: "Sedang diproses worker",
-        };
-  
-      case "debug":
-        return {
-          className: "bg-secondary",
-          title: "DEBUG MODE",
-        };
-  
-      case "failed":
-        return {
-          className: "bg-danger",
-          title:
-          `${item.message || "Gagal kirim"}${
-            item.uuid ? `\nUUID: ${item.uuid}` : ""
-          }`,
-        };
-  
-      case "skipped":
-        return {
-          className: "bg-dark",
-          title: item.message || "Dependency belum lengkap",
-        };
-  
-      default:
-        return {
-          className: "bg-light text-muted border",
-          title: item.message || "Unknown",
-        };
-    }
   };
 
   // -----------------------
@@ -879,7 +804,7 @@ const MonitoringXRay = (
                 <textarea
                   className="form-control form-control-sm"
                   rows={3}
-                  value={selectedBaca?.keluhan_anamnesa || "-"}
+                  value={selectedDetail?.keluhan_anamnesa || "-"}
                   disabled
                 />
               </div>
@@ -892,7 +817,7 @@ const MonitoringXRay = (
                 <textarea
                   className="form-control form-control-sm"
                   rows={2}
-                  value={selectedBaca?.catatan_radiografer || "-"}
+                  value={selectedDetail?.catatan_radiografer || "-"}
                   disabled
                 />
               </div>
@@ -1031,7 +956,7 @@ const MonitoringXRay = (
                 <textarea
                   className="form-control form-control-sm"
                   rows={3}
-                  value={selectedBaca?.keluhan_anamnesa || "-"}
+                  value={selectedUpload?.keluhan_anamnesa || "-"}
                   disabled
                 />
               </div>
@@ -1044,7 +969,7 @@ const MonitoringXRay = (
           <Button
             variant="success"
             onClick={() => handleProsesXRay(selectedDetail)}
-            disabled={uploading && !notes}
+            disabled={uploading || !notes}
             className="ms-2"
           >
             {uploading ? "Mengirim..." : "Request & Kirim SatuSehat"}
@@ -1180,7 +1105,7 @@ const MonitoringXRay = (
               <textarea
                 className="form-control"
                 rows={3}
-                value={selectedDetail?.keluhan_anamnesa || "-"}
+                value={selectedUpload?.keluhan_anamnesa || "-"}
                 disabled
               />
             </div>
@@ -1344,6 +1269,15 @@ const MonitoringXRay = (
                 />
               </div>
             )}
+
+            {selectedBaca?.foto2 && (
+              <div className="col-lg-5 mt-3">
+                <ZoomImage
+                  src={`${import.meta.env.VITE_API_URL}${selectedBaca.foto2}`}
+                  isMobile={isMobile}
+                />
+              </div>
+            )}
           </div>
 
           {/* Form Hasil Bacaan */}
@@ -1385,42 +1319,6 @@ const MonitoringXRay = (
             disabled={saving}
           >
             {saving ? "Menyimpan..." : "Simpan & Kirim ke SatuSehat"}
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      {/* ================= MODAL KIRIM LAPORAN ================= */}
-      <Modal
-        show={showReportModal}
-        onHide={() => setShowReportModal(false)}
-        centered
-      >
-        <Modal.Header closeButton>
-          <Modal.Title>Kirim DiagnosticReport</Modal.Title>
-        </Modal.Header>
-
-        <Modal.Body>
-          <p><strong>NRM:</strong> {selectedReport?.mr_code}</p>
-          <p><strong>Nama:</strong> {selectedReport?.patient_nm}</p>
-
-          <textarea
-            className="form-control"
-            value={selectedReport?.hasil_bacaan || ""}
-            disabled
-          />
-        </Modal.Body>
-
-        <Modal.Footer>
-          <Button
-            variant="success"
-            onClick={handleSendDiagnosticReport}
-            disabled={loading}
-          >
-            {loading ? "Mengirim..." : "Kirim DiagnosticReport"}
-          </Button>
-
-          <Button variant="secondary" onClick={() => setShowReportModal(false)}>
-            Tutup
           </Button>
         </Modal.Footer>
       </Modal>
@@ -1482,7 +1380,11 @@ const MonitoringXRay = (
               </label>
               
               <DatePicker
-                selected={tanggal ? new Date(tanggal) : null}
+                selected={
+                  tanggal
+                    ? new Date(`${tanggal}T00:00:00`)
+                    : null
+                }
                 onChange={(date) => setTanggal(date ? date.toISOString().split('T')[0] : '')}
                 dateFormat="d MMMM yyyy"
                 className="form-control form-control-sm"
@@ -1586,11 +1488,6 @@ const MonitoringXRay = (
                   {!isMobile && <th>NRM / Nama</th>}
                   {!isMobile && <th>Pengirim (IHS) / Pemeriksa (IHS)</th>}
                   {!isMobile && <th>Tindakan / Mapping</th>}
-                  {!isMobile && <th className="text-center">ENC</th>}
-                  {!isMobile && <th className="text-center">REQ</th>}
-                  {!isMobile && <th className="text-center">IMG</th>}
-                  {!isMobile && <th className="text-center">OBS</th>}
-                  {!isMobile && <th className="text-center">REP</th>}
                   {!isMobile && <th className="text-center">Status</th>}
 
                   <th className="text-center">Aksi</th>
@@ -1654,35 +1551,22 @@ const MonitoringXRay = (
                   const isSSFailed = (item) =>
                     ["failed", "skipped"].includes(item?.status);
 
-                  // ==================== LOGIC TOMBOL (DI-RELAX) ====================
-                  // ====================
-                  // SATUSEHAT STATUS
-                  // ====================
-                  const reqSuccess = isSSSuccess(service_request);
                   const imgSuccess = isSSSuccess(imaging);
-                  const obsSuccess = isSSSuccess(observation);
-                  const repSuccess = isSSSuccess(report);
-
-                  const reqPending = isSSPending(service_request);
                   const imgPending = isSSPending(imaging);
+
+                  const repSuccess = isSSSuccess(report);
                   const repPending = isSSPending(report);
+
+                  const obsSuccess = isSSSuccess(observation);
 
                   // ====================
                   // ACTION RULES
                   // ====================
 
-                  // REQUEST
-                  const canRequest =
-                    hasPengirim &&
-                    hasPemeriksa &&
-                    !reqSuccess &&
-                    !reqPending;
-
                   // UPLOAD
                   const canUpload =
-                    ["ordered", "none"].includes(status) &&
-                    !imgSuccess &&
-                    !imgPending;
+                    ["none", "ordered", "uploaded"].includes(status) &&
+                    !is_final;
 
                   // BACA
                   const canBaca =
@@ -1704,12 +1588,6 @@ const MonitoringXRay = (
                   // SAVE LOCAL
                   const canSimpan =
                     status === "read";
-
-                  const encBadge = getSSBadge(row.satu_sehat?.encounter);
-                  const reqBadge = getSSBadge(row.satusehat?.service_request);
-                  const imgBadge = getSSBadge(row.satusehat?.imaging);
-                  const obsBadge = getSSBadge(row.satusehat?.observation);
-                  const repBadge = getSSBadge(row.satusehat?.report);
 
                   const renderStatusBadge = (row) => {
                     if (row.is_lokal) {
@@ -1891,61 +1769,6 @@ const MonitoringXRay = (
 
                       {!isMobile && (
                         <td className="text-center">
-                          <span
-                            className={`badge ${encBadge.className}`}
-                            title={encBadge.title}
-                          >
-                            ENC
-                          </span>
-                        </td>
-                      )}
-
-                      {!isMobile && (
-                        <td className="text-center">
-                          <span
-                            className={`badge ${reqBadge.className}`}
-                            title={reqBadge.title}
-                          >
-                            REQ
-                          </span>
-                        </td>
-                      )}
-
-                      {!isMobile && (
-                        <td className="text-center">
-                          <span
-                            className={`badge ${imgBadge.className}`}
-                            title={imgBadge.title}
-                          >
-                            IMG
-                          </span>
-                        </td>
-                      )}
-
-                      {!isMobile && (
-                        <td className="text-center">
-                          <span
-                            className={`badge ${obsBadge.className}`}
-                            title={obsBadge.title}
-                          >
-                            OBS
-                          </span>
-                        </td>
-                      )}
-
-                      {!isMobile && (
-                        <td className="text-center">
-                          <span
-                            className={`badge ${repBadge.className}`}
-                            title={repBadge.title}
-                          >
-                            REP
-                          </span>
-                        </td>
-                      )}
-
-                      {!isMobile && (
-                        <td className="text-center">
                           {row.is_lokal ? (
                             <span className="badge bg-dark">
                               Final Reborn
@@ -2004,26 +1827,6 @@ const MonitoringXRay = (
 
                         {isMobile && <hr className="m-2" />}
 
-                        {/* === PHYSICIAN - REQUEST === */}
-                        {role === "physician" && (
-                          <button
-                            className="btn btn-sm btn-outline-success"
-                            disabled={!canRequest}
-                            onClick={() => openModalRequest(row)}
-                            title={
-                              !hasPengirim 
-                                ? "Dokter Pengirim belum terdaftar di SatuSehat" 
-                                : !hasPemeriksa 
-                                  ? "Dokter Pemeriksa belum terdaftar di SatuSehat" 
-                                  : !hasValidTindakan 
-                                    ? "Mapping SNOMED/LOINC belum lengkap → hanya lokal" 
-                                    : ""
-                            }
-                          >
-                            Request
-                          </button>
-                        )}
-
                         {/* === RADIOGRAFER - UPLOAD === */}
                         {role === "radiografer" && (
                           <button
@@ -2055,21 +1858,6 @@ const MonitoringXRay = (
                           <hr className="m-2" />
                         )}
 
-                        {/* === RADIOLOG - REPORT === */}
-                        {role === "radiolog" && (
-                          <button
-                            className="btn btn-sm btn-outline-info ms-1"
-                            disabled={!canSendDiagnostic}
-                            onClick={() => openModalReport(row)}
-                            title={
-                              !imgSuccess
-                                ? "ImagingStudy SATUSEHAT belum selesai"
-                                : ""
-                            }
-                          >
-                            Report
-                          </button>
-                        )}
                       </td>
                     </tr>
                   );
@@ -2095,12 +1883,6 @@ const MonitoringXRay = (
                   <span className="badge bg-primary me-1">LN</span>
                   <span className="badge bg-danger me-1">SN/LN</span>
                   SNOMED/LOINC mapping sudah/belum tersedia
-                  <br />
-                  <span className="badge bg-secondary me-1">ENC</span>
-                  Encounter pasien sudah tercatat
-                  <br />
-                  <span className="badge bg-primary me-1">REQ</span>
-                  ServiceRequest radiologi sudah dibuat
                 </div>
                 <div className="col-md-5 small">
                   <span className="badge bg-info text-dark me-1">IMG</span>

@@ -211,11 +211,6 @@ function broadcastToClients(payload) {
 // buat global supaya bisa dipanggil dari controller mana saja
 global.broadcastToClients = broadcastToClients;
 
-// ==========================
-// SATUSEHAT CRON WORKER
-// ==========================
-require("./cron/satusehatCron");
-
 server.listen(PORT, HOST, () => {
   console.log(`Server berjalan di http://${HOST}:${PORT}`);
 });
