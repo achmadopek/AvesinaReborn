@@ -70,3 +70,20 @@ export const getNoVerifikasi = async () => {
   const res = await API.get("/api/mobay/VerifikasiPengajuan/get-no-verifikasi");
   return res.data;
 };
+
+export const editNoVerifikasi = async ({
+  surat_id,
+  no_verifikasi,
+  peg_id
+}) => {
+  const res = await API.put(
+    "/api/mobay/VerifikasiPengajuan/edit-no-verifikasi",
+    {
+      surat_id,
+      no_verifikasi,
+      peg_id
+    }
+  );
+
+  return res.data;
+};

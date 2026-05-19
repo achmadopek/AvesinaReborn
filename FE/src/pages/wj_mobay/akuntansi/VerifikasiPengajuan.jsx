@@ -7,7 +7,8 @@ import {
   mulaiVerifikasi,
   cetakVerifikasi,
   cetakVerifikasiUlang,
-  getNoVerifikasi
+  getNoVerifikasi,
+  editNoVerifikasi
 } from "../../../api/wj_mobay/VerifikasiPengajuan";
 import { toast } from "react-toastify";
 import { useAuth } from "../../../context/AuthContext";
@@ -64,6 +65,8 @@ const VerifikasiPengajuan = () => {
     total_diajukan: 0,
   });
   const [showVerifikasiModal, setShowVerifikasiModal] = useState(false);
+
+  const [isCetakUlang, setIsCetakUlang] = useState(false);
 
   const handleMulaiVerifikasi = async (surat) => {
     setSuratVerif(surat);
@@ -292,6 +295,49 @@ const filteredHistori = useMemo(() => {
     }
   };
 
+  const handleEditNoVer = async (surat) => {
+
+    const { value: noBaru } = await Swal.fire({
+      title: "Edit Nomor Verifikasi",
+      input: "text",
+      inputValue: surat.no_verifikasi || "",
+      inputLabel: "Nomor Verifikasi",
+      showCancelButton: true,
+      confirmButtonText: "Simpan",
+      cancelButtonText: "Batal",
+      inputValidator: (value) => {
+        if (!value) {
+          return "Nomor verifikasi wajib diisi";
+        }
+      }
+    });
+  
+    if (!noBaru) return;
+  
+    try {
+  
+      await editNoVerifikasi({
+        surat_id: surat.surat_id,
+        no_verifikasi: noBaru,
+        peg_id
+      });
+  
+      toast.success("Nomor verifikasi berhasil diupdate");
+  
+      handleLoadData();
+  
+    } catch (err) {
+  
+      console.error(err);
+  
+      toast.error(
+        err.response?.data?.message ||
+        "Gagal update nomor verifikasi"
+      );
+  
+    }
+  };
+
   const handleFinalVerifikasi = (surat_id) => {
     const selesaiSemua = isAllInvoiceValidatedLocal(surat_id);
 
@@ -486,80 +532,101 @@ const filteredHistori = useMemo(() => {
     }
   };
 
-  const handleCetakUlang = async (surat) => {
+  const handleCetakUlang = (surat) => {
+
+    const jenis = surat.jenis_pengajuan || "V6";
+  
+    // ambil checklist lama
+    const existingChecklist =
+      surat.checklist_verifikasi || {};
+  
+    // merge dengan default
+    const mergedChecklist = {
+      ...getDefaultChecklist(jenis),
+      ...existingChecklist
+    };
+  
+    setChecklist(mergedChecklist);
+  
+    setVerifikasiData((prev) => ({
+      ...prev,
+      surat_id: surat.surat_id,
+      jenis_pengajuan: jenis
+    }));
+  
+    setIsCetakUlang(true);
+  
+    setShowChecklistModal(true);
+  };
+
+  const generatePdfCetakUlang = async () => {
 
     try {
-  
+
+      if (!verifikasiData?.surat_id) {
+        toast.error("Surat tidak valid");
+        return;
+      }
+
       Swal.fire({
         title: "Generating PDF...",
         allowOutsideClick: false,
         didOpen: () => Swal.showLoading()
       });
-  
-      // ===============================
-      // CALL API CETAK ULANG
-      // ===============================
+
       const res = await cetakVerifikasiUlang({
-        surat_id: surat.surat_id
+        surat_id: verifikasiData.surat_id,
+        checklist
       });
-  
-      // ===============================
-      // VALIDASI RESPONSE
-      // ===============================
+
       if (!res || !res.data) {
         throw new Error("Response kosong dari server");
       }
-  
+
       const contentType = res.headers?.["content-type"];
-  
+
       if (!contentType?.includes("application/pdf")) {
         throw new Error("Response bukan PDF");
       }
-  
-      // ===============================
-      // DOWNLOAD FILE
-      // ===============================
+
       const blob = new Blob(
         [res.data],
         { type: "application/pdf" }
       );
-  
+
       const url = window.URL.createObjectURL(blob);
-  
+
       const link = document.createElement("a");
-  
+
       link.href = url;
-  
-      // ===============================
-      // AMBIL FILENAME
-      // ===============================
+
       let fileName = "Lembar_Verifikasi.pdf";
-  
+
       const disposition =
         res.headers?.["content-disposition"];
-  
+
       if (disposition) {
-  
+
         const match =
           disposition.match(/filename="?([^"]+)"?/);
-  
+
         if (match?.[1]) {
           fileName = match[1];
         }
       }
-  
+
       link.setAttribute("download", fileName);
-  
+
       document.body.appendChild(link);
-  
+
       link.click();
-  
+
       link.remove();
-  
+
       window.URL.revokeObjectURL(url);
-  
+
       Swal.close();
-  
+
       Swal.fire({
         icon: "success",
         title: "Berhasil",
@@ -567,13 +634,17 @@ const filteredHistori = useMemo(() => {
         timer: 1500,
         showConfirmButton: false
       });
-  
+
+      setShowChecklistModal(false);
+
+      setIsCetakUlang(false);
+
     } catch (err) {
-  
+
       console.error("PDF ERROR:", err);
-  
+
       Swal.close();
-  
+
       Swal.fire({
         icon: "error",
         title: "Gagal generate PDF",
@@ -665,6 +736,7 @@ const filteredHistori = useMemo(() => {
                   <td className="text-center">
                     <button
                       className="btn btn-sm btn-primary"
+                      style={{margin: "2px"}}
                       onClick={() => handleExpandSurat(surat.surat_id)}
                     >
                       {expandedSurat === surat.surat_id
@@ -681,8 +753,9 @@ const filteredHistori = useMemo(() => {
                         )
                       ) && (
                         <button
-                          className="btn btn-sm btn-success ms-2 m-1"
+                          className="btn btn-sm btn-success"
                           onClick={() => handleMulaiVerifikasi(surat)}
+                          style={{margin: "2px"}}
                         >
                           Mulai Verifikasi
                         </button>
@@ -699,7 +772,8 @@ const filteredHistori = useMemo(() => {
                         )
                       ) && (
                         <button
-                          className="btn btn-sm btn-danger ms-2 m-1"
+                          className="btn btn-sm btn-danger"
+                          style={{margin: "2px"}}
                           onClick={() =>
                             handleFinalVerifikasi(surat.surat_id)
                           }
@@ -711,12 +785,23 @@ const filteredHistori = useMemo(() => {
 
                     {/* ================= HISTORY ================= */}
                     {isHistori && (
-                      <button
-                        className="btn btn-sm btn-outline-danger ms-2"
-                        onClick={() => handleCetakUlang(surat)}
-                      >
-                        Cetak Ulang
-                      </button>
+                      <>
+                        <button
+                          style={{margin: "2px"}}
+                          className="btn btn-sm btn-outline-warning"
+                          onClick={() => handleEditNoVer(surat)}
+                        >
+                          Edit Nomor
+                        </button>
+                        
+                        <button
+                          style={{margin: "2px"}}
+                          className="btn btn-sm btn-outline-danger"
+                          onClick={() => handleCetakUlang(surat)}
+                        >
+                          Cetak Ulang
+                        </button>
+                      </>
                     )}
 
                   </td>
@@ -1130,7 +1215,13 @@ const filteredHistori = useMemo(() => {
           <Button
             variant="success"
             onClick={async () => {
-              await generatePdfWithChecklist();
+
+              if (isCetakUlang) {
+                await generatePdfCetakUlang();
+              } else {
+                await generatePdfWithChecklist();
+              }
+
             }}
           >
             Cetak PDF

@@ -434,7 +434,10 @@ exports.cetakVerifikasi = async (req, res) => {
 exports.cetakVerifikasiUlang = async (req, res) => {
   try {
 
-    const { surat_id } = req.body;
+    const {
+      surat_id,
+      checklist = {}
+    } = req.body;
 
     if (!surat_id) {
       return res.status(400).json({
@@ -442,12 +445,22 @@ exports.cetakVerifikasiUlang = async (req, res) => {
       });
     }
 
-    const data = await mirrorService.ambilDataBySurat(surat_id);
+    const data =
+      await mirrorService.ambilDataBySurat(surat_id);
+
+    await db.promise().query(`
+      UPDATE mobay_pengajuan
+      SET checklist_verifikasi = ?
+      WHERE id = ?
+    `, [
+      JSON.stringify(checklist),
+      surat_id
+    ]);
 
     generatePDF(
       res,
       data,
-      data.checklist_verifikasi || {}
+      checklist
     );
 
   } catch (err) {
@@ -457,6 +470,66 @@ exports.cetakVerifikasiUlang = async (req, res) => {
     res.status(500).json({
       message: err.message
     });
+  }
+};
+
+exports.editNoVerifikasi = async (req, res) => {
+  const conn = await db.promise().getConnection();
+
+  try {
+
+    const {
+      surat_id,
+      no_verifikasi,
+      peg_id
+    } = req.body;
+
+    if (!surat_id) {
+      throw new Error("surat_id wajib");
+    }
+
+    if (!no_verifikasi) {
+      throw new Error("no_verifikasi wajib");
+    }
+
+    await conn.beginTransaction();
+
+    await conn.query(
+      `
+      UPDATE mobay_pengajuan
+      SET
+        no_verifikasi = ?,
+        updated_at = NOW(),
+        updated_by = ?
+      WHERE id = ?
+      `,
+      [
+        no_verifikasi,
+        peg_id,
+        surat_id
+      ]
+    );
+
+    await conn.commit();
+
+    res.json({
+      message: "Nomor verifikasi berhasil diupdate"
+    });
+
+  } catch (err) {
+
+    await conn.rollback();
+
+    console.error(err);
+
+    res.status(500).json({
+      message: err.message
+    });
+
+  } finally {
+
+    conn.release();
+
   }
 };
 
@@ -498,7 +571,8 @@ const generatePDF = (res, payload, checklist = {}) => {
   let isFirstPage = true;
 
   // ================= HELPER =================
-  const formatRupiah = (angka) => Number(angka || 0).toLocaleString("id-ID");
+  const formatRupiah = (angka) =>
+    Math.ceil(Number(angka || 0)).toLocaleString("id-ID");
 
   const formatTanggalPanjang = (tgl) => 
     new Date(tgl).toLocaleDateString("id-ID", {
@@ -618,19 +692,39 @@ const generatePDF = (res, payload, checklist = {}) => {
 
   // ================= TABLE HEADER =================
   const drawTableHeader = () => {
-    doc.font("Helvetica-Bold").fontSize(8);
-
+    doc.font("Helvetica-Bold").fontSize(10);
+  
     doc.text("No", 50, y);
-    doc.text("No Invoice", 70, y);
-    doc.text("Total (Rp)", 170, y);
-    doc.text("DPP (Rp)", 270, y);
-    doc.text("PPN (Rp)", 370, y);
-    doc.text("PPh (Rp)", 450, y);
+    doc.text("No Invoice", 80, y);
+  
+    doc.text("Total (Rp)", 170, y, {
+      width: 90,
+      align: "right"
+    });
+  
+    doc.text("DPP (Rp)", 270, y, {
+      width: 80,
+      align: "right"
+    });
+  
+    doc.text("PPN (Rp)", 360, y, {
+      width: 80,
+      align: "right"
+    });
+  
+    doc.text("PPh (Rp)", 450, y, {
+      width: 70,
+      align: "right"
+    });
+  
     doc.text("Verif", 525, y);
-
-    y += 15;
+  
+    y += 18;
+  
     doc.moveTo(50, y).lineTo(550, y).stroke();
-    y += 8;
+  
+    y += 10;
+  
     doc.font("Helvetica");
   };
 
@@ -658,13 +752,33 @@ const generatePDF = (res, payload, checklist = {}) => {
         drawTableHeader();
       }
 
-      doc.font("Helvetica").fontSize(8);
+      doc.font("Helvetica").fontSize(10);
+
       doc.text(i + 1, 50, y);
-      doc.text(inv.invoice_no || "-", 70, y);
-      doc.text(formatRupiah(inv.diajukan), 170, y);
-      doc.text(formatRupiah(inv.dpp), 270, y);
-      doc.text(formatRupiah(inv.ppn), 370, y);
-      doc.text(formatRupiah(inv.pph), 450, y);
+
+      doc.text(inv.invoice_no || "-", 80, y, {
+        width: 80
+      });
+
+      doc.text(formatRupiah(inv.diajukan), 170, y, {
+        width: 90,
+        align: "right"
+      });
+
+      doc.text(formatRupiah(inv.dpp), 270, y, {
+        width: 80,
+        align: "right"
+      });
+
+      doc.text(formatRupiah(inv.ppn), 360, y, {
+        width: 80,
+        align: "right"
+      });
+
+      doc.text(formatRupiah(inv.pph), 450, y, {
+        width: 70,
+        align: "right"
+      });
 
       doc.rect(535, y, 10, 10).stroke();
       doc.font("Helvetica-Bold").text(
@@ -683,16 +797,31 @@ const generatePDF = (res, payload, checklist = {}) => {
       y += 15;
 
       doc.font("Helvetica-Bold").fontSize(10);
+
       doc.text("Jumlah Belanja", 50, y);
-      doc.text("Rp. " + formatRupiah(grandTotal), 220, y);
+
+      doc.text("Rp. " + formatRupiah(grandTotal), 350, y, {
+        width: 150,
+        align: "right"
+      });
+
       y += 18;
 
       doc.text("PPN", 50, y);
-      doc.text("Rp. " + formatRupiah(grandPPN), 220, y);
+
+      doc.text("Rp. " + formatRupiah(grandPPN), 350, y, {
+        width: 150,
+        align: "right"
+      });
+
       y += 18;
 
       doc.text("PPh 22", 50, y);
-      doc.text("Rp. " + formatRupiah(grandPPh), 220, y);
+
+      doc.text("Rp. " + formatRupiah(grandPPh), 350, y, {
+        width: 150,
+        align: "right"
+      });
     }
   };
 
