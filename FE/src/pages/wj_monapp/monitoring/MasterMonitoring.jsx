@@ -84,9 +84,21 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
   // VISITE DOKTER
   const [visiteStats, setVisiteStats] = useState({
     totalVisite: 0,
-    visiteStandar: 0,
-    visiteTidakStandar: 0,
+    spmStandar: 0,
+    spmTidakStandar: 0,
+    inmStandar: 0,
+    inmTidakStandar: 0,
   });
+
+  const totalVisite = visiteStats.totalVisite || 0;
+
+const spmPercent = totalVisite
+  ? (visiteStats.spmStandar / totalVisite) * 100
+  : 0;
+
+const inmPercent = totalVisite
+  ? (visiteStats.inmStandar / totalVisite) * 100
+  : 0;
 
   const today = new Date().toLocaleDateString("sv-SE");
 
@@ -198,9 +210,8 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
   useEffect(() => {
     const loadVisiteStats = async () => {
       try {
-
         const today = new Date().toISOString().slice(0, 10);
-
+  
         const res = await fetchMonitoringVisite({
           page: 1,
           limit: 1,
@@ -209,18 +220,24 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
           poli: "ALL",
           search: "",
         });
-
+  
+        const summary = res.summary || {};
+  
+        const totalVisite = summary.totalVisite || 0;
+  
         setVisiteStats({
-          totalVisite: res.summary?.totalVisite || 0,
-          visiteStandar: res.summary?.visiteStandar || 0,
-          visiteTidakStandar: res.summary?.visiteTidakStandar || 0,
+          totalVisite,
+          spmStandar: summary.spmStandar || 0,
+          spmTidakStandar: summary.spmTidakStandar || 0,
+          inmStandar: summary.inmStandar || 0,
+          inmTidakStandar: summary.inmTidakStandar || 0,
         });
-
+  
       } catch (error) {
         console.error("Gagal ambil statistik visite:", error);
       }
     };
-
+  
     loadVisiteStats();
   }, []);
 
@@ -368,14 +385,14 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
         },
 
         {
-          label: "Jam Standar",
-          value: visiteStats.visiteStandar
+          label: "Kepatuhan SPM",
+          value: `${spmPercent.toFixed(1)}%`
         },
 
         {
-          label: "Belum Standar",
-          value: visiteStats.visiteTidakStandar
-        }
+          label: "Kepatuhan INM",
+          value: `${inmPercent.toFixed(1)}%`
+        },
       ],
 
       disabled: false,

@@ -1327,6 +1327,11 @@ async function ambilDataBySurat(surat_id) {
       po.prvdr_address,
       po.total_diajukan,
       po.status_validasi,
+
+      po.dpp_rounded,
+      po.ppn_rounded,
+      po.pph_rounded,
+      
       msp.no_surat,
       msp.no_verifikasi,
       msp.tanggal_surat,
@@ -1365,21 +1370,23 @@ async function ambilDataBySurat(surat_id) {
   // DETAIL PER INVOICE
   // =========================
   const invoiceDetails = rows.map(r => {
-
-    const total = Number(r.total_diajukan || 0);
-
-    const kenaPajak = total > 2220000;
-
-    const dpp = kenaPajak ? total / 1.11 : 0;
-    const ppn = kenaPajak ? dpp * 0.11 : 0;
-    const pph = kenaPajak ? dpp * 0.015 : 0;
+    
+    if (
+      r.dpp_rounded == null ||
+      r.ppn_rounded == null ||
+      r.pph_rounded == null
+    ) {
+      throw new Error("Data pajak belum di-finalisasi di database");
+    }
 
     return {
       invoice_no: r.invoice_no,
-      diajukan: total,
-      dpp,
-      ppn,
-      pph,
+      diajukan: Number(r.total_diajukan || 0),
+    
+      dpp_rounded: Number(r.dpp_rounded || 0),
+      ppn_rounded: Number(r.ppn_rounded || 0),
+      pph_rounded: Number(r.pph_rounded || 0),
+    
       status_validasi: r.status_validasi || "Belum Validasi",
     };
   });
@@ -1387,13 +1394,17 @@ async function ambilDataBySurat(surat_id) {
   // =========================
   // GRAND TOTAL
   // =========================
-  const grandTotal = invoiceDetails.reduce((s, v) => s + v.diajukan, 0);
-  const grandDPP = invoiceDetails.reduce((s, v) => s + v.dpp, 0);
-  const grandPPN = invoiceDetails.reduce((s, v) => s + v.ppn, 0);
-  const grandPPh = invoiceDetails.reduce((s, v) => s + v.pph, 0);
+  const round = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+
+  const grandTotal = round(
+    invoiceDetails.reduce((s, v) => s + v.diajukan, 0)
+  );
+
+  const grandDPP = round(invoiceDetails.reduce((s, v) => s + v.dpp, 0));
+  const grandPPN = round(invoiceDetails.reduce((s, v) => s + v.ppn, 0));
+  const grandPPh = round(invoiceDetails.reduce((s, v) => s + v.pph, 0));
 
   return {
-
     no_surat: rows[0].no_surat,
     no_verifikasi: rows[0].no_verifikasi,
     tanggal_surat: rows[0].tanggal_surat,

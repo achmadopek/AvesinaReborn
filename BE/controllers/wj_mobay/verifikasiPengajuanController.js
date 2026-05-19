@@ -513,6 +513,8 @@ exports.cetakVerifikasiUlang = async (req, res) => {
 
     const data =
       await mirrorService.ambilDataBySurat(surat_id);
+    
+      console.log("Log DAta Cetak Ulang:", data);
 
     await db.promise().query(`
       UPDATE mobay_pengajuan
@@ -624,8 +626,10 @@ const generatePDF = (res, payload, checklist = {}) => {
   doc.pipe(res);
 
   // ================= DATA PREPARATION =================
-  const validInvoices = invoiceDetails.filter(i => i.status_validasi === "Valid");
-  const invalidInvoices = invoiceDetails.filter(i => i.status_validasi !== "Valid");
+  const isValid = payload.status_validasi_header === "Valid";
+
+  const validInvoices = invoiceDetails;
+  const invalidInvoices = [];
 
   const grandTotal = validInvoices.reduce((sum, inv) => sum + Number(inv.diajukan || 0), 0);
   const grandPPN   = validInvoices.reduce((sum, inv) => sum + Number(inv.ppn_rounded || 0), 0);
