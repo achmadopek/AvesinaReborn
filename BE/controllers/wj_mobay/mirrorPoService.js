@@ -22,7 +22,7 @@ function generateDateRange(start, end) {
 async function getDataSumberByTanggal(startDate, endDate, typeTglFilter) {
   const allowedDateFields = {
     // ====== AVESINA ======
-    tgl_po: "po.po_dt",
+    tgl_po: "pa.po_acce_dt",
     tgl_invoice: "pa.invoice_dt",
     tgl_jatuh_tempo: "pa.invoice_due_dt",
     tgl_bayar: "pa.invoice_paid_dt",
@@ -39,7 +39,7 @@ async function getDataSumberByTanggal(startDate, endDate, typeTglFilter) {
   if (!column) throw new Error("Invalid date filter");
 
   let sql = `
-    SELECT 
+    SELECT
       po.po_id, 
       po.po_dt, 
       po.po_total_amt,

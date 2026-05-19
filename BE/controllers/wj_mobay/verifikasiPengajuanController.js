@@ -1,5 +1,6 @@
 const db = require("../../db/connection-lokal");
 const mirrorService = require("./mirrorPoService");
+const { calculateTax } = require("./taxCalculationService");
 
 const PDFDocument = require("pdfkit");
 const fs = require("fs");
@@ -70,6 +71,13 @@ exports.getData = async (req, res) => {
         h.total_bayar,
         h.selisih_bayar,
         h.pengajuan_id,
+
+        h.dpp,
+        h.dpp_rounded,
+        h.ppn,
+        h.ppn_rounded,
+        h.pph,
+        h.pph_rounded,
 
         sp.no_surat,
         sp.no_verifikasi,
@@ -183,6 +191,14 @@ exports.getData = async (req, res) => {
           invoice_submitted_dt: r.invoice_submitted_dt,
           invoice_accepted_dt: r.invoice_accepted_dt,
           invoice_paid_dt: r.invoice_paid_dt,
+
+          dpp: Number(r.dpp || 0),
+          dpp_rounded: Number(r.dpp_rounded || 0),
+          ppn: Number(r.ppn || 0),
+          ppn_rounded: Number(r.ppn_rounded || 0),
+          pph: Number(r.pph || 0),
+          pph_rounded: Number(r.pph_rounded || 0),
+
           items: []
         };
 
@@ -366,6 +382,56 @@ exports.validasiPembayaran = async (req, res) => {
         message: "po_acce_id dan status_validasi wajib diisi",
       });
     }
+
+    // ambil invoice
+    const [rows] = await db.promise().query(
+      `
+      SELECT total_diajukan
+      FROM mobay_mirror_po
+      WHERE po_acce_id = ?
+      `,
+      [po_acce_id]
+    );
+
+    if (!rows.length) {
+      throw new Error("Invoice tidak ditemukan");
+    }
+
+    const invoice = rows[0];
+
+    // hitung pajak
+    const tax = calculateTax({
+      totalTagihan: invoice.total_diajukan
+    });
+
+    // save hasilnya
+    await db.promise().query(
+      `
+      UPDATE mobay_mirror_po
+      SET
+        dpp = ?,
+        dpp_rounded = ?,
+
+        ppn = ?,
+        ppn_rounded = ?,
+
+        pph = ?,
+        pph_rounded = ?
+      WHERE po_acce_id = ?
+      `,
+      [
+        tax.dpp,
+        tax.dpp_rounded,
+
+        tax.ppn,
+        tax.ppn_rounded,
+
+        tax.pph,
+        tax.pph_rounded,
+
+        po_acce_id
+      ]
+    );
 
     // update status utama
     await mirrorService.updateMirrorStatus(
@@ -562,8 +628,8 @@ const generatePDF = (res, payload, checklist = {}) => {
   const invalidInvoices = invoiceDetails.filter(i => i.status_validasi !== "Valid");
 
   const grandTotal = validInvoices.reduce((sum, inv) => sum + Number(inv.diajukan || 0), 0);
-  const grandPPN   = validInvoices.reduce((sum, inv) => sum + Number(inv.ppn || 0), 0);
-  const grandPPh   = validInvoices.reduce((sum, inv) => sum + Number(inv.pph || 0), 0);
+  const grandPPN   = validInvoices.reduce((sum, inv) => sum + Number(inv.ppn_rounded || 0), 0);
+  const grandPPh   = validInvoices.reduce((sum, inv) => sum + Number(inv.pph_rounded || 0), 0);
 
   const cleanAddress = (prvdr_address || "").replace(/\r/g, "").trim();
 
@@ -765,17 +831,17 @@ const generatePDF = (res, payload, checklist = {}) => {
         align: "right"
       });
 
-      doc.text(formatRupiah(inv.dpp), 270, y, {
+      doc.text(formatRupiah(inv.dpp_rounded), 270, y, {
         width: 80,
         align: "right"
       });
 
-      doc.text(formatRupiah(inv.ppn), 360, y, {
+      doc.text(formatRupiah(inv.ppn_rounded), 360, y, {
         width: 80,
         align: "right"
       });
 
-      doc.text(formatRupiah(inv.pph), 450, y, {
+      doc.text(formatRupiah(inv.pph_rounded), 450, y, {
         width: 70,
         align: "right"
       });
