@@ -11,4 +11,6 @@ router.get("/data", pembayaranTagihanController.getData);             // tampilk
 router.put("/bayarBendel", pembayaranTagihanController.bayarBendel); // pembayaran per item (update status di mirror)
 router.post("/batalkan-invoice", pembayaranTagihanController.batalkanInvoice);
 
+router.put("/edit-tanggal-bayar", pembayaranTagihanController.editTanggalPembayaran);
+
 module.exports = router;

@@ -41,7 +41,7 @@ exports.getData = async (req, res) => {
         h.invoice_submitted_dt,
         h.invoice_accepted_dt,
         h.invoice_verified_dt,
-        h.invoice_paid_dt,
+        DATE_FORMAT(h.invoice_paid_dt, '%Y-%m-%d') AS invoice_paid_dt,
         h.status_pengolahan,
         h.status_validasi,
         h.status_pembayaran,
@@ -79,7 +79,11 @@ exports.getData = async (req, res) => {
         ON sp.id = h.pengajuan_id
 
       WHERE h.status_validasi = 'Valid'
-        AND h.status_pengolahan = 'Proses Pembayaran'
+        AND h.status_pengolahan IN (
+          'Proses Pembayaran',
+          'Selesai',
+          'Batal'
+        )
         AND ${column} BETWEEN ? AND ?
 
       ORDER BY h.po_dt DESC
@@ -118,6 +122,7 @@ exports.getData = async (req, res) => {
           tgl_pengajuan: r.invoice_submitted_dt,
           tgl_terima: r.invoice_accepted_dt,
           tgl_verifikasi: r.invoice_verified_dt,
+          tgl_pembayaran: r.invoice_paid_dt,
 
           provider: {},
 
@@ -199,11 +204,8 @@ exports.getData = async (req, res) => {
               is_checked: Number(r.is_checked) === 1
             });
           }
-
         }
-
       }
-
     }
 
     // ===============================
@@ -212,9 +214,7 @@ exports.getData = async (req, res) => {
     // ===============================
 
     for (const suratId in map) {
-
       const surat = map[suratId];
-
       if (!Object.keys(surat.provider).length) {
 
         surat.provider["EMPTY"] = {
@@ -222,15 +222,49 @@ exports.getData = async (req, res) => {
           prvdr_str: "Belum Ada Invoice",
           invoices: []
         };
+      }
+    }
 
+    // ===============================
+    // SPLIT TAB DATA
+    // ===============================
+    const allData = Object.values(map);
+
+    const todo = [];
+    const history = [];
+
+    for (const surat of allData) {
+
+      const invoices = Object.values(surat.provider || {})
+        .flatMap((p) => p.invoices);
+
+      const hasTodo = invoices.some(
+        (inv) =>
+          inv.status_pengolahan === "Proses Pembayaran"
+      );
+
+      const hasHistory = invoices.some(
+        (inv) =>
+          ["Selesai", "Batal"]
+            .includes(inv.status_pengolahan)
+      );
+
+      if (hasTodo) {
+        todo.push(surat);
       }
 
+      if (hasHistory) {
+        history.push(surat);
+      }
     }
 
     res.json({
       periode: { start, end },
-      totalInvoice: Object.keys(map).length,
-      data: Object.values(map)
+    
+      totalInvoice: allData.length,
+    
+      todo,
+      history
     });
 
   } catch (error) {
@@ -411,3 +445,53 @@ exports.kunciInvoice = async (req, res) => {
   }
 };
 
+// ===============================
+// EDIT TANGGAL PEMBAYARAN
+// ===============================
+exports.editTanggalPembayaran = async (req, res) => {
+
+  try {
+
+    const {
+      po_acce_id,
+      invoice_paid_dt,
+      catatan_edit
+    } = req.body;
+
+    if (!po_acce_id) {
+      throw new Error("po_acce_id wajib");
+    }
+
+    if (!invoice_paid_dt) {
+      throw new Error("Tanggal bayar wajib");
+    }
+
+    await db.promise().query(
+      `
+      UPDATE mobay_mirror_po
+      SET
+        invoice_paid_dt = ?,
+        updated_at = NOW()
+      WHERE po_acce_id = ?
+        AND status_pengolahan = 'Selesai'
+      `,
+      [
+        invoice_paid_dt,
+        po_acce_id
+      ]
+    );
+
+    res.json({
+      message: "Tanggal pembayaran berhasil diubah"
+    });
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.status(500).json({
+      message: err.message
+    });
+
+  }
+};

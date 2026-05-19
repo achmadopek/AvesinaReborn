@@ -51,3 +51,15 @@ export const batalkanInvoice = async (payload) => {
 
   return res.data;
 };
+
+// ===============================
+// EDIT TANGGAL PEMBAYARAN
+// ===============================
+export const editTanggalPembayaran = async (payload) => {
+  const res = await API.put(
+    "/api/mobay/PembayaranTagihan/edit-tanggal-bayar",
+    payload
+  );
+
+  return res.data;
+};

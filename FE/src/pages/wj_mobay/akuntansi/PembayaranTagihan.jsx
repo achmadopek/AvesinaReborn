@@ -4,7 +4,8 @@ import { formatNumber, formatCurrency } from "../../../utils/FormatNumber";
 import {
   fetchPaginatedDataPengajuanPembayaran,
   bayarBendel,
-  batalkanInvoice
+  batalkanInvoice,
+  editTanggalPembayaran
 } from "../../../api/wj_mobay/PembayaranTagihan";
 import { toast } from "react-toastify";
 import { useAuth } from "../../../context/AuthContext";
@@ -24,6 +25,7 @@ const PembayaranTagihan = () => {
   const [openPembayaranSurat, setOpenPembayaranSurat] = useState(false);
   const [suratSelected, setSuratSelected] = useState(null);
 
+  const [historyData, setHistoryData] = useState([]);
   const [data, setData] = useState([]);
   const [expandedSurat, setExpandedSurat] = useState(null);
   const [expandedInvoice, setExpandedInvoice] = useState(null);
@@ -39,6 +41,18 @@ const PembayaranTagihan = () => {
   const [provider, setProvider] = useState("");
   const [invoice, setInvoice] = useState("");
   const [drug, setDrug] = useState("");
+
+  // Tab
+  const [activeTab, setActiveTab] = useState("todo");
+
+  // Edit Modal
+  const [openEditTanggal, setOpenEditTanggal] = useState(false);
+  const [editTanggalData, setEditTanggalData] = useState({
+    po_acce_id: "",
+    invoice_no: "",
+    invoice_paid_dt: "",
+    catatan_edit: ""
+  });
 
   const [selectedInvoices, setSelectedInvoices] = useState({});
 
@@ -114,27 +128,31 @@ const PembayaranTagihan = () => {
   // -----------------------
   const loadData = async (start, end, type) => {
     setLoading(true);
+  
     try {
+  
       const res = await fetchPaginatedDataPengajuanPembayaran({
         start,
         end,
         typeTglFilter: type,
       });
-
-      const normalized = res.data || [];
-      setData(normalized);
-
-      const draft = {};
-      normalized.forEach((inv) => {
-        draft[inv.po_acce_id] = inv.status_validasi === "Valid";
-      });
-
+  
+      setData(res.todo || []);
+      setHistoryData(res.history || []);
+  
     } catch (err) {
+  
       console.error(err);
+  
       toast.error("Gagal memuat data");
+  
       setData([]);
+      setHistoryData([]);
+  
     } finally {
+  
       setLoading(false);
+  
     }
   };
 
@@ -192,6 +210,8 @@ const PembayaranTagihan = () => {
 
     }
   };
+
+
 
   // -----------------------
   // RENDER
@@ -384,6 +404,119 @@ const PembayaranTagihan = () => {
         </Modal.Footer>
       </Modal>
 
+      {/* ============== MODAL EDIT TGL BAYAR ============= */}
+      <Modal
+        show={openEditTanggal}
+        onHide={() => setOpenEditTanggal(false)}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Edit Tanggal Pembayaran</Modal.Title>
+        </Modal.Header>
+
+        <Modal.Body>
+
+          <div className="mb-2">
+            <label className="form-label">
+              Invoice
+            </label>
+
+            <input
+              type="text"
+              className="form-control"
+              value={editTanggalData.invoice_no}
+              disabled
+            />
+          </div>
+
+          <div className="mb-2">
+            <label className="form-label">
+              Tanggal Pembayaran Baru
+            </label>
+
+            <input
+              type="date"
+              className="form-control"
+              value={editTanggalData.invoice_paid_dt}
+              onChange={(e) =>
+                setEditTanggalData(prev => ({
+                  ...prev,
+                  invoice_paid_dt: e.target.value
+                }))
+              }
+            />
+          </div>
+
+          <div>
+            <label className="form-label">
+              Catatan
+            </label>
+
+            <textarea
+              className="form-control"
+              rows={3}
+              value={editTanggalData.catatan_edit}
+              onChange={(e) =>
+                setEditTanggalData(prev => ({
+                  ...prev,
+                  catatan_edit: e.target.value
+                }))
+              }
+            />
+          </div>
+
+        </Modal.Body>
+
+        <Modal.Footer>
+
+          <Button
+            variant="secondary"
+            onClick={() => setOpenEditTanggal(false)}
+          >
+            Batal
+          </Button>
+
+          <Button
+            variant="warning"
+            onClick={async () => {
+
+              try {
+
+                await editTanggalPembayaran({
+                  po_acce_id:
+                    editTanggalData.po_acce_id,
+
+                  invoice_paid_dt:
+                    editTanggalData.invoice_paid_dt,
+
+                  catatan_edit:
+                    editTanggalData.catatan_edit
+                });
+
+                toast.success(
+                  "Tanggal pembayaran berhasil diubah"
+                );
+
+                setOpenEditTanggal(false);
+
+                handleLoadData();
+
+              } catch (err) {
+
+                toast.error(
+                  "Gagal edit tanggal pembayaran"
+                );
+
+              }
+
+            }}
+          >
+            Simpan
+          </Button>
+
+        </Modal.Footer>
+      </Modal>
+
       {/* ================= CARD ================= */}
       <div className="card shadow-sm card-theme">
         <div className="card-header py-2 px-3">
@@ -471,6 +604,37 @@ const PembayaranTagihan = () => {
             </div>
           </div>
 
+          {/* ================= TAB ================= */}
+          <ul className="nav nav-tabs mb-3">
+            <li className="nav-item">
+              <button
+                className={`nav-link ${
+                  activeTab === "todo" ? "active" : ""
+                }`}
+                onClick={() => setActiveTab("todo")}
+              >
+                Pembayaran
+                <span className="badge bg-primary ms-2">
+                  {data.length}
+                </span>
+              </button>
+            </li>
+
+            <li className="nav-item">
+              <button
+                className={`nav-link ${
+                  activeTab === "history" ? "active" : ""
+                }`}
+                onClick={() => setActiveTab("history")}
+              >
+                History
+                <span className="badge bg-secondary ms-2">
+                  {historyData.length}
+                </span>
+              </button>
+            </li>
+          </ul>
+
           {/* ================= TABLE ================= */}
           <div className="table-responsive">
             <table className="table table-theme table-bordered table-sm align-middle">
@@ -483,6 +647,7 @@ const PembayaranTagihan = () => {
                   <th>Tgl Pengajuan</th>
                   <th>Tgl Penerimaan</th>
                   <th>Tgl Verifikasi</th>
+                  <th>Tgl Pembayaran</th>
                   <th>Provider</th>
                   <th>Total Invoice</th>
                   <th>Total Diajukan</th>
@@ -497,14 +662,20 @@ const PembayaranTagihan = () => {
                       Memuat data...
                     </td>
                   </tr>
-                ) : data.length === 0 ? (
+                ) : (activeTab === "todo"
+                    ? data.length === 0
+                    : historyData.length === 0
+                ) ? (
                   <tr>
                     <td colSpan="7" className="text-center">
                       Tidak ada data
                     </td>
                   </tr>
                 ) : (
-                  data.map((surat, i) => (
+                  (activeTab === "todo"
+                    ? data
+                    : historyData
+                  ).map((surat, i) => (
                     <React.Fragment key={surat.surat_id || i}>
 
                       {/* ===== ROW SURAT ===== */}
@@ -516,6 +687,7 @@ const PembayaranTagihan = () => {
                         <td>{formatSortDateTime(surat.tgl_pengajuan)}</td>
                         <td>{formatSortDateTime(surat.tgl_terima)}</td>
                         <td>{formatSortDateTime(surat.tgl_verifikasi)}</td>
+                        <td>{formatSortDateTime(surat.tgl_pembayaran) || "-"}</td>
 
                         <td>
                           {Object.values(surat.provider || {}).map((p) => (
@@ -532,7 +704,7 @@ const PembayaranTagihan = () => {
                           )}
                         </td>
 
-                        <td>
+                        <td className="text-end">
                           {formatCurrency(
                             Object.values(surat.provider || {}).reduce(
                               (acc, p) =>
@@ -553,6 +725,7 @@ const PembayaranTagihan = () => {
                                 ? "btn-outline-secondary"
                                 : "btn-primary"
                             }`}
+                            style={{margin: "2px"}}
                             onClick={() => handleExpandSurat(surat.surat_id)}
                           >
                             {expandedSurat === surat.surat_id
@@ -560,27 +733,67 @@ const PembayaranTagihan = () => {
                               : "Detail"}
                           </button>
 
-                          <button
-                            className="btn btn-sm btn-success ms-2"
-                            onClick={() => {
-                              Swal.fire({
-                                title: "Konfirmasi Pembayaran",
-                                text: "Yakin ingin memproses pembayaran bendel ini?",
-                                icon: "warning",
-                                showCancelButton: true,
-                                confirmButtonColor: "#198754",
-                                cancelButtonColor: "#6c757d",
-                                confirmButtonText: "Ya, Proses",
-                                cancelButtonText: "Batal"
-                              }).then(async (result) => {
-                                if (!result.isConfirmed) return;
+                          {activeTab === "history" && (() => {
+                            const firstPaidInvoice =
+                              Object.values(surat.provider || {})
+                                .flatMap(p => p.invoices)
+                                .find(inv =>
+                                  inv.status_pengolahan === "Selesai"
+                                );
 
-                                handleProsesPembayaranSurat(surat);
-                              });
-                            }}
-                          >
-                            Bayarkan
-                          </button>
+                            if (!firstPaidInvoice) return null;
+
+                            return (
+                              <button
+                                className="btn btn-sm btn-outline-warning"
+                                style={{ margin: "2px" }}
+                                onClick={() => {
+
+                                  setEditTanggalData({
+                                    po_acce_id: firstPaidInvoice.po_acce_id,
+                                    invoice_no: firstPaidInvoice.invoice_no,
+                                    invoice_paid_dt:
+                                      firstPaidInvoice.invoice_paid_dt
+                                        ? String(firstPaidInvoice.invoice_paid_dt)
+                                            .substring(0, 10)
+                                        : "",
+                                    catatan_edit: ""
+                                  });
+
+                                  setOpenEditTanggal(true);
+
+                                }}
+                              >
+                                Edit Tgl Bayar
+                              </button>
+                            );
+
+                            })()}
+
+                          {activeTab === "todo" && (
+                            <button
+                              className="btn btn-sm btn-success"
+                              style={{margin: "2px"}}
+                              onClick={() => {
+                                Swal.fire({
+                                  title: "Konfirmasi Pembayaran",
+                                  text: "Yakin ingin memproses pembayaran bendel ini?",
+                                  icon: "warning",
+                                  showCancelButton: true,
+                                  confirmButtonColor: "#198754",
+                                  cancelButtonColor: "#6c757d",
+                                  confirmButtonText: "Ya, Proses",
+                                  cancelButtonText: "Batal"
+                                }).then(async (result) => {
+                                  if (!result.isConfirmed) return;
+
+                                  handleProsesPembayaranSurat(surat);
+                                });
+                              }}
+                            >
+                              Bayarkan
+                            </button>
+                          )}
                         </td>
                       </tr>
 
@@ -625,9 +838,17 @@ const PembayaranTagihan = () => {
                                                 {formatCurrency(inv.total_diajukan)}
                                               </td>
                                               <td className="text-center">
-                                                <span className="badge bg-success">
-                                                  {inv.status_pengolahan}
-                                                </span>
+                                              <span
+                                                className={`badge ${
+                                                  inv.status_pengolahan === "Selesai"
+                                                    ? "bg-success"
+                                                    : inv.status_pengolahan === "Batal"
+                                                    ? "bg-danger"
+                                                    : "bg-warning text-dark"
+                                                }`}
+                                              >
+                                                {inv.status_pengolahan}
+                                              </span>
                                               </td>
 
                                               <td className="text-center">
@@ -646,12 +867,14 @@ const PembayaranTagihan = () => {
                                                     : "Detail Item"}
                                                 </button>
 
-                                                <button
-                                                  className="btn btn-sm btn-outline-danger ms-1"
-                                                  onClick={() => handleBatalkanInvoice(inv)}
-                                                >
-                                                  Batalkan
-                                                </button>
+                                                {activeTab === "todo" && (
+                                                  <button
+                                                    className="btn btn-sm btn-outline-danger ms-1"
+                                                    onClick={() => handleBatalkanInvoice(inv)}
+                                                  >
+                                                    Batalkan
+                                                  </button>
+                                                )}
                                               </td>
                                             </tr>
 
