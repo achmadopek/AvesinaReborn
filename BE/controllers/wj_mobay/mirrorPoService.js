@@ -15,10 +15,6 @@ function generateDateRange(start, end) {
   return arr;
 }
 
-/* ======================================================
- * 🟦 A1. SUMBER DATA (READ ONLY – DB AVESINA)
- * Digunakan OLEH: SumberController
- * ====================================================== */
 async function getDataSumberByTanggal(startDate, endDate, typeTglFilter) {
   const allowedDateFields = {
     // ====== AVESINA ======
@@ -36,25 +32,34 @@ async function getDataSumberByTanggal(startDate, endDate, typeTglFilter) {
   };
 
   const column = allowedDateFields[typeTglFilter];
-  if (!column) throw new Error("Invalid date filter");
+
+  if (!column) {
+    throw new Error("Invalid date filter");
+  }
 
   let sql = `
     SELECT
-      po.po_id, 
-      po.po_dt, 
+      po.po_id,
+      po.po_dt,
       po.po_total_amt,
-      pa.po_acce_id, 
-      pa.invoice_no, 
-      pa.invoice_dt, 
-      pa.invoice_due_dt, 
+
+      pa.po_acce_id,
+      pa.invoice_no,
+      pa.invoice_dt,
+      pa.invoice_due_dt,
       pa.invoice_paid_dt,
-      su.srvc_unit_nm, 
+      pa.appr_sts,
+
+      su.srvc_unit_nm,
       su.srvc_unit_id,
-      p.prvdr_id, 
-      p.prvdr_str, 
-      p.address AS prvdr_address, 
+
+      p.prvdr_id,
+      p.prvdr_str,
+      p.address AS prvdr_address,
       p.city AS prvdr_city,
+
       pad.drug_equi_id,
+
       CASE
           WHEN de.drug_equi_type = 'D' THEN 'Obat'
           WHEN eg.equi_group_id = 1 THEN 'BMHP'
@@ -65,78 +70,119 @@ async function getDataSumberByTanggal(startDate, endDate, typeTglFilter) {
           WHEN de.drug_equi_type = 'E' THEN 'Alat'
           ELSE 'Lainnya'
       END AS jenis_item,
-      CASE 
-        WHEN (d.hibah_sts = 1 OR de.hibah_sts = 1) THEN 'Hibah'
-        ELSE 'Pembelian'
+
+      CASE
+          WHEN (d.hibah_sts = 1 OR de.hibah_sts = 1)
+          THEN 'Hibah'
+          ELSE 'Pembelian'
       END AS jenis_pengadaan,
+
       COALESCE(d.drug_nm, e.equi_nm) AS item_name,
+
       pad.qty,
-      CASE 
-          WHEN (d.hibah_sts = 1 OR de.hibah_sts = 1) THEN 0 
-          ELSE pad.price 
-      END AS price,
-      CASE 
-          WHEN (d.hibah_sts = 1 OR de.hibah_sts = 1) THEN 0 
-          ELSE pad.tax 
-      END AS tax,
-      CASE 
-          WHEN (d.hibah_sts = 1 OR de.hibah_sts = 1) THEN 0 
-          ELSE pad.discount 
-      END AS discount,
-      CASE 
-          WHEN (d.hibah_sts = 1 OR de.hibah_sts = 1) THEN 0 
-          ELSE pad.nettoprice 
-      END AS nettoprice,
-      CASE 
-          WHEN (d.hibah_sts = 1 OR de.hibah_sts = 1) THEN 0 
-          ELSE pad.nettoprice * pad.qty 
-      END AS subtotal,
+      pad.price,
+      COALESCE(pad.tax, 0) AS tax,
+      COALESCE(pad.discount, 0) AS discount,
+      pad.nettoprice,
+
+      (
+          (
+              (pad.price * pad.qty)
+              - COALESCE(pad.discount, 0)
+          )
+          +
+          (
+              (
+                  (pad.price * pad.qty)
+                  - COALESCE(pad.discount, 0)
+              )
+              * (COALESCE(pad.tax, 0) / 100)
+          )
+      ) AS subtotal,
+
       eg.equi_code,
       d.hibah_sts,
       de.hibah_sts
-  FROM po
-  LEFT JOIN po_acce pa 
-      ON pa.po_id = po.po_id
-  LEFT JOIN po_acce_dtl pad 
-      ON pad.po_acce_id = pa.po_acce_id
-  LEFT JOIN drug_equipment de
-      ON de.drug_equi_id = pad.drug_equi_id
-  LEFT JOIN drug d
-      ON d.drug_equi_id = de.drug_equi_id
-      AND de.drug_equi_type = 'D'
-  LEFT JOIN equipment e
-      ON e.drug_equi_id = de.drug_equi_id
-      AND de.drug_equi_type = 'E'
-  LEFT JOIN equi_group eg 
-      ON eg.equi_group_id = e.equi_group_id
-  LEFT JOIN service_unit su 
-      ON su.srvc_unit_id = po.srvc_unit_id
-  LEFT JOIN provider p 
-      ON p.prvdr_id = po.prvdr_id
+
+    FROM po
+
+    LEFT JOIN po_acce pa
+        ON pa.po_id = po.po_id
+
+    LEFT JOIN po_acce_dtl pad
+        ON pad.po_acce_id = pa.po_acce_id
+
+    LEFT JOIN drug_equipment de
+        ON de.drug_equi_id = pad.drug_equi_id
+
+    LEFT JOIN drug d
+        ON d.drug_equi_id = de.drug_equi_id
+        AND de.drug_equi_type = 'D'
+
+    LEFT JOIN equipment e
+        ON e.drug_equi_id = de.drug_equi_id
+        AND de.drug_equi_type = 'E'
+
+    LEFT JOIN equi_group eg
+        ON eg.equi_group_id = e.equi_group_id
+
+    LEFT JOIN service_unit su
+        ON su.srvc_unit_id = po.srvc_unit_id
+
+    LEFT JOIN provider p
+        ON p.prvdr_id = po.prvdr_id
   `;
 
   let params = [];
+
   if (!column.startsWith("mirror")) {
-    sql += ` WHERE ${column} BETWEEN ? AND ? `;
-    params = [`${startDate} 00:00:00`, `${endDate} 23:59:59`];
+    sql += `
+      WHERE pa.appr_sts = 'A'
+      AND COALESCE(eg.equi_group_id,0) <> 2
+      AND ${column} BETWEEN ? AND ?
+    `;
+
+    params = [
+      `${startDate} 00:00:00`,
+      `${endDate} 23:59:59`,
+    ];
   }
 
-  sql += ` ORDER BY po.po_id, pa.po_acce_id, d.drug_nm`;
+  sql += `
+    ORDER BY
+      po.po_id,
+      pa.po_acce_id,
+      item_name
+  `;
+
   const [rows] = await db2.promise().query(sql, params);
 
+  // ===============================
+  // FILTER MIRROR DATE
+  // ===============================
   if (column.startsWith("mirror")) {
     const mirror = await getInvoiceMirrorList();
 
     const start = new Date(`${startDate} 00:00:00`);
     const end = new Date(`${endDate} 23:59:59`);
 
-    const field = column.split(".")[1]; // ambil nama field mirror
+    const field = column.split(".")[1];
 
-    return rows.filter(r => {
+    return rows.filter((r) => {
+      // FILTER APPROVED
+      if (r.appr_sts !== "A") return false;
+
+      // FILTER REAGEN
+      if (r.jenis_item === "Reagen") return false;
+
       const m = mirror.get(r.po_acce_id);
-      if (!m || !m[field]) return false;
+
+      if (!m || !m[field]) {
+        return false;
+      }
 
       const dt = new Date(m[field]);
+
       return dt >= start && dt <= end;
     });
   }

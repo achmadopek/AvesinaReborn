@@ -655,6 +655,13 @@ const filteredHistori = useMemo(() => {
     }
   };
 
+  const getTotalProviderDiajukan = (providerGroup) => {
+    return providerGroup.invoices.reduce(
+      (sum, inv) => sum + Number(inv.total_diajukan || 0),
+      0
+    );
+  };
+
   const renderTable = (tableData = [], isHistori = false) => (
     <div className="table-responsive">
       <table className="table table-theme table-bordered table-sm align-middle">
@@ -817,11 +824,27 @@ const filteredHistori = useMemo(() => {
 
                           <div key={providerGroup.prvdr_id} className="mb-3">
 
-                            <div className="fw-bold mb-2">
-                              Provider: {providerGroup.prvdr_str}
+                            <div
+                              className="d-flex justify-content-between align-items-center px-3 py-2 mb-2 rounded"
+                              style={{ backgroundColor: "#dae6f0" }}
+                            >
+                              <div className="fw-semibold">
+                                <i className="fas fa-building me-2 text-primary"></i>
+                                {providerGroup.prvdr_str}
+
+                                <span className="ms-2 text-muted small">
+                                  ({providerGroup.invoices.length} invoice)
+                                </span>
+                              </div>
+
+                              <div className="fw-bold text-success">
+                                {formatCurrency(
+                                  getTotalProviderDiajukan(providerGroup)
+                                )}
+                              </div>
                             </div>
 
-                            <table className="table table-sm table-bordered">
+                            <table className="table table-theme table-sm table-bordered align-middle">
                               <thead>
                                 <tr>
                                   <th>No</th>
@@ -848,7 +871,11 @@ const filteredHistori = useMemo(() => {
                                           {formatCurrency(inv.total_diajukan)}
                                         </td>
                                         <td className="text-center">
-                                          <span className="badge bg-success">
+                                          <span
+                                            className={`badge ${getStatusBadgeClass(
+                                              inv.status_pengolahan
+                                            )}`}
+                                          >
                                             {inv.status_pengolahan}
                                           </span>
                                         </td>
@@ -888,7 +915,7 @@ const filteredHistori = useMemo(() => {
                                                 Rincian Barang :
                                               </div>
 
-                                              <table className="table table-sm table-bordered">
+                                              <table className="table table-theme table-sm table-bordered align-middle">
                                                 <thead>
                                                   <tr>
                                                     <th>No</th>
@@ -1324,14 +1351,28 @@ const filteredHistori = useMemo(() => {
 
             <Tab
               eventKey="verifikasi"
-              title={`Proses Verifikasi (${filteredVerifikasi.length})`}
+              title={
+                <span>
+                  Proses Verifikasi{" "}
+                  <span className="badge bg-primary ms-1">
+                    {filteredVerifikasi.length}
+                  </span>
+                </span>
+              }
             >
               {renderTable(filteredVerifikasi)}
             </Tab>
 
             <Tab
               eventKey="histori"
-              title={`Histori Verifikasi (${filteredHistori.length})`}
+              title={
+                <span>
+                  Histori Verifikasi{" "}
+                  <span className="badge bg-secondary ms-1">
+                    {filteredHistori.length}
+                  </span>
+                </span>
+              }
             >
               {renderTable(filteredHistori, true)}
             </Tab>

@@ -107,6 +107,7 @@ exports.getRekapData = async (req, res) => {
       const inv = map.get(key);
       inv.items.push(item);
       inv.total_invoice += item.subtotal;
+      inv.total_invoice = Number(inv.total_invoice.toFixed(2));
     }
 
     // =========================
@@ -130,6 +131,37 @@ exports.getRekapData = async (req, res) => {
         inv.selisih = inv.total_invoice - inv.total_diajukan;
       }
     }
+
+    // =========================
+    // DEBUG TOTAL
+    // =========================
+    const totalInvoice = Array.from(map.values()).reduce(
+      (a, b) => a + Number(b.total_invoice || 0),
+      0
+    );
+
+    const totalDiajukan = Array.from(map.values()).reduce(
+      (a, b) => a + Number(b.total_diajukan || 0),
+      0
+    );
+
+    const totalLunas = Array.from(map.values()).reduce(
+      (a, b) => a + Number(b.total_lunas || 0),
+      0
+    );
+
+    const totalHutang = Array.from(map.values()).reduce(
+      (a, b) => a + Number(b.total_hutang || 0),
+      0
+    );
+
+    /*console.log("========== REKAP DEBUG ==========");
+    console.log("TOTAL INVOICE :", totalInvoice);
+    console.log("TOTAL DIAJUKAN:", totalDiajukan);
+    console.log("TOTAL LUNAS   :", totalLunas);
+    console.log("TOTAL HUTANG  :", totalHutang);
+    console.log("TOTAL DATA    :", map.size);
+    console.log("=================================");*/
 
     return res.json({
       periode: { start, end },

@@ -11,6 +11,9 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 const RekapPembayaranBahanMedis = () => {
+  const { user } = useAuth();
+  const canEditAkuntansi = true;
+
   const [data, setData] = useState([]);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -702,7 +705,7 @@ const RekapPembayaranBahanMedis = () => {
                               className="bg-light"
                             >
                               <td></td>
-                              <td colSpan="7">
+                              <td colSpan="9">
                                 <div className="p-2">
                                   <strong>Detail Barang:</strong>
 
@@ -711,87 +714,112 @@ const RekapPembayaranBahanMedis = () => {
                                       <table className="table table-theme table-sm table-bordered mb-0">
                                         <thead>
                                           <tr>
-                                            <th style={{ width: "40px" }}>
-                                              No
-                                            </th>
+                                            <th style={{ width: "40px" }}>No</th>
                                             <th>Nama Barang</th>
                                             <th className="text-end">Jml</th>
                                             <th className="text-end">Harga</th>
-                                            <th className="text-end">
-                                              PPN (%)
-                                            </th>
-                                            <th className="text-end">
-                                              Harga + PPN
-                                            </th>
+                                            <th className="text-end">PPN (%)</th>
+                                            <th className="text-end">Harga + PPN</th>
                                             <th className="text-end">Disc</th>
-                                            <th className="text-end">
-                                              Subtotal
-                                            </th>
+                                            <th className="text-end">Subtotal</th>
 
-                                            {isBelumProses ||
-                                              isProsesPengajuan ? null : (
-                                              <>
-                                                {/* kolom validasi & catatan */}
-                                                <th className="text-center">
-                                                  Valid?
-                                                </th>
-                                                <th className="text-center">
-                                                  Catatan Verifikasi
-                                                </th>
+                                            <th className="text-center">Valid?</th>
+                                            <th className="text-center">Catatan</th>
 
-                                                {isProsesVerifikasi ? null : (
-                                                  <>
-                                                    {/* kolom pembayaran */}
-                                                    <th className="text-center">
-                                                      Lunas?
-                                                    </th>
-                                                    <th
-                                                      className="text-end"
-                                                      style={{ width: "150px" }}
-                                                    >
-                                                      Nominal Bayar
-                                                    </th>
-                                                    <th className="text-end">
-                                                      Selisih
-                                                    </th>
-                                                  </>
-                                                )}
-                                              </>
-                                            )}
+                                            <th className="text-center">Lunas?</th>
+                                            <th className="text-end">Nominal Bayar</th>
+                                            <th className="text-end">Selisih</th>
                                           </tr>
                                         </thead>
 
                                         <tbody>
                                           {inv.items.map((it, j) => {
-                                            const itemKey =
-                                              it.drug_equi_id ?? `item-${j}`;
+                                            const itemKey = it.drug_equi_id ?? `item-${j}`;
 
                                             return (
                                               <tr key={itemKey}>
                                                 <td>{j + 1}</td>
+
                                                 <td>
                                                   {it.drug_nm}
-                                                  {it.drug_equi_id}
+                                                  <br />
+                                                  <small>{it.drug_equi_id}</small>
                                                 </td>
+
                                                 <td className="text-end">
                                                   {formatNumber(it.qty)}
                                                 </td>
+
                                                 <td className="text-end">
                                                   {formatCurrency(it.price)}
                                                 </td>
+
                                                 <td className="text-end">
                                                   {formatNumber(it.tax)}
                                                 </td>
+
                                                 <td className="text-end">
-                                                  {formatCurrency(
-                                                    it.nettoprice
-                                                  )}
+                                                  {formatCurrency(it.nettoprice)}
                                                 </td>
+
                                                 <td className="text-end">
                                                   {formatCurrency(it.discount)}
                                                 </td>
+
                                                 <td className="text-end">
                                                   {formatCurrency(it.subtotal)}
+                                                </td>
+
+                                                {/* VALIDASI */}
+                                                <td className="text-center">
+                                                  {!isBelumProses && !isProsesPengajuan ? (
+                                                    <input
+                                                      type="checkbox"
+                                                      checked={it.status_validasi === "Valid"}
+                                                      readOnly
+                                                    />
+                                                  ) : (
+                                                    "-"
+                                                  )}
+                                                </td>
+
+                                                {/* CATATAN */}
+                                                <td>
+                                                  {it.catatan_verifikasi || "-"}
+                                                </td>
+
+                                                {/* PEMBAYARAN */}
+                                                <td className="text-center">
+                                                  {!isBelumProses &&
+                                                  !isProsesPengajuan &&
+                                                  !isProsesVerifikasi ? (
+                                                    <input
+                                                      type="checkbox"
+                                                      checked={it.status_pembayaran === "Lunas"}
+                                                      readOnly
+                                                    />
+                                                  ) : (
+                                                    "-"
+                                                  )}
+                                                </td>
+
+                                                <td className="text-end">
+                                                  {!isBelumProses &&
+                                                  !isProsesPengajuan &&
+                                                  !isProsesVerifikasi
+                                                    ? formatCurrency(it.nominal_bayar || 0)
+                                                    : "-"}
+                                                </td>
+
+                                                <td className="text-end">
+                                                  {!isBelumProses &&
+                                                  !isProsesPengajuan &&
+                                                  !isProsesVerifikasi
+                                                    ? formatCurrency(
+                                                        (it.subtotal || 0) -
+                                                          (it.nominal_bayar || 0)
+                                                      )
+                                                    : "-"}
                                                 </td>
                                               </tr>
                                             );
@@ -799,55 +827,29 @@ const RekapPembayaranBahanMedis = () => {
 
                                           {/* TOTAL + ACTION ROW */}
                                           <tr className="fw-semibold bg-white">
-                                            <td
-                                              colSpan="7"
-                                              className="text-end"
-                                            >
+                                            <td colSpan="7" className="text-end">
                                               Total
                                             </td>
 
-                                            {/* Total harga */}
                                             <td className="text-end">
                                               {formatCurrency(
                                                 inv.items.reduce(
                                                   (acc, cur) =>
-                                                    acc +
-                                                    parseFloat(
-                                                      cur.subtotal || 0
-                                                    ),
+                                                    acc + parseFloat(cur.subtotal || 0),
                                                   0
                                                 )
                                               )}
                                             </td>
 
-                                            {isBelumProses ||
-                                              isProsesPengajuan ? null : (
-                                              <>
-                                                {/* Check all valid */}
-                                                <td className="text-center">
-                                                  <input
-                                                    type="checkbox"
-                                                    checked={inv.items.every(
-                                                      (x) =>
-                                                        x.status_validasi ===
-                                                        "Valid"
-                                                    )}
-                                                    onChange={(e) =>
-                                                      handleCheckAllValid(
-                                                        inv.po_acce_id,
-                                                        e.target.checked
-                                                      )
-                                                    }
-                                                    disabled={
-                                                      isValidasiLocked ||
-                                                      !canEditAkuntansi ||
-                                                      isBelumProses ||
-                                                      isProsesPengajuan
-                                                    }
-                                                  />
-                                                </td>
-                                              </>
-                                            )}
+                                            <td className="text-center">-</td>
+                                            <td>-</td>
+                                            <td className="text-center">-</td>
+                                            <td className="text-end">
+                                              {formatCurrency(inv.total_lunas || 0)}
+                                            </td>
+                                            <td className="text-end">
+                                              {formatCurrency(inv.total_hutang || 0)}
+                                            </td>
                                           </tr>
                                         </tbody>
                                       </table>
@@ -884,7 +886,7 @@ const RekapPembayaranBahanMedis = () => {
                   <td className="text-end">
                     {formatCurrency(
                       data.reduce(
-                        (acc, row) => acc + Number(row.total_diajukan || 0),
+                        (acc, row) => acc + Number(row.total_invoice || 0),
                         0
                       )
                     )}

@@ -578,6 +578,14 @@ const PengirimanBerkas = () => {
                 onClick={() => setActiveTab("proses")}
               >
                 Proses Pengantaran
+                <span className="badge bg-primary ms-2">
+                  {
+                    groupedByProvider.reduce(
+                      (sum, p) => sum + (p.data?.length || 0),
+                      0
+                    )
+                  }
+                </span>
               </button>
             </li>
 
@@ -592,6 +600,9 @@ const PengirimanBerkas = () => {
                 }}
               >
                 History Pengiriman
+                <span className="badge bg-secondary ms-2">
+                  {historyData.length}
+                </span>
               </button>
             </li>
           </ul>
