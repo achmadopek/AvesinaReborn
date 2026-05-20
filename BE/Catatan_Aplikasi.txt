@@ -15,3 +15,12 @@ SIGMA : Sub: Monitoring Visite
 3. Jam standar SPM : 06.00 s/d 14.00, INM : 08.00 s/d 14.00 ==> OK
 4. Grafik batang/line untuk Kepatuhan Jam Visite per hari (sesuai rentang dan filter) ==> OK
 5. Seacrh Select nama dokter dll di filter
+
+SIGMA : Sub: Monitoring Visiste 20/05/2026
+1. Jam INM jam 6 (biarkan dulu jam 8)
+2. Pasien yg hrusny divisite ditampilkan dan
+3. Daftar seluruh pasien yg diDPJP ol dokternya jg ditampilkan
+4. Ada Download excel Rekap
+
+MOBAY : 20 Mei 2026
+1. Role Pembayaran: Filter data ganti dari Tgl Pengajuan ke berdasarkan tgl verifikasi

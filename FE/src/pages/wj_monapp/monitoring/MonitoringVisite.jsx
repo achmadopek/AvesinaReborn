@@ -455,7 +455,7 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
           <div className="row g-3">
 
             {/* PIE KEPATUHAN VISITE */}
-            <div className="col-md-4">
+            <div className="col-md-3">
               <div className="card shadow-sm h-100">
                 <div className="card-body">
 
@@ -501,7 +501,7 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
             </div>
 
             {/* PIE KEPATUHAN VISITE */}
-            <div className="col-md-4">
+            <div className="col-md-3">
               <div className="card shadow-sm h-100">
                 <div className="card-body">
 
@@ -547,7 +547,7 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
             </div>
 
             {/* GRAFIK HARIAN */}
-            <div className="col-lg-4">
+            <div className="col-lg-6">
 
               <div className="card shadow-sm h-100">
                 <div className="card-body">

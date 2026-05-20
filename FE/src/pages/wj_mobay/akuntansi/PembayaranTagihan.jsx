@@ -12,6 +12,9 @@ import { useAuth } from "../../../context/AuthContext";
 import { Modal, Button } from "react-bootstrap";
 import Swal from "sweetalert2";
 
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+
 /**
  * ===============================
  * PembayaranTagihan (Clean)
@@ -33,9 +36,9 @@ const PembayaranTagihan = () => {
   const [loading, setLoading] = useState(false);
 
   // filter tanggal
-  const [filterDateType, setFilterDateType] = useState("tgl_pengajuan");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [filterDateType, setFilterDateType] = useState("tgl_verifikasi");
+const [startDate, setStartDate] = useState(new Date());
+const [endDate, setEndDate] = useState(new Date());
 
   // filter text
   const [provider, setProvider] = useState("");
@@ -123,6 +126,16 @@ const PembayaranTagihan = () => {
     setExpandedInvoice(prev => prev === id ? null : id);
   };
 
+  const formatDateParam = (date) => {
+    if (!date) return "";
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+  };
+
   // -----------------------
   // LOAD DATA
   // -----------------------
@@ -158,9 +171,11 @@ const PembayaranTagihan = () => {
 
   // initial load today
   useEffect(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Date();
+
     setStartDate(today);
     setEndDate(today);
+
     loadData(today, today, filterDateType);
   }, []);
 
@@ -173,11 +188,17 @@ const PembayaranTagihan = () => {
   // ACTION HANDLERS
   // -----------------------
   const handleLoadData = () => {
+
     if (!startDate || !endDate) {
       toast.warn("Pilih periode tanggal dulu");
       return;
     }
-    loadData(startDate, endDate, filterDateType);
+
+    loadData(
+      formatDateParam(startDate),
+      formatDateParam(endDate),
+      filterDateType
+    );
   };
 
   const handleBatalkanInvoice = async (inv) => {
@@ -320,20 +341,23 @@ const PembayaranTagihan = () => {
               <tr>
                 <td>Tanggal Dibayar</td>
                 <td className="text-end fw-bold">
-                  <input
-                    type="date"
-                    className="form-control form-control-sm"
-                    value={
+                  <DatePicker
+                    selected={
                       suratSelected?.tgl_bayar
-                        ? suratSelected.tgl_bayar.slice(0, 10)
-                        : ""
+                        ? new Date(suratSelected.tgl_bayar)
+                        : null
                     }
-                    onChange={(e) =>
+                    onChange={(date) =>
                       setSuratSelected((prev) => ({
                         ...prev,
-                        tgl_bayar: e.target.value,
+                        tgl_bayar: date
+                          ? date.toISOString().split("T")[0]
+                          : "",
                       }))
                     }
+                    dateFormat="dd/MM/yyyy"
+                    className="form-control form-control-sm"
+                    placeholderText="Pilih tanggal"
                   />
                 </td>
               </tr>
@@ -503,16 +527,23 @@ const PembayaranTagihan = () => {
               Tanggal Pembayaran Baru
             </label>
 
-            <input
-              type="date"
-              className="form-control"
-              value={editTanggalData.invoice_paid_dt || ""}
-              onChange={(e) =>
-                setEditTanggalData(prev => ({
+            <DatePicker
+              selected={
+                editTanggalData.invoice_paid_dt
+                  ? new Date(editTanggalData.invoice_paid_dt)
+                  : null
+              }
+              onChange={(date) =>
+                setEditTanggalData((prev) => ({
                   ...prev,
-                  invoice_paid_dt: e.target.value
+                  invoice_paid_dt: date
+                    ? date.toISOString().split("T")[0]
+                    : "",
                 }))
               }
+              dateFormat="dd/MM/yyyy"
+              className="form-control"
+              placeholderText="Pilih tanggal"
             />
 
             <small className="text-muted">
@@ -574,18 +605,20 @@ const PembayaranTagihan = () => {
 
         <div className="card-body px-3 py-3">
           {/* ================= FILTER ================= */}
-          <div className="d-flex flex-wrap align-items-end mb-3">
+          <div className="d-flex align-items-end mb-3">
             <div className="me-2">
               <label className="form-label fw-semibold mb-1">
                 Filter Tanggal
               </label>
               <select
-                className="form-control form-control-sm form-control form-control-sm-sm"
+                className="form-control form-control-sm"
+                style={{width: "120px"}}
                 value={filterDateType}
                 onChange={(e) => setFilterDateType(e.target.value)}
               >
-                <option value="tgl_pengajuan">Tgl Pengajuan</option>
-                {/*<option value="po_dt">Tgl PO</option>
+                <option value="tgl_verifikasi">Tgl Verifikasi</option>
+                {/*<option value="tgl_pengajuan">Tgl Pengajuan</option>
+                <option value="po_dt">Tgl PO</option>
                 <option value="invoice_dt">Tgl Invoice</option>
                 <option value="invoice_received_dt">Tgl Faktur Datang</option>
                 <option value="invoice_due_dt">Tgl Jatuh Tempo</option>
@@ -597,11 +630,13 @@ const PembayaranTagihan = () => {
               <label className="form-label fw-semibold mb-1">
                 Tanggal Awal
               </label>
-              <input
-                type="date"
+              <br/>
+              <DatePicker
+                selected={startDate}
+                onChange={(date) => setStartDate(date)}
+                dateFormat="dd/MM/yyyy"
                 className="form-control form-control-sm"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                placeholderText="Pilih tanggal"
               />
             </div>
 
@@ -609,11 +644,13 @@ const PembayaranTagihan = () => {
               <label className="form-label fw-semibold mb-1">
                 Tanggal Akhir
               </label>
-              <input
-                type="date"
+              <br/>
+              <DatePicker
+                selected={endDate}
+                onChange={(date) => setEndDate(date)}
+                dateFormat="dd/MM/yyyy"
                 className="form-control form-control-sm"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                placeholderText="Pilih tanggal"
               />
             </div>
 
