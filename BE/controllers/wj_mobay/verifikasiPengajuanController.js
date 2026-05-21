@@ -787,7 +787,7 @@ const generatePDF = (res, payload, checklist = {}) => {
       align: "right"
     });
   
-    doc.text("Verif", 525, y);
+    doc.text("Ver", 527, y);
   
     y += 18;
   

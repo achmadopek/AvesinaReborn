@@ -810,15 +810,26 @@ async function updateMirrorStatus(
   const fields = [];
   const values = [];
 
-  if (status_pengolahan !== undefined) {
+  if (
+    status_pengolahan !== undefined &&
+    status_pengolahan !== null
+  ) {
     fields.push("status_pengolahan = ?");
     values.push(status_pengolahan);
   }
-  if (status_validasi !== undefined) {
+
+  if (
+    status_validasi !== undefined &&
+    status_validasi !== null
+  ) {
     fields.push("status_validasi = ?");
     values.push(status_validasi);
   }
-  if (status_pembayaran !== undefined) {
+
+  if (
+    status_pembayaran !== undefined &&
+    status_pembayaran !== null
+  ) {
     fields.push("status_pembayaran = ?");
     values.push(status_pembayaran);
   }
@@ -836,7 +847,8 @@ async function updateMirrorStatus(
   values.push(po_acce_id);
 
   const [result] = await executor.query(sql, values);
-  return result; // INI KUNCI
+
+  return result;
 }
 
 async function updateCatatanVerifikasi(po_acce_id, catatan, conn) {

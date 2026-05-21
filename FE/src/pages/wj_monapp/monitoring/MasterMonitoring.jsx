@@ -283,7 +283,7 @@ const inmPercent = totalVisite
 
     {
       id: "SatuSehat",
-      label: "Bridging Lab SatuSehat",
+      label: "Bridging SatuSehat",
       wslist: ["WS Satu Sehat"],
       stats: [
         { label: "Sukses", value: sukses },
@@ -380,18 +380,28 @@ const inmPercent = totalVisite
 
       stats: [
         {
-          label: "Total Visite",
+          label: "Total",
           value: visiteStats.totalVisite
         },
 
         {
-          label: "Kepatuhan SPM",
-          value: `${spmPercent.toFixed(1)}%`
+          label: "SPM",
+          value: (
+            <>
+              {spmPercent.toFixed(0)}
+              <span className="fs-6">%</span>
+            </>
+          )
         },
 
-        {
-          label: "Kepatuhan INM",
-          value: `${inmPercent.toFixed(1)}%`
+                {
+          label: "INM",
+          value: (
+            <>
+              {inmPercent.toFixed(0)}
+              <span className="fs-6">%</span>
+            </>
+          )
         },
       ],
 

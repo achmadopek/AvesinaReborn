@@ -51,15 +51,6 @@ const MonitoringXRay = (
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedUpload, setSelectedUpload] = useState(null);
 
-  // ========================
-  // FEATURE FLAGS
-  // ========================
-  const ENABLE_DICOM_UPLOAD =
-    import.meta.env.VITE_ENABLE_DICOM === "true";
-
-  const ENABLE_IMAGE_UPLOAD =
-    import.meta.env.VITE_ENABLE_IMAGE === "true";
-
   const [foto1, setFoto1] = useState(null);
   const [foto2, setFoto2] = useState(null);
 
@@ -164,6 +155,9 @@ const MonitoringXRay = (
       foto2: null,
     });
 
+    setPreview1(null);
+    setPreview2(null);
+
     setNotes("");
   };
 
@@ -211,7 +205,7 @@ const MonitoringXRay = (
         setShowDetailModal(true);
       }
 
-      //console.log(res);
+      console.log(res);
 
     } catch (err) {
       console.error(err);
@@ -344,6 +338,8 @@ const MonitoringXRay = (
 
       const res =
         await uploadXRay(formData);
+
+      console.log(res);
 
       if (res.success) {
 
@@ -710,6 +706,20 @@ const MonitoringXRay = (
     });
   };
 
+  useEffect(() => {
+    setDicomFile(null);
+
+    setImageFiles({
+      foto1: null,
+      foto2: null,
+    });
+
+    setImagePreview({
+      foto1: null,
+      foto2: null,
+    });
+  }, [uploadMode]);
+
   // -----------------------
   // RENDER
   // -----------------------
@@ -1025,7 +1035,73 @@ const MonitoringXRay = (
             </div>
           </div>
 
-          {ENABLE_DICOM_UPLOAD && (
+          {/* ================= MODE UPLOAD ================= */}
+          <div className="mt-3">
+            <label className="fw-semibold d-block mb-2">
+              Pilih Mode Upload
+            </label>
+
+            <div className="d-flex gap-3 flex-wrap">
+              
+              {/* DICOM */}
+              <div
+                onClick={() => setUploadMode("dicom")}
+                className={`border rounded p-1 flex-fill cursor-pointer ${
+                  uploadMode === "dicom"
+                    ? "border-primary bg-light"
+                    : ""
+                }`}
+                style={{
+                  cursor: "pointer",
+                  minWidth: "220px",
+                  transition: "0.2s",
+                }}
+              >
+                <div className="form-check">
+                  <input
+                    className="form-check-input me-2"
+                    type="radio"
+                    checked={uploadMode === "dicom"}
+                    readOnly
+                  />
+
+                  <label className="form-check-label fw-semibold">
+                    Upload DICOM
+                  </label>
+                </div>
+              </div>
+
+              {/* IMAGE */}
+              <div
+                onClick={() => setUploadMode("image")}
+                className={`border rounded p-1 flex-fill cursor-pointer ${
+                  uploadMode === "image"
+                    ? "border-success bg-light"
+                    : ""
+                }`}
+                style={{
+                  cursor: "pointer",
+                  minWidth: "220px",
+                  transition: "0.2s",
+                }}
+              >
+                <div className="form-check">
+                  <input
+                    className="form-check-input me-2"
+                    type="radio"
+                    checked={uploadMode === "image"}
+                    readOnly
+                  />
+
+                  <label className="form-check-label fw-semibold">
+                    Upload JPEG / Paste
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {uploadMode === "dicom" && (
             <div className="mt-3">
               <label className="fw-semibold">
                 Upload File DICOM (.dcm)
@@ -1046,7 +1122,7 @@ const MonitoringXRay = (
             </div>
           )}
             
-          {ENABLE_IMAGE_UPLOAD && (
+          {uploadMode === "image" && (
             <div className="mt-3 row">
               {[1, 2].map((num) => {
                 const key = `foto${num}`;
@@ -1082,18 +1158,6 @@ const MonitoringXRay = (
               })}
             </div>
           )}
-
-          <div className="alert alert-warning mt-0 py-2 small">
-            {ENABLE_DICOM_UPLOAD
-              ? "Mode upload DICOM aktif"
-              : "Mode upload DICOM dinonaktifkan"}
-
-            ,
-
-            {ENABLE_IMAGE_UPLOAD
-              ? " Mode upload JPEG aktif"
-              : " Mode upload JPEG dinonaktifkan"}
-          </div>
           
           <div className="col-12">
             {/* Keluhan dari dokter */}
@@ -1134,7 +1198,7 @@ const MonitoringXRay = (
             disabled={uploading}
             className="ms-2"
           >
-            {uploading ? "Uploading..." : "Upload & Kirim SatuSehat"}
+            {uploading ? "Uploading..." : "Upload"}
           </Button>
 
           <Button variant="secondary" onClick={() => setShowUploadModal(false)}>
@@ -1318,7 +1382,7 @@ const MonitoringXRay = (
             onClick={handleSaveAndSendObservation}
             disabled={saving}
           >
-            {saving ? "Menyimpan..." : "Simpan & Kirim ke SatuSehat"}
+            {saving ? "Menyimpan..." : "Simpan"}
           </Button>
         </Modal.Footer>
       </Modal>
@@ -1565,8 +1629,8 @@ const MonitoringXRay = (
 
                   // UPLOAD
                   const canUpload =
-                    ["none", "ordered", "uploaded"].includes(status) &&
-                    !is_final;
+                    ["none", "ordered", "uploaded"].includes(status)
+                    //&& !is_final;
 
                   // BACA
                   const canBaca =

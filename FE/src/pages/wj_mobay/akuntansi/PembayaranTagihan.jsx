@@ -176,7 +176,14 @@ const [endDate, setEndDate] = useState(new Date());
     setStartDate(today);
     setEndDate(today);
 
-    loadData(today, today, filterDateType);
+    const formattedToday =
+      formatDateParam(today);
+
+    loadData(
+      formattedToday,
+      formattedToday,
+      filterDateType
+    );
   }, []);
 
   // -----------------------
@@ -526,7 +533,7 @@ const [endDate, setEndDate] = useState(new Date());
             <label className="form-label fw-semibold">
               Tanggal Pembayaran Baru
             </label>
-
+            <br/>
             <DatePicker
               selected={
                 editTanggalData.invoice_paid_dt
@@ -545,7 +552,7 @@ const [endDate, setEndDate] = useState(new Date());
               className="form-control"
               placeholderText="Pilih tanggal"
             />
-
+            <br/>
             <small className="text-muted">
               Tanggal akan diupdate ke seluruh invoice
               yang sudah selesai pada pengajuan ini.
@@ -859,7 +866,7 @@ const [endDate, setEndDate] = useState(new Date());
                       {/* ===== DETAIL SURAT ===== */}
                       {expandedSurat === surat.surat_id && (
                         <tr>
-                          <td colSpan="11">
+                          <td colSpan="12">
                             <div className="p-3 bg-light">
 
                               {Object.values(surat.provider || {}).map((providerGroup) => (
