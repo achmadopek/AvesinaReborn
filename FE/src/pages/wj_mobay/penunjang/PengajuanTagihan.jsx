@@ -55,7 +55,7 @@ const PengajuanTagihan = () => {
   const today = new Date().toISOString().split("T")[0];
   const [tanggalSurat, setTanggalSurat] = useState(today);
   const [tujuan, setTujuan] = useState("Bendahara Pengeluaran");
-  const [keterangan, setKeterangan] = useState("");
+  const [keterangan, setKeterangan] = useState("...");
   const [jenisPengajuan, setJenisPengajuan] = useState("V5");
 
   const selectedProviderData = useMemo(() => {
@@ -144,6 +144,42 @@ const PengajuanTagihan = () => {
 
     return `Pembayaran ${jenisArr.join(" & ")}`;
   };
+
+  const getJenisPengajuanAuto = () => {
+    if (selectedInvoices.length === 0) return "V5";
+  
+    // ambil full invoice dari data utama
+    const selectedFull = data.filter(d =>
+      selectedInvoices.some(s => s.id === d.id)
+    );
+  
+    const jenisSet = new Set();
+  
+    selectedFull.forEach(inv => {
+      (inv.items || []).forEach(it => {
+        if (it.jenis_item) {
+          jenisSet.add(it.jenis_item);
+        }
+      });
+    });
+  
+    // hanya obat
+    if (
+      jenisSet.size === 1 &&
+      jenisSet.has("Obat")
+    ) {
+      return "V6";
+    }
+  
+    // selain itu -> V5
+    return "V5";
+  };
+
+  useEffect(() => {
+    const autoJenis = getJenisPengajuanAuto();
+  
+    setJenisPengajuan(autoJenis);
+  }, [selectedInvoices, data]);
 
   const getStatusBadgeClass = (status) => {
     switch (status) {
@@ -329,8 +365,8 @@ const PengajuanTagihan = () => {
       // reset form
       setSelectedInvoices([]);
       setTanggalSurat(today);
-      setTujuan("Verifikator Pengajuan Pembayaran");
-      setKeterangan("");
+      setTujuan("Bendahara Pengeluaran");
+      setKeterangan("...");
 
       setExpandedRow(null);
 
@@ -647,7 +683,7 @@ const PengajuanTagihan = () => {
                   <input
                     type="text"
                     className="form-control form-control-sm"
-                    value={keterangan || ""}
+                    value={keterangan || "..."}
                     onChange={(e) => {
                       setIsKeteranganManual(true);
                       setKeterangan(e.target.value);
