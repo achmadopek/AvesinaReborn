@@ -14,13 +14,33 @@ class PatientMapper {
       value: patientData.mr_id
     });
 
+    // ✅ normalize birth date
+    let birthDate;
+
+    if (patientData.birth_dt) {
+      const d = new Date(patientData.birth_dt);
+
+      if (!isNaN(d.getTime())) {
+        birthDate = d.toISOString().split("T")[0];
+      }
+    }
+
     return {
       resourceType: "Patient",
       identifier: identifiers,
-      name: [{ use: "official", text: patientData.patient_nm || "Unnamed Patient" }],
+      name: [{
+        use: "official",
+        text: patientData.patient_nm || "Unnamed Patient"
+      }],
       gender: this.mapGender(patientData.gender),
-      birthDate: patientData.birth_dt ? patientData.birth_dt.toISOString().split('T')[0] : undefined,
-      address: patientData.address ? [{ text: patientData.address, country: "ID" }] : undefined,
+
+      // 🔥 safe now
+      birthDate,
+
+      address: patientData.address
+        ? [{ text: patientData.address, country: "ID" }]
+        : undefined,
+
       telecom: this.buildTelecom(patientData)
     };
   }

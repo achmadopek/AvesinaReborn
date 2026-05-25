@@ -51,32 +51,41 @@ const processQueue = async () => {
     // ========================================
     if (result?.skipped) {
 
-      const nextRetry =
-        (queue.retry_count || 0) + 1;
+      // =========================
+      // SKIP FINAL (tidak retry)
+      // =========================
+      if (result.final) {
 
-      const nextStatus =
-        nextRetry >= MAX_RETRY
-          ? "dead"
-          : "pending";
+        await queueRepo.update(queue.id, {
+          status: "done",
+          processed_at: new Date(),
+          locked_by: null,
+          locked_at: null,
+          last_error: result.message || null
+        });
 
+        console.log(
+          `⏭️ Queue final skipped: ${queue.local_resource_id}`
+        );
+
+        return;
+      }
+
+      // =========================
+      // SKIP RETRYABLE
+      // =========================
       await queueRepo.update(queue.id, {
-
-        status: nextStatus,
-
-        retry_count: nextRetry,
-
-        last_error:
-          result.message || "Skipped",
-
+        status: "failed",
+        retry_count: queue.retry_count + 1,
+        last_error: result.message || "Skipped",
         locked_by: null,
-
         locked_at: null
       });
 
       console.log(
         `⏭️ Queue skipped: ` +
         `${queue.local_resource_id} ` +
-        `(${nextRetry}/${MAX_RETRY})`
+        `(${queue.retry_count + 1}/${MAX_RETRY})`
       );
 
       return;

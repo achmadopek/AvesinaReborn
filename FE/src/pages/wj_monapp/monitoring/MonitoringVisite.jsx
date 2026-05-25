@@ -35,6 +35,7 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
   const [endDate, setEndDate] = useState(today);
   
   const [statusFilter, setStatusFilter] = useState("");
+  const [dokter, setDokter] = useState("");
   const [dokterList, setDokterList] = useState([]);
 
   const [search, setSearch] = useState("");
@@ -134,12 +135,16 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
         startDate,
         endDate,
         search,
+        dokter,
+        sortBy,
+        sortOrder,
       });
 
-      console.log(res);
+      console.log("RES:", res);
 
       setData(res.data || []);
-      setRekapDokter(res.recapDokter || []);
+      setRekapDokter(res.rekapDokter || []);
+      setDokterList(res.dokterList || []);
       setTotalPages(res.totalPages || 1);
       setSummary(res.summary || {});
       setChartHarian(res.chartHarian || []);
@@ -159,33 +164,12 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
     endDate,
     statusFilter,
     search,
+    dokter,
     sortBy,
     sortOrder
   ]);
 
-  useEffect(() => {
-    const fetchDokter = async () => {
-      try {
-        const res = await fetchMonitoringVisite({
-          page: currentPage,
-          limit,
-          statusFilter,
-          startDate,
-          endDate,
-          search,
-          sortBy,
-          sortOrder
-        });
-
-        setDokterList(res.dokterList || []);
-
-      } catch (err) {
-        console.error(err);
-      }
-    };
-
-    fetchDokter();
-  }, []);
+  console.log("dokterList:", dokterList);
 
   // === Pagination helper ===
   const renderPageNumbers = () => {
@@ -318,16 +302,23 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
             </div>
 
             <div className="col-12">
-              <input
-                type="text"
+              <select
                 className="form-control form-control-sm"
-                value={search}
+                value={dokter}
                 onChange={(e) => {
-                  setSearch(e.target.value);
+                  setDokter(e.target.value);
                   setCurrentPage(1);
                 }}
-                placeholder="Cari dokter, pelayanan, poli..."
-              />
+              >
+                <option value="">Semua Dokter</option>
+                {Array.isArray(dokterList) &&
+                  dokterList.map((d) => (
+                    <option key={d.employee_id} value={d.employee_id}>
+                      {d.employee_nm}
+                    </option>
+                  ))
+                }
+              </select>
             </div>
           </div>
         </div>
@@ -339,16 +330,16 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
       <div className="row g-3 mb-3 ms-1 me-1">
 
       {/* TOTAL */}
-      <div className="col-md col-6">
+      <div className="col-md-4 col-6">
         <div className="card shadow-sm border-0 h-100">
           <div className="card-body">
 
             <small className="text-muted">
-              Total Visite
+              Total Visite / Total Pasien (Dimiliki DPJP)
             </small>
 
             <h2 className="fw-bold text-primary mb-0">
-              {summary?.totalVisite || 0}
+              {summary?.totalVisite || 0} / {summary?.totalPasien || 0}
             </h2>
 
           </div>
@@ -356,7 +347,7 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
       </div>
 
       {/* SPM STANDAR */}
-      <div className="col-md col-6">
+      <div className="col-md-2 col-6">
         <div className="card shadow-sm border-0 h-100">
           <div className="card-body">
 
@@ -377,7 +368,7 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
       </div>
 
       {/* SPM TIDAK */}
-      <div className="col-md col-6">
+      <div className="col-md-2 col-6">
         <div className="card shadow-sm border-0 h-100">
           <div className="card-body">
 
@@ -398,7 +389,7 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
       </div>
 
       {/* INM STANDAR */}
-      <div className="col-md col-6">
+      <div className="col-md-2 col-6">
         <div className="card shadow-sm border-0 h-100">
           <div className="card-body">
 
@@ -419,7 +410,7 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
       </div>
 
       {/* INM TIDAK */}
-      <div className="col-md col-6">
+      <div className="col-md-2 col-6">
         <div className="card shadow-sm border-0 h-100">
           <div className="card-body">
 
@@ -482,7 +473,7 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
                         cx="50%"
                         cy="50%"
                         outerRadius={120}
-                        label={({ percent }) =>
+                        label={({ name, percent }) =>
                           `${name} ${(percent * 100).toFixed(1)}%`
                         }
                       >
@@ -528,7 +519,7 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
                       cx="50%"
                       cy="50%"
                       outerRadius={120}
-                      label={({ percent }) =>
+                      label={({ name, percent }) =>
                         `${name} ${(percent * 100).toFixed(1)}%`
                       }
                     >

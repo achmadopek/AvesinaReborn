@@ -50,6 +50,25 @@ class ResourceStatusRepository {
     const { rows } = await db.query(query, [resource_type, local_resource_id]);
     return rows[0];
   }
+
+  async findSuccess(resourceType, localId) {
+    const query = `
+      SELECT *
+      FROM satusehat_resource_status
+      WHERE resource_type = $1
+        AND local_resource_id = $2
+        AND status = 'success'
+      LIMIT 1
+    `;
+
+    const result =
+      await db.query(query, [
+        resourceType,
+        localId
+      ]);
+
+    return result.rows[0];
+  }
 }
 
 module.exports = new ResourceStatusRepository();

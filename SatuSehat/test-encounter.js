@@ -10,7 +10,7 @@ console.log("=====================================\n");
     console.log("⏳ Sedang mengambil data registry dari SIMRS...");
 
     // Ambil registry 24 jam terakhir (bisa diubah)
-    const count = await queueService.generateEncounterQueue(1);
+    const count = await queueService.generateEncounterQueue(3);
     console.log(`📊 Total antrian yang dimasukkan: ${count} (NIK valid)`);
 
     console.log("\n✅ Test selesai!");

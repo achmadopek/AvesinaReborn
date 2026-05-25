@@ -52,6 +52,32 @@ class EncounterService {
   }
 
   // ====================================================
+  // CHECK ENCOUNTER
+  // ====================================================
+  async getEncounterByIdentifier(registryId) {
+
+    const organizationId =
+      process.env.ORGANIZATION_ID;
+
+    const result = await this.client.get(
+      "/Encounter",
+      {
+        identifier:
+          `http://sys-ids.kemkes.go.id/encounter/${organizationId}|${registryId}`
+      }
+    );
+
+    const encounter =
+      result?.entry?.[0]?.resource;
+
+    if (!encounter) {
+      return null;
+    }
+
+    return encounter;
+  }
+
+  // ====================================================
   // CREATE ENCOUNTER
   // ====================================================
   async createEncounter(
@@ -60,7 +86,7 @@ class EncounterService {
   ) {
 
     // =========================
-    // CEK CACHE
+    // CEK CACHE LOKAL
     // =========================
     const existingEncounter =
       await referenceCache.getSatusehatId(
@@ -71,14 +97,47 @@ class EncounterService {
     if (existingEncounter) {
 
       console.log(
-        `⏭️ Encounter sudah ada ` +
-        `untuk registry ${registry.registry_id}`
+        `⏭️ Encounter sudah ada di cache local`
       );
 
-      return {
+     return {
         id: existingEncounter,
         skipped: true,
+        exists: true,
+        final: true,
         message: "Encounter sudah ada"
+      };
+    }
+
+    // =========================
+    // CEK DI SATUSEHAT
+    // (antisipasi vendor lama)
+    // =========================
+    const existingFHIR =
+      await this.getEncounterByIdentifier(
+        registry.registry_id
+      );
+
+    if (existingFHIR) {
+
+      console.log(
+        `⏭️ Encounter sudah ada di SATUSEHAT`
+      );
+
+      // simpan ke cache lokal
+      await referenceCache.save({
+        reference_type: "encounter",
+        local_id: registry.registry_id,
+        satusehat_id: existingFHIR.id,
+        resource_type: "Encounter"
+      });
+
+      return {
+        id: existingFHIR.id,
+        skipped: true,
+        exists: true,
+        final: true,
+        message: "Encounter sudah ada di SATUSEHAT"
       };
     }
 
@@ -91,14 +150,12 @@ class EncounterService {
     if (!practitioner) {
 
       console.log(
-        `⏭️ SKIP Encounter ` +
-        `${registry.registry_id} - ` +
-        `Practitioner belum tersedia`
+        `⏭️ SKIP Encounter ${registry.registry_id} - Practitioner belum tersedia`
       );
 
       return {
         skipped: true,
-        message: "Practitioner belum tersedia"
+        reason: "Practitioner belum tersedia"
       };
     }
 

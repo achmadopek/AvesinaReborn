@@ -82,11 +82,8 @@ exports.getData = async (req, res) => {
       // ---------------------------------------
       // FILTER DOKTER
       // ---------------------------------------
-      if (dokter && dokter !== "ALL") {
-        filter += `
-          AND e.employee_id = ?
-        `;
-
+     if (dokter) {
+        filter += ` AND e.employee_id = ? `;
         params.push(dokter);
       }
 
@@ -157,34 +154,23 @@ exports.getData = async (req, res) => {
         'VISITE' AS sumber,
         v.visite_id AS row_id,
         v.visite_dt AS visite_dt,
-
         e.employee_id,
         e.employee_nm,
-
         ms.medical_service_name,
-
         su.srvc_unit_nm,
-
         p.mr_code,
         p.patient_nm
-
       FROM visite v
-
       JOIN unit_visit uv
         ON uv.unit_visit_id = v.unit_visit_id
-
       JOIN registry r
         ON r.registry_id = uv.registry_id
-
       JOIN patient p
         ON p.mr_id = r.mr_id
-
       JOIN service_unit su
         ON su.srvc_unit_id = uv.unit_id_to
-
       JOIN employee e
         ON e.employee_id = v.employee_id
-
       JOIN medical_service ms
         ON ms.medical_service_id = v.medical_service_id
 
@@ -199,39 +185,67 @@ exports.getData = async (req, res) => {
         'TREATMENT' AS sumber,
         t.treatment_id AS row_id,
         t.treatment_dt AS visite_dt,
-
         e.employee_id,
         e.employee_nm,
-
         ms.medical_service_name,
-
         su.srvc_unit_nm,
-
         p.mr_code,
         p.patient_nm
-
       FROM treatment t
-
       JOIN unit_visit uv
         ON uv.unit_visit_id = t.unit_visit_id
-
       JOIN registry r
         ON r.registry_id = uv.registry_id
-
       JOIN patient p
         ON p.mr_id = r.mr_id
-
       JOIN service_unit su
         ON su.srvc_unit_id = uv.unit_id_to
-
       JOIN employee e
         ON e.employee_id = t.employee_id
-
       JOIN medical_service ms
         ON ms.medical_service_id = t.medical_service_id
 
       ${treatmentFilter.filter}
     `;
+
+    // =============================
+    // DOKTER MASTER LIST
+    // =============================
+    const dokterListSql = `
+      SELECT employee_id, employee_nm
+      FROM employee
+      WHERE employee_sts IN ('P','O')
+        AND (
+          LOWER(employee_nm) LIKE 'dr.%'
+          OR LOWER(employee_nm) LIKE 'dr %'
+        )
+      ORDER BY employee_nm ASC
+    `;
+
+    // ================================
+    // TOTAL PASIEN DI RENTANG ITU
+    // ================================
+    const buildTotalPasienQuery = () => {
+      let sql = `
+        SELECT COUNT(DISTINCT r.registry_id) AS total_pasien
+        FROM registry r
+        LEFT JOIN unit_visit uv ON uv.registry_id = r.registry_id
+        LEFT JOIN visite v ON v.unit_visit_id = uv.unit_visit_id
+        WHERE r.registry_dt BETWEEN ? AND ?
+      `;
+
+      const params = [
+        `${startDate} 00:00:00`,
+        `${endDate} 23:59:59`
+      ];
+
+      if (dokter && dokter !== "ALL" && dokter !== "") {
+        sql += ` AND v.employee_id = ?`;
+        params.push(dokter);
+      }
+
+      return { sql, params };
+    };
 
     // =========================================
     // EXECUTE QUERY
@@ -246,6 +260,17 @@ exports.getData = async (req, res) => {
       await db.promise().query(
         treatmentSql,
         treatmentFilter.params
+      );
+    
+    const [dokterList] =
+      await db.promise().query(
+        dokterListSql
+      );
+    
+    const [totalPasien] =
+      await db.promise().query(
+        buildTotalPasienQuery().sql,
+        buildTotalPasienQuery().params
       );
 
     // =========================================
@@ -391,6 +416,7 @@ exports.getData = async (req, res) => {
     // =========================================
     const summary = {
       totalVisite: rows.length,
+      totalPasien: totalPasien[0].total_pasien,
 
       spmStandar: rows.filter((x) => {
         const jam = new Date(x.visite_dt)
@@ -464,26 +490,6 @@ exports.getData = async (req, res) => {
         );
 
     // =========================================
-    // DOKTER LIST
-    // =========================================
-    const dokterListMap = {};
-
-    rows.forEach((item) => {
-      dokterListMap[item.employee_id] = {
-        employee_id: item.employee_id,
-        employee_nm: item.employee_nm
-      };
-    });
-
-    const dokterList =
-      Object.values(dokterListMap)
-        .sort((a, b) =>
-          a.employee_nm.localeCompare(
-            b.employee_nm
-          )
-        );
-
-    // =========================================
     // PAGINATION
     // =========================================
     const total = rows.length;
@@ -499,23 +505,18 @@ exports.getData = async (req, res) => {
     // =========================================
     res.json({
       data: paginatedRows,
-
       rekapDokter,
-
       dokterList,
-
       summary,
-
       chartHarian,
-
       currentPage: page,
-
       totalPages: Math.ceil(
         total / limit
       ),
-
       totalRows: total
     });
+
+    console.log(totalPasien);
 
   } catch (err) {
     console.log("ERROR GET DATA:");

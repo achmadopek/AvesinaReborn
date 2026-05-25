@@ -5,8 +5,10 @@ const {
   encounterService
 } = require("../services/satusehat");
 
-const { insertQueue } =
-  require("./queueRepository");
+const { 
+  insertQueue, 
+  findExistingQueue 
+} = require("./queueRepository");
 
 const resourceStatus =
   require("../database/resourceStatusRepository");
@@ -41,6 +43,23 @@ class QueueService {
         console.log(
           `⏭️ SKIP Registry ${reg.registry_id} ` +
           `(NIK kosong)`
+        );
+
+        skipped++;
+
+        continue;
+      }
+
+      const existingPending =
+        await findExistingQueue(
+          "Encounter",
+          reg.registry_id
+        );
+
+      if (existingPending) {
+
+        console.log(
+          `⏭️ Queue ${reg.registry_id} masih pending`
         );
 
         skipped++;
@@ -199,7 +218,7 @@ class QueueService {
         request_payload: registry,
         status: "skipped",
         last_error:
-          encounterResult.message ||
+          encounterResult.reason ||
           "Encounter skipped"
       });
 

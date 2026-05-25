@@ -1,6 +1,7 @@
 const PatientMapper = require("./patientMapper");
 const referenceCache = require("../../database/referenceCacheRepository");
 const resourceStatus = require("../../database/resourceStatusRepository");
+const { validatePatientData } = require("./patientValidator");
 
 class PatientService {
   constructor(client) {
@@ -44,6 +45,26 @@ class PatientService {
     const localId = patientFromSIMRS.mr_id;
     const nik = patientFromSIMRS.nik?.trim();
 
+    // 🔥 VALIDATION STEP (IMPORTANT)
+    const errors = validatePatientData(patientFromSIMRS);
+
+    if (errors.length > 0) {
+      console.log("⛔ Patient validation failed:", errors);
+
+      await resourceStatus.create({
+        resource_type: "Patient",
+        local_resource_id: localId,
+        status: "skipped",
+        last_error: errors.join(", "),
+        request_payload: patientFromSIMRS
+      });
+
+      return {
+        skipped: true,
+        reason: errors
+      };
+    }
+
     // Cek cache dulu
     const cachedId = await referenceCache.getSatusehatId("patient", localId);
     if (cachedId) {
@@ -55,13 +76,21 @@ class PatientService {
       const searchResult = await this.getPatientByNIK(nik);
       if (searchResult.found) {
         const satusehatId = searchResult.patient.id;
-        await referenceCache.save({ reference_type: "patient", local_id: localId, satusehat_id: satusehatId, resource_type: "Patient" });
+
+        await referenceCache.save({
+          reference_type: "patient",
+          local_id: localId,
+          satusehat_id: satusehatId,
+          resource_type: "Patient"
+        });
+
         return { found: true, isNew: false, satusehatId };
       }
     }
 
-    // Jika tidak ada NIK atau tidak ditemukan → langsung Create
+    // Create Patient
     console.log(`🆕 Creating new Patient (MR: ${localId}) - NIK: ${nik || 'KOSONG'}`);
+
     const newPatient = await this.createPatient(patientFromSIMRS);
 
     return {

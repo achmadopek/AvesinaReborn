@@ -1,5 +1,33 @@
 const db = require("../db/postgres");
 
+// ==================== CHECK QUEUE ====================
+const findExistingQueue = async (
+  resourceType,
+  localResourceId
+) => {
+
+  const query = `
+    SELECT *
+    FROM satusehat_queue
+    WHERE resource_type = $1
+      AND local_resource_id = $2
+      AND status IN (
+        'pending',
+        'processing',
+        'failed'
+      )
+    LIMIT 1
+  `;
+
+  const result =
+    await db.query(query, [
+      resourceType,
+      localResourceId
+    ]);
+
+  return result.rows[0];
+};
+
 // ==================== INSERT QUEUE ====================
 const insertQueue = async ({
   resource_type,
@@ -183,6 +211,7 @@ const markDead = async (
 };
 
 module.exports = {
+  findExistingQueue,
   insertQueue,
   getPendingQueue,
   lockQueue,
