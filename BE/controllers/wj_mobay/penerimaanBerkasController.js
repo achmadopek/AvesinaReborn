@@ -90,8 +90,9 @@ exports.getSuratPengantarList = async (req, res) => {
       `
       SELECT COUNT(DISTINCT sp.id) as total
       FROM mobay_pengajuan sp
-      LEFT JOIN mobay_mirror_po mp 
+      JOIN mobay_mirror_po mp 
         ON mp.pengajuan_id = sp.id
+        AND mp.status_pengolahan = 'Proses Pengantaran'
       ${whereSQL}
       `,
       params

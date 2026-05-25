@@ -1521,31 +1521,8 @@ async function updateStatusKonsolidasi(po_acce_id, conn) {
 
 async function generateNoVerifikasi(conn) {
 
-  const [rows] = await conn.query(`
-    SELECT no_verifikasi
-    FROM mobay_pengajuan
-    WHERE no_verifikasi IS NOT NULL
-      AND DATE_FORMAT(updated_at, '%Y-%m') = DATE_FORMAT(NOW(), '%Y-%m')
-    ORDER BY id DESC
-    LIMIT 1
-    FOR UPDATE
-  `);
-
-  let lastNumber = 0;
-
-  if (rows.length > 0) {
-    const last = rows[0].no_verifikasi;
-
-    const match = last.match(/\.(\d{4})\//);
-    if (match) {
-      lastNumber = parseInt(match[1], 10);
-    }
-  }
-
-  const nextNumber = lastNumber + 1;
-  const padded = String(nextNumber).padStart(4, "0");
-
   const now = new Date();
+
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
 
@@ -1555,6 +1532,41 @@ async function generateNoVerifikasi(conn) {
   ];
 
   const bulanRomawi = roman[month];
+
+  const [rows] = await conn.query(`
+    SELECT no_verifikasi
+    FROM mobay_pengajuan
+    WHERE no_verifikasi IS NOT NULL
+      AND no_verifikasi LIKE ?
+    ORDER BY 
+      CAST(
+        SUBSTRING_INDEX(
+          SUBSTRING_INDEX(no_verifikasi, '/', 2),
+          '.',
+          -1
+        ) AS UNSIGNED
+      ) DESC
+    LIMIT 1
+    FOR UPDATE
+  `, [`%/${bulanRomawi}/${year}`]);
+
+  let lastNumber = 0;
+
+  if (rows.length > 0) {
+
+    const last = rows[0].no_verifikasi;
+
+    const match = last.match(/\.(\d{4})\//);
+
+    if (match) {
+      lastNumber = parseInt(match[1], 10);
+    }
+  }
+
+  const nextNumber = lastNumber + 1;
+
+  const padded = String(nextNumber).padStart(4, "0");
+
   const kodePenunjang = "1";
 
   return `VER/${kodePenunjang}.${padded}/${bulanRomawi}/${year}`;

@@ -37,8 +37,8 @@ const PembayaranTagihan = () => {
 
   // filter tanggal
   const [filterDateType, setFilterDateType] = useState("tgl_verifikasi");
-const [startDate, setStartDate] = useState(new Date());
-const [endDate, setEndDate] = useState(new Date());
+  const [startDate, setStartDate] = useState(new Date());
+  const [endDate, setEndDate] = useState(new Date());
 
   // filter text
   const [provider, setProvider] = useState("");

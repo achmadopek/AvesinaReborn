@@ -278,7 +278,9 @@ const PenerimaanBerkas = () => {
                 {suratList.map((surat, i) => (
                   <React.Fragment key={surat.id}>
                     <tr>
-                      <td className="text-center">{i + 1}</td>
+                      <td className="text-center">
+                        {(page - 1) * limit + i + 1}
+                      </td>
                       <td>{surat.no_surat}</td>
                       <td>{formatDate(surat.tanggal_surat)}</td>
                       <td>{formatSortDateTime(surat.invoice_consolidated_dt)}</td>
@@ -367,7 +369,7 @@ const PenerimaanBerkas = () => {
               </tbody>
             </table>
 
-            {/*<div className="d-flex justify-content-between align-items-center mt-3">
+            <div className="d-flex justify-content-between align-items-center mt-3">
               <button
                 className="btn btn-sm btn-outline-secondary"
                 disabled={page <= 1}
@@ -387,7 +389,7 @@ const PenerimaanBerkas = () => {
               >
                 Next
               </button>
-            </div>*/}
+            </div>
           </div>
         </div>
       </div>

@@ -662,6 +662,27 @@ const filteredHistori = useMemo(() => {
     );
   };
 
+  const canFinalVerifikasi = (surat) => {
+
+    const allInvoices = Object.values(surat.provider || {})
+      .flatMap((p) => p.invoices || []);
+
+    if (allInvoices.length === 0) return false;
+
+    return allInvoices.every((inv) => {
+
+      const validStatus =
+        inv.status_validasi === "Valid" ||
+        inv.status_validasi === "Tidak Valid";
+
+      const selesaiVerifikasi =
+        inv.status_pengolahan === "Terverifikasi" ||
+        inv.status_pengolahan === "Proses Revisi";
+
+      return validStatus && selesaiVerifikasi;
+    });
+  };
+
   const renderTable = (tableData = [], isHistori = false) => (
     <div className="table-responsive">
       <table className="table table-theme table-bordered table-sm align-middle">
@@ -771,24 +792,17 @@ const filteredHistori = useMemo(() => {
 
                     {/* ================= FINAL VERIFIKASI ================= */}
                     {!isHistori &&
-                      Object.values(surat.provider || {}).some((p) =>
-                        p.invoices.some(
-                          (inv) =>
-                            inv.status_pengolahan === "Terverifikasi" ||
-                            inv.status_pengolahan === "Proses Revisi"
-                        )
-                      ) && (
+                      canFinalVerifikasi(surat) && (
                         <button
                           className="btn btn-sm btn-danger"
-                          style={{margin: "2px"}}
+                          style={{ margin: "2px" }}
                           onClick={() =>
                             handleFinalVerifikasi(surat.surat_id)
                           }
                         >
                           Selesai & Cetak
                         </button>
-                      )
-                    }
+                    )}
 
                     {/* ================= HISTORY ================= */}
                     {isHistori && (
