@@ -152,6 +152,9 @@ exports.getData = async (req, res) => {
     const visiteSql = `
       SELECT
         'VISITE' AS sumber,
+        r.registry_id,
+        r.employee_respon,
+        p.mr_id,
         v.visite_id AS row_id,
         v.visite_dt AS visite_dt,
         e.employee_id,
@@ -173,7 +176,6 @@ exports.getData = async (req, res) => {
         ON e.employee_id = v.employee_id
       JOIN medical_service ms
         ON ms.medical_service_id = v.medical_service_id
-
       ${visiteFilter.filter}
     `;
 
@@ -183,6 +185,9 @@ exports.getData = async (req, res) => {
     const treatmentSql = `
       SELECT
         'TREATMENT' AS sumber,
+        r.registry_id,
+        r.employee_respon,
+        p.mr_id,
         t.treatment_id AS row_id,
         t.treatment_dt AS visite_dt,
         e.employee_id,
@@ -225,27 +230,66 @@ exports.getData = async (req, res) => {
     // ================================
     // TOTAL PASIEN DI RENTANG ITU
     // ================================
-    const buildTotalPasienQuery = () => {
-      let sql = `
-        SELECT COUNT(DISTINCT r.registry_id) AS total_pasien
-        FROM registry r
-        LEFT JOIN unit_visit uv ON uv.registry_id = r.registry_id
-        LEFT JOIN visite v ON v.unit_visit_id = uv.unit_visit_id
-        WHERE r.registry_dt BETWEEN ? AND ?
+    const buildActivePatientQuery = () => {
+
+    let sql = `
+      SELECT
+        r.registry_id,
+        r.registry_dt,
+        r.out_dt,
+        r.employee_respon,
+        p.mr_id,
+        p.mr_code,
+        p.patient_nm,
+        su.srvc_unit_nm
+      FROM registry r
+      JOIN patient p
+        ON p.mr_id = r.mr_id
+      LEFT JOIN unit_visit uv
+        ON uv.registry_id = r.registry_id
+      JOIN service_unit su
+        ON uv.unit_id_to = su.srvc_unit_id
+      JOIN unit_group ug
+        ON su.unit_group_id = ug.unit_group_id
+      JOIN room_mutation rm
+        ON uv.unit_visit_id = rm.unit_visit_id
+      WHERE r.in_out_sts = 'I'
+        AND ug.unit_group_id = '7'
+        AND r.registry_dt <= ?
+        AND (
+          r.out_dt IS NULL
+          OR r.out_dt >= ?
+        )
+        AND rm.until_dt IS NULL
+    `;
+
+    const params = [
+      `${endDate} 23:59:59`,
+      `${startDate} 00:00:00`
+    ];
+
+    // FILTER DPJP
+    if (
+      dokter &&
+      dokter !== "ALL"
+    ) {
+      sql += `
+        AND r.employee_respon = ?
       `;
 
-      const params = [
-        `${startDate} 00:00:00`,
-        `${endDate} 23:59:59`
-      ];
+      params.push(dokter);
+    }
 
-      if (dokter && dokter !== "ALL" && dokter !== "") {
-        sql += ` AND v.employee_id = ?`;
-        params.push(dokter);
-      }
+    sql += `
+      GROUP BY r.registry_id
+      ORDER BY r.registry_dt ASC
+    `;
 
-      return { sql, params };
+    return {
+      sql,
+      params
     };
+  };
 
     // =========================================
     // EXECUTE QUERY
@@ -267,10 +311,10 @@ exports.getData = async (req, res) => {
         dokterListSql
       );
     
-    const [totalPasien] =
+    const [activePatients] =
       await db.promise().query(
-        buildTotalPasienQuery().sql,
-        buildTotalPasienQuery().params
+        buildActivePatientQuery().sql,
+        buildActivePatientQuery().params
       );
 
     // =========================================
@@ -280,6 +324,52 @@ exports.getData = async (req, res) => {
       ...visiteRows,
       ...treatmentRows
     ];
+
+    // =========================================
+    // TOTAL PASIEN
+    // =========================================
+    const visitedRegistrySet = new Set();
+
+    rows.forEach((item) => {
+
+      // FILTER DOKTER
+      if (
+        dokter &&
+        dokter !== "ALL"
+      ) {
+
+        // hanya visite dokter itu
+        if (item.employee_id !== dokter) {
+          return;
+        }
+      }
+
+      visitedRegistrySet.add(
+        item.registry_id
+      );
+    });
+
+    // =========================================
+    // PASIEN YANG BELUM DIVISITE
+    // =========================================
+    const belumDivisite =
+    activePatients.filter((patient) => {
+
+      return !visitedRegistrySet.has(
+        patient.registry_id
+      );
+    });
+
+    // =========================================
+    // PASIEN YANG SUDAH DIVISITE
+    // =========================================
+    const sudahDivisite =
+    activePatients.filter((patient) => {
+
+      return visitedRegistrySet.has(
+        patient.registry_id
+      );
+    });
 
     // =========================================
     // STATUS FILTER
@@ -296,14 +386,14 @@ exports.getData = async (req, res) => {
         // -------------------
         if (statusFilter === "spm_ok") {
           return (
-            jam >= "06:00:00" &&
+            jam >= "05:00:00" &&
             jam <= "14:00:00"
           );
         }
 
         if (statusFilter === "spm_no") {
           return (
-            jam < "06:00:00" ||
+            jam < "05:00:00" ||
             jam > "14:00:00"
           );
         }
@@ -410,13 +500,47 @@ exports.getData = async (req, res) => {
           new Date(a.tanggal) -
           new Date(b.tanggal)
       );
+    
+    // =========================================
+    // RUBBER VISITE
+    // =========================================
+    const rubberVisite = rows.filter((x) => {
+      return (
+          x.employee_id !==
+          x.employee_respon
+      );
+    }).length;
+
+    // =========================================
+    // DPJP VISITE
+    // =========================================
+    const dpjpVisite = rows.filter((x) => {
+      return (
+          x.employee_id ===
+          x.employee_respon
+      );
+    }).length;
 
     // =========================================
     // SUMMARY
     // =========================================
     const summary = {
       totalVisite: rows.length,
-      totalPasien: totalPasien[0].total_pasien,
+
+      totalPasienAktif:
+          activePatients.length,
+
+      sudahDivisite:
+          sudahDivisite.length,
+
+      belumDivisite:
+          belumDivisite.length,
+
+      totalAktivitas:
+          rows.length,
+
+      rubberVisite,
+      dpjpVisite,
 
       spmStandar: rows.filter((x) => {
         const jam = new Date(x.visite_dt)
@@ -488,6 +612,19 @@ exports.getData = async (req, res) => {
             b.total_visite -
             a.total_visite
         );
+    
+    // =========================================
+    // DAFTAR PASIEN DI TOTAL PASIEN
+    // =========================================
+    const pasienList =
+      activePatients.map((x) => ({
+        registry_id: x.registry_id,
+        mr_id: x.mr_id,
+        mr_code: x.mr_code,
+        patient_nm: x.patient_nm,
+        employee_respon:
+          x.employee_respon
+      }));
 
     // =========================================
     // PAGINATION
@@ -507,6 +644,7 @@ exports.getData = async (req, res) => {
       data: paginatedRows,
       rekapDokter,
       dokterList,
+      pasienList,
       summary,
       chartHarian,
       currentPage: page,
@@ -516,7 +654,10 @@ exports.getData = async (req, res) => {
       totalRows: total
     });
 
-    console.log(totalPasien);
+    /*console.log("TOTAL ROWS:");
+    console.log(total);
+    console.log("SUMMARY:");
+    console.log(summary);*/
 
   } catch (err) {
     console.log("ERROR GET DATA:");

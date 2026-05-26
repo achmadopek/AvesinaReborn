@@ -22,6 +22,14 @@ export const searchPegawai = async (nama) => {
   return res.data || []; // Ambil array di dalam "data"
 };
 
+// cari dokter by name untuk search-select
+export const searchDokter = async (nama) => {
+  const res = await API.get('/api/sdm/PegawaiSearch/dokter-search', {
+    params: { nama },
+  });
+  return res.data || []; // Ambil array di dalam "data"
+};
+
 // cek NIK exist
 export const checkNikExists = async (nik) => {
   const response = await API.get(`/api/sdm/MasterPegawai/check-nik/${nik}`);

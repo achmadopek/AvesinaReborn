@@ -22,6 +22,8 @@ import {
   fetchMonitoringVisite
 } from "../../../api/wj_monapp/MasterMonitoring";
 
+import SearchSelectDokter from "../../../components/search/SearchSelectDokter";
+
 const MonitoringVisite = ({ isMobile, limit = 10 }) => {
   const { role } = useAuth();
   const [searchParams] = useSearchParams();
@@ -35,7 +37,7 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
   const [endDate, setEndDate] = useState(today);
   
   const [statusFilter, setStatusFilter] = useState("");
-  const [dokter, setDokter] = useState("");
+  const [dokter, setDokter] = useState(null);
   const [dokterList, setDokterList] = useState([]);
 
   const [search, setSearch] = useState("");
@@ -45,64 +47,10 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
 
   const [rekapDokter, setRekapDokter] = useState([]);
 
-  const [sortBy, setSortBy] = useState("v.visite_dt");
+  const [sortBy, setSortBy] = useState("visite_dt");
   const [sortOrder, setSortOrder] = useState("DESC");
 
   const [chartHarian, setChartHarian] = useState([]);
-
-  // ======================================
-  // BAR CHART DATA HARIAN
-  // ======================================
-  const visiteHarianMap = {};
-
-  data.forEach((item) => {
-    const tgl = item.visite_dt?.split(" ")[0];
-
-    if (!visiteHarianMap[tgl]) {
-      visiteHarianMap[tgl] = {
-        tanggal: tgl,
-
-        spmStandar: 0,
-        spmTidak: 0,
-
-        inmStandar: 0,
-        inmTidak: 0
-      };
-    }
-
-    const dt = new Date(item.visite_dt);
-
-    const totalMenit =
-      dt.getHours() * 60 + dt.getMinutes();
-
-    // ====================================
-    // SPM
-    // 06:00 - 14:00
-    // ====================================
-    const isSPM =
-      totalMenit >= 360 &&
-      totalMenit <= 840;
-
-    if (isSPM) {
-      visiteHarianMap[tgl].spmStandar += 1;
-    } else {
-      visiteHarianMap[tgl].spmTidak += 1;
-    }
-
-    // ====================================
-    // INM
-    // 08:00 - 14:00
-    // ====================================
-    const isINM =
-      totalMenit >= 480 &&
-      totalMenit <= 840;
-
-    if (isINM) {
-      visiteHarianMap[tgl].inmStandar += 1;
-    } else {
-      visiteHarianMap[tgl].inmTidak += 1;
-    }
-  });
 
   const dokterChartData = rekapDokter
     .slice(0, 10)
@@ -124,6 +72,14 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
     setCurrentPage(1);
   };
 
+  const coverage =
+    summary?.totalPasienAktif > 0
+      ? (
+          summary?.sudahDivisite /
+          summary?.totalPasienAktif
+        ) * 100
+      : 0;
+
   const fetchData = async () => {
     setLoading(true);
 
@@ -135,7 +91,7 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
         startDate,
         endDate,
         search,
-        dokter,
+        dokter: dokter?.value || "",
         sortBy,
         sortOrder,
       });
@@ -225,212 +181,287 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
   const COLORS = ["#4caf50", "#ff9800", "#f44336", "#2196f3"];
 
   return (
-    <>
-      {/* FILTER */}
-      <div className="row mb-2 p-2">
-        <div className="col-12">
-          <div className="row g-2">
-            <div className="col-md-3 col-6">
-              <label className="form-label">Tanggal Dari</label>
-              <input
-                type="date"
-                className="form-control form-control-sm"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-            </div>
+  <>
+    {/* ============================= */}
+    {/* FILTER */}
+    {/* ============================= */}
+    <div className="card shadow-sm border-0 mb-3 mx-2">
+      <div className="card-body">
 
-            <div className="col-md-3 col-6">
-              <label className="form-label">Tanggal Hingga</label>
-              <input
-                type="date"
-                className="form-control form-control-sm"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-            </div>
+        <div className="row g-2">
 
-            <div className="col-md-3 col-6">
-              <label className="form-label">
-                Filter Status
-              </label>
+          {/* TANGGAL DARI */}
+          <div className="col-md-2 col-6">
+            <label className="form-label small mb-1">
+              Tanggal Dari
+            </label>
 
-              <select
-                className="form-control form-control-sm"
-                value={statusFilter}
-                onChange={(e) => {
-                  setStatusFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
-              >
-                <option value="">
-                  Semua Data
-                </option>
-
-                <option value="spm_ok">
-                  SPM Standar
-                </option>
-
-                <option value="spm_no">
-                  SPM Tidak Standar
-                </option>
-
-                <option value="inm_ok">
-                  INM Standar
-                </option>
-
-                <option value="inm_no">
-                  INM Tidak Standar
-                </option>
-              </select>
-            </div>
-
-            <div className="col-md-3 col-6 d-flex align-items-end">
-              <button
-                type="button"
-                className="btn btn-sm btn-secondary w-100"
-                onClick={() => {
-                  setStartDate("");
-                  setEndDate("");
-                  setStatusFilter("");
-                  setSearch("");
-                  setCurrentPage(1);
-                }}
-              >
-                Reset Filter
-              </button>
-            </div>
-
-            <div className="col-12">
-              <select
-                className="form-control form-control-sm"
-                value={dokter}
-                onChange={(e) => {
-                  setDokter(e.target.value);
-                  setCurrentPage(1);
-                }}
-              >
-                <option value="">Semua Dokter</option>
-                {Array.isArray(dokterList) &&
-                  dokterList.map((d) => (
-                    <option key={d.employee_id} value={d.employee_id}>
-                      {d.employee_nm}
-                    </option>
-                  ))
-                }
-              </select>
-            </div>
+            <input
+              type="date"
+              className="form-control form-control-sm p-2"
+              value={startDate}
+              onChange={(e) =>
+                setStartDate(e.target.value)
+              }
+            />
           </div>
+
+          {/* TANGGAL HINGGA */}
+          <div className="col-md-2 col-6">
+            <label className="form-label small mb-1">
+              Tanggal Hingga
+            </label>
+
+            <input
+              type="date"
+              className="form-control form-control-sm p-2"
+              value={endDate}
+              onChange={(e) =>
+                setEndDate(e.target.value)
+              }
+            />
+          </div>
+
+          {/* STATUS */}
+          <div className="col-md-3 col-6">
+            <label className="form-label small mb-1">
+              Status
+            </label>
+
+            <select
+              className="form-control form-control-sm p-2"
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+            >
+              <option value="">
+                Semua Data
+              </option>
+
+              <option value="spm_ok">
+                SPM Standar
+              </option>
+
+              <option value="spm_no">
+                SPM Tidak Standar
+              </option>
+
+              <option value="inm_ok">
+                INM Standar
+              </option>
+
+              <option value="inm_no">
+                INM Tidak Standar
+              </option>
+            </select>
+          </div>
+
+          {/* DOKTER */}
+          <div className="col-md-3 col-6">
+            <label className="form-label small mb-1">
+              Dokter
+            </label>
+
+            <SearchSelectDokter
+              value={dokter}
+              onChange={(selected) => {
+                setDokter(selected);
+                setCurrentPage(1);
+              }}
+              className="w-100 p-0"
+              styles={{
+                control: (base) => ({
+                  ...base,
+                  minHeight: "33px",
+                  height: "33px",
+                  fontSize: "12px"
+                }),
+
+                valueContainer: (base) => ({
+                  ...base,
+                  height: "33px",
+                  padding: "0 8px"
+                }),
+
+                input: (base) => ({
+                  ...base,
+                  margin: "0px",
+                  padding: "0px",
+                  fontSize: "12px"
+                }),
+
+                indicatorsContainer: (base) => ({
+                  ...base,
+                  height: "33px"
+                }),
+
+                option: (base) => ({
+                  ...base,
+                  fontSize: "12px",
+                  paddingTop: "6px",
+                  paddingBottom: "6px"
+                }),
+
+                menu: (base) => ({
+                  ...base,
+                  fontSize: "12px"
+                }),
+
+                singleValue: (base) => ({
+                  ...base,
+                  fontSize: "12px"
+                })
+              }}
+            />
+          </div>
+
+          {/* RESET */}
+          <div className="col-md-2 col-12 d-flex align-items-end">
+            <button
+              type="button"
+              className="btn btn-sm btn-secondary w-100 p-2"
+              onClick={() => {
+                setStartDate(today);
+                setEndDate(today);
+                setStatusFilter("");
+                setSearch("");
+                setDokter("");
+                setCurrentPage(1);
+              }}
+            >
+              Reset Filter
+            </button>
+          </div>
+
         </div>
+
       </div>
+    </div>
 
-      {/* GRAFIK VISITE */}
+    {/* ============================= */}
+    {/* HERO COVERAGE */}
+    {/* ============================= */}
+    <div className="card shadow-sm border-0 mb-3 mx-2">
+      <div className="card-body">
 
-      {/* SUMMARY */}
-      <div className="row g-3 mb-3 ms-1 me-1">
+        <div className="d-flex justify-content-between align-items-center mb-2">
 
-      {/* TOTAL */}
-      <div className="col-md-4 col-6">
+          <div>
+            <h5 className="fw-bold mb-0">
+              Coverage Visite Pasien
+            </h5>
+
+            <small className="text-muted">
+              Monitoring kepatuhan visite rawat inap
+            </small>
+          </div>
+
+          <div className="text-end">
+            <h3 className="fw-bold text-success mb-0">
+              {coverage.toFixed(1)}%
+            </h3>
+
+            <small className="text-muted">
+              Sudah divisite
+            </small>
+          </div>
+
+        </div>
+
+        <div
+          className="progress"
+          style={{
+            height: "14px",
+            borderRadius: "10px"
+          }}
+        >
+          <div
+            className="progress-bar bg-success"
+            style={{
+              width: `${coverage}%`
+            }}
+          />
+        </div>
+
+      </div>
+    </div>
+
+    {/* ============================= */}
+    {/* SUMMARY */}
+    {/* ============================= */}
+    <div className="row g-3 mb-3 mx-1">
+
+      {/* TOTAL PASIEN */}
+      <div className="col-md-3 col-6">
         <div className="card shadow-sm border-0 h-100">
           <div className="card-body">
 
-            <small className="text-muted">
-              Total Visite / Total Pasien (Dimiliki DPJP)
+            <small className="text-muted d-block mb-1">
+              Total Pasien Aktif
             </small>
 
             <h2 className="fw-bold text-primary mb-0">
-              {summary?.totalVisite || 0} / {summary?.totalPasien || 0}
+              {summary?.totalPasienAktif || 0}
             </h2>
 
           </div>
         </div>
       </div>
 
-      {/* SPM STANDAR */}
-      <div className="col-md-2 col-6">
+      {/* SUDAH DIVISITE */}
+      <div className="col-md-3 col-6">
         <div className="card shadow-sm border-0 h-100">
           <div className="card-body">
 
-            <small className="text-muted">
-              SPM Standar
+            <small className="text-muted d-block mb-1">
+              Sudah Divisite
             </small>
 
             <h2 className="fw-bold text-success mb-0">
-              {summary?.spmStandar || 0}
+              {summary?.sudahDivisite || 0}
             </h2>
-
-            <small className="text-muted">
-              06:00 - 14:00
-            </small>
 
           </div>
         </div>
       </div>
 
-      {/* SPM TIDAK */}
-      <div className="col-md-2 col-6">
+      {/* BELUM DIVISITE */}
+      <div className="col-md-3 col-6">
         <div className="card shadow-sm border-0 h-100">
           <div className="card-body">
 
-            <small className="text-muted">
-              SPM Tidak Standar
+            <small className="text-muted d-block mb-1">
+              Belum Divisite
             </small>
 
             <h2 className="fw-bold text-danger mb-0">
-              {summary?.spmTidakStandar || 0}
+              {summary?.belumDivisite || 0}
             </h2>
-
-            <small className="text-muted">
-              &lt; 06:00 / &gt; 14:00
-            </small>
 
           </div>
         </div>
       </div>
 
-      {/* INM STANDAR */}
-      <div className="col-md-2 col-6">
+      {/* RUBBER */}
+      <div className="col-md-3 col-6">
         <div className="card shadow-sm border-0 h-100">
           <div className="card-body">
 
-            <small className="text-muted">
-              INM Standar
+            <small className="text-muted d-block mb-1">
+              Rubber Visite
             </small>
 
-            <h2 className="fw-bold text-info mb-0">
-              {summary?.inmStandar || 0}
+            <h2 className="fw-bold text-secondary mb-0">
+              {summary?.rubberVisite || 0}
             </h2>
-
-            <small className="text-muted">
-              08:00 - 14:00
-            </small>
 
           </div>
         </div>
       </div>
 
-      {/* INM TIDAK */}
-      <div className="col-md-2 col-6">
-        <div className="card shadow-sm border-0 h-100">
-          <div className="card-body">
-
-            <small className="text-muted">
-              INM Tidak Standar
-            </small>
-
-            <h2 className="fw-bold text-warning mb-0">
-              {summary?.inmTidakStandar || 0}
-            </h2>
-
-            <small className="text-muted">
-              &lt; 08:00 / &gt; 14:00
-            </small>
-
-          </div>
-        </div>
-      </div>
-
-      </div>
+    </div>
 
       {/* GRAFIK */}
       <div className="card-theme ms-2 me-2 mb-3 p-2">
@@ -445,14 +476,13 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
 
           <div className="row g-3">
 
-            {/* PIE KEPATUHAN VISITE */}
-            <div className="col-md-3">
+            <div className="col-md-2">
               <div className="card shadow-sm h-100">
                 <div className="card-body">
 
-                <h6 className="fw-bold mb-3">
-                  Kepatuhan SPM
-                </h6>
+                  <h6 className="fw-bold mb-3">
+                    Coverage Visite Pasien
+                  </h6>
 
                   <ResponsiveContainer width="100%" height={350}>
                     <PieChart>
@@ -460,19 +490,19 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
                       <Pie
                         data={[
                           {
-                            name: "Standar",
-                            value: Number(summary?.spmStandar || 0)
+                            name: "Sudah",
+                            value: Number(summary?.sudahDivisite || 0)
                           },
                           {
-                            name: "Tidak Standar",
-                            value: Number(summary?.spmTidakStandar || 0)
+                            name: "Belum",
+                            value: Number(summary?.belumDivisite || 0)
                           }
                         ]}
                         dataKey="value"
                         nameKey="name"
                         cx="50%"
                         cy="50%"
-                        outerRadius={120}
+                        outerRadius={75}
                         label={({ name, percent }) =>
                           `${name} ${(percent * 100).toFixed(1)}%`
                         }
@@ -492,7 +522,53 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
             </div>
 
             {/* PIE KEPATUHAN VISITE */}
-            <div className="col-md-3">
+            <div className="col-md-2">
+              <div className="card shadow-sm h-100">
+                <div className="card-body">
+
+                <h6 className="fw-bold mb-3">
+                  Kepatuhan SPM
+                </h6>
+
+                  <ResponsiveContainer width="100%" height={350}>
+                    <PieChart>
+
+                      <Pie
+                        data={[
+                          {
+                            name: "Standar\n(05:00 - 14:00)",
+                            value: Number(summary?.spmStandar || 0)
+                          },
+                          {
+                            name: "Tidak Standar\n(<05:00 / >14:00)",
+                            value: Number(summary?.spmTidakStandar || 0)
+                          }
+                        ]}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={75}
+                        label={({ name, percent }) =>
+                          `${name} ${(percent * 100).toFixed(1)}%`
+                        }
+                      >
+                        <Cell fill="#198754" />
+                        <Cell fill="#dc3545" />
+                      </Pie>
+
+                      <Tooltip />
+                      <Legend />
+
+                    </PieChart>
+                  </ResponsiveContainer>
+
+                </div>
+              </div>
+            </div>
+
+            {/* PIE KEPATUHAN VISITE */}
+            <div className="col-md-2">
               <div className="card shadow-sm h-100">
                 <div className="card-body">
 
@@ -506,11 +582,11 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
                     <Pie
                       data={[
                         {
-                          name: "Standar",
+                          name: "Standar\n(08:00 - 14:00)",
                           value: Number(summary?.inmStandar || 0)
                         },
                         {
-                          name: "Tidak Standar",
+                          name: "Tidak Standar\n(<08:00 / >14:00)",
                           value: Number(summary?.inmTidakStandar || 0)
                         }
                       ]}
@@ -518,7 +594,7 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
                       nameKey="name"
                       cx="50%"
                       cy="50%"
-                      outerRadius={120}
+                      outerRadius={75}
                       label={({ name, percent }) =>
                         `${name} ${(percent * 100).toFixed(1)}%`
                       }

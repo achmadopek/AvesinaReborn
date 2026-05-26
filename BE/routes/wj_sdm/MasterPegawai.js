@@ -13,6 +13,9 @@ const masterPegawaiController = require('../../controllers/wj_sdm/masterPegawaiC
 // Mendapatkan seluruh data pegawai (dengan pagination di controller)
 router.get('/pegawai-search', masterPegawaiController.getPegawaiSearch);
 
+// Mendapatkan seluruh data dokter (dengan pagination di controller)
+router.get('/dokter-search', masterPegawaiController.getDokterSearch);
+
 // Mendapatkan data pegawai by LIKE name
 router.get('/', masterPegawaiController.getData);
 

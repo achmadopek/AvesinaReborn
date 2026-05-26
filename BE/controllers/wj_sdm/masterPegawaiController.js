@@ -1,5 +1,6 @@
 const bcrypt = require("bcryptjs");
 const db = require("../../db/connection-lokal"); // Koneksi ke database lokal
+const dbAvesina = require("../../db/connection-avesina"); // Koneksi ke database Avesina
 
 // ==========================
 // GET Semua Pegawai (dengan paginasi) + Seacrh
@@ -86,6 +87,35 @@ exports.getPegawaiSearch = (req, res) => {
   db.query(sql, [search], (err, result) => {
     if (err)
       return res.status(500).json({ message: "Gagal ambil data pegawai" });
+    res.json(result);
+  });
+};
+
+// ==========================
+// Cari Dokter by Name
+// ==========================
+exports.getDokterSearch = (req, res) => {
+  const nama = req.query.nama || "";
+
+  if (nama.length < 3) {
+    return res.json([]);
+  }
+  
+  const search = `%${nama}%`;
+  const sql = `
+    SELECT
+        employee_id,
+        employee_nm
+      FROM employee
+      WHERE employee_sts IN ('P','O')
+      AND LOWER(employee_nm) LIKE LOWER(?)
+      ORDER BY employee_nm ASC
+      LIMIT 20
+  `;
+
+  dbAvesina.query(sql, [search], (err, result) => {
+    if (err)
+      return res.status(500).json({ message: "Gagal ambil data dokter" });
     res.json(result);
   });
 };
