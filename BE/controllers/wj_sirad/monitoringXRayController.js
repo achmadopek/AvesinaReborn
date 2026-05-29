@@ -206,10 +206,10 @@ exports.getData = async (req, res) => {
           lokal?.status || "none",
 
         is_final:
-          !!u.photo_reading,
+          !!String(u.photo_reading || "").trim(),
 
         is_lokal:
-          !!lokal?.hasil_bacaan,
+          !!String(lokal?.hasil_bacaan || "").trim(),
 
         tindakan_mapping: [
           {
@@ -413,12 +413,12 @@ exports.getDetail = async (
           lokal?.notes || null,
 
         hasil_bacaan:
-          utama.photo_reading ||
+          !!String(utama.photo_reading || "").trim() ||
           lokal?.hasil_bacaan ||
           null,
 
         status:
-          !!utama.photo_reading
+          !!String(utama.photo_reading || "").trim()
             ? "done"
             : (
                 lokal?.status ||
@@ -426,10 +426,10 @@ exports.getDetail = async (
               ),
 
         is_final:
-          !!utama.photo_reading,
+          !!String(utama.photo_reading || "").trim(),
 
         is_lokal:
-          !!lokal?.hasil_bacaan,
+          !!String(lokal?.hasil_bacaan || "").trim(),
 
         pengirim_ihs:
           utama.pengirim_ihs,

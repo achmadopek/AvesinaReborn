@@ -27,7 +27,7 @@ SET time_zone = "+00:00";
 --
 
 CREATE TABLE `bugarr_detail` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL,radar
   `laporan_id` int(11) NOT NULL,
   `elemen_id` int(11) NOT NULL,
   `foto` varchar(255) DEFAULT NULL,

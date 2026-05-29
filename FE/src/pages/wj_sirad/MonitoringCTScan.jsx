@@ -11,8 +11,10 @@ import { Modal, Button } from "react-bootstrap";
 import { formatDate } from "../../utils/FormatDate";
 import { useMediaQuery } from "react-responsive";
 
-import Cropper from "react-easy-crop";
 import ZoomImage from "../../components/ZoomImage";
+
+import ReactCrop from "react-image-crop";
+import "react-image-crop/dist/ReactCrop.css";
 
 import DicomViewer from "../../components/DicomViewer";
 
@@ -41,14 +43,11 @@ const MonitoringCTScan = (
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [selectedDetail, setSelectedDetail] = useState(null);
-  const [showKirimObservasiModal, setShowKirimDiagnosticReportModal] = useState(false);
 
   const [selectedCTScan, setSelectedCTScan] = useState(null);
 
-  const [showObservationModal, setShowObservationModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
 
-  const [selectedObservation, setSelectedObservation] = useState(null);
   const [selectedReport, setSelectedReport] = useState(null);
 
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -56,21 +55,29 @@ const MonitoringCTScan = (
 
   const [foto1, setFoto1] = useState(null);
   const [foto2, setFoto2] = useState(null);
-  
-  const [dicomFile, setDicomFile] = useState(null);
 
-  const [keluhan, setKeluhan] = useState("");
+  // ========================
+  // UPLOAD STATES
+  // ========================
+  const [dicomFile, setDicomFile] = useState(null);
+  const [imageFiles, setImageFiles] = useState({
+    foto1: null,
+    foto2: null,
+  });
+  const [imagePreview, setImagePreview] = useState({
+    foto1: null,
+    foto2: null,
+  });
+
+  const [uploadMode, setUploadMode] = useState("image");
+
+  const [notes, setNotes] = useState("");
   const [uploading, setUploading] = useState(false);
 
   const [showBacaModal, setShowBacaModal] = useState(false);
   const [selectedBaca, setSelectedBaca] = useState(null);
   const [hasilBacaan, setHasilBacaan] = useState("");
   const [saving, setSaving] = useState(false);
-
-  // SATU SEHAT
-  const [showSatuSehatModal, setShowSatuSehatModal] = useState(false);
-  const [uidBase, setUidBase] = useState("");
-  const [generatedUIDs, setGeneratedUIDs] = useState(null);
 
   // ----------------------
   // PASTE FROM SCREENSHOOT
@@ -82,10 +89,92 @@ const MonitoringCTScan = (
   const [cropTarget, setCropTarget] = useState(null); // foto1 / foto2
   const [showCropModal, setShowCropModal] = useState(false);
 
-  const [crop, setCrop] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
+  const [crop, setCrop] = useState({
+    unit: "%",
+    x: 10,
+    y: 10,
+    width: 80,
+    height: 80,
+  });
+  const [aspect, setAspect] = useState(null);
+  const [completedCrop, setCompletedCrop] = useState(null);
 
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+  // =====================
+  // CHANGE ASPECT
+  // =====================
+
+  const changeAspect = (newAspect) => {
+
+    setAspect(newAspect);
+
+    setCrop({
+      unit: "%",
+      x: 10,
+      y: 10,
+      width: 80,
+      height: 80,
+    });
+  };
+
+  // =====================
+  // GET CROPPED IMAGE
+  // =====================
+
+  const getCroppedImg = (
+    imageSrc,
+    crop
+  ) => {
+
+    return new Promise((resolve) => {
+
+      const image = new Image();
+
+      image.src = imageSrc;
+
+      image.onload = () => {
+
+        const canvas =
+          document.createElement("canvas");
+
+        const scaleX =
+          image.naturalWidth /
+          image.width;
+
+        const scaleY =
+          image.naturalHeight /
+          image.height;
+
+        canvas.width =
+          crop.width;
+
+        canvas.height =
+          crop.height;
+
+        const ctx =
+          canvas.getContext("2d");
+
+        ctx.drawImage(
+          image,
+
+          crop.x * scaleX,
+          crop.y * scaleY,
+
+          crop.width * scaleX,
+          crop.height * scaleY,
+
+          0,
+          0,
+
+          crop.width,
+          crop.height
+        );
+
+        canvas.toBlob((blob) => {
+          resolve(blob);
+        }, "image/jpeg");
+      };
+    });
+  };
 
   // -----------------------
   // MOBILE VIEW
@@ -135,6 +224,27 @@ const MonitoringCTScan = (
     }
   };
 
+  const resetUploadState = () => {
+    setUploadMode("image");
+
+    setDicomFile(null);
+
+    setImageFiles({
+      foto1: null,
+      foto2: null,
+    });
+
+    setImagePreview({
+      foto1: null,
+      foto2: null,
+    });
+
+    setPreview1(null);
+    setPreview2(null);
+
+    setNotes("");
+  };
+
   const handleLoadData = () => {
     if (!tanggal) {
       toast.warn("Pilih tanggal dulu");
@@ -173,23 +283,26 @@ const MonitoringCTScan = (
   // -----------------------
   const openModalDetail = async (row) => {
     try {
-      const res = await fetchDetailCTScan(row.registry_id, row.ct_scan_dtl_id);
+      const res = await fetchDetailCTScan(row.registry_id, row.x_ray_dtl_id);
       if (res.success) {
         setSelectedDetail(res.data);
         setShowDetailModal(true);
       }
+
+      console.log(res);
+
     } catch (err) {
       console.error(err);
-      toast.error("Gagal memuat detail CT-Scan");
+      toast.error("Gagal memuat detail X-Ray");
     }
   };
 
   const openModalRequest = async (row) => {
     try {
-      const res = await fetchDetailCTScan(row.registry_id, row.ct_scan_dtl_id);
+      const res = await fetchDetailCTScan(row.registry_id, row.x_ray_dtl_id);
       if (res.success) {
         setSelectedDetail(res.data);
-        setKeluhan(res.data.keluhan || "");
+        setNotes(res.data.notes || "");
         setShowRequestModal(true);
       }
     } catch (err) {
@@ -200,12 +313,7 @@ const MonitoringCTScan = (
   const openModalUpload = (row) => {
     setSelectedUpload(row);
     
-    setFoto1(null);
-    setFoto2(null);
-    setPreview1(null);
-    setPreview2(null);
-
-    setDicomFile(null);
+    resetUploadState();
 
     setShowUploadModal(true);
   };
@@ -223,35 +331,140 @@ const MonitoringCTScan = (
   };
 
   const handleUpload = async () => {
-    if (!dicomFile) {
-      toast.warn("File DICOM wajib diupload");
+
+    // ======================
+    // VALIDASI
+    // ======================
+    if (
+      uploadMode === "dicom" &&
+      !dicomFile
+    ) {
+      toast.warn(
+        "File DICOM wajib dipilih"
+      );
+      return;
+    }
+
+    if (
+      uploadMode === "image" &&
+      !imageFiles.foto1 &&
+      !imageFiles.foto2
+    ) {
+      toast.warn(
+        "Minimal upload 1 gambar"
+      );
       return;
     }
 
     const formData = new FormData();
-    formData.append("registry_id", selectedUpload.registry_id);
-    formData.append("ct_scan_id", selectedUpload.ct_scan_id);
-    formData.append("ct_scan_dtl_id", selectedUpload.ct_scan_dtl_id);   // ← WAJIB
-    formData.append("dicom", dicomFile);
 
-    if (peg_id) formData.append("created_by", peg_id);
+    formData.append(
+      "upload_mode",
+      uploadMode
+    );
 
-    setUploading(true);
+    formData.append(
+      "registry_id",
+      selectedUpload.registry_id
+    );
+
+    formData.append(
+      "x_ray_id",
+      selectedUpload.x_ray_id
+    );
+
+    formData.append(
+      "x_ray_dtl_id",
+      selectedUpload.x_ray_dtl_id
+    );
+
+    formData.append(
+      "created_by",
+      peg_id
+    );
+
+    // ======================
+    // DICOM
+    // ======================
+    if (
+      uploadMode === "dicom" &&
+      dicomFile
+    ) {
+      formData.append(
+        "dicom",
+        dicomFile
+      );
+    }
+
+    // ======================
+    // IMAGE
+    // ======================
+    if (uploadMode === "image") {
+
+      if (imageFiles.foto1) {
+        formData.append(
+          "foto1",
+          imageFiles.foto1
+        );
+      }
+
+      if (imageFiles.foto2) {
+        formData.append(
+          "foto2",
+          imageFiles.foto2
+        );
+      }
+    }
+
     try {
-      await uploadCTScan(formData);
-      toast.success("Upload DICOM berhasil");
-      setShowUploadModal(false);
-      loadData(currentPage, tanggal);
+
+      setUploading(true);
+
+      const res =
+        await uploadCTScan(formData);
+
+      console.log(res);
+
+      if (res.success) {
+
+        toast.success(
+          res.message ||
+          "Upload berhasil"
+        );
+
+        setShowUploadModal(false);
+
+        loadData(
+          currentPage,
+          tanggal
+        );
+
+      } else {
+
+        toast.error(
+          res.message ||
+          "Upload gagal"
+        );
+      }
+
     } catch (err) {
-      toast.error("Upload gagal");
+
+      console.error(err);
+
+      toast.error(
+        err?.response?.data?.message ||
+        "Upload gagal"
+      );
+
     } finally {
+
       setUploading(false);
     }
   };
 
   const openModalBaca = async (row) => {
     try {
-      const res = await fetchDetailCTScan(row.registry_id, row.ct_scan_dtl_id);
+      const res = await fetchDetailCTScan(row.registry_id, row.x_ray_dtl_id);
 
       if (res.success) {
         setSelectedBaca(res.data);
@@ -260,19 +473,7 @@ const MonitoringCTScan = (
       }
     } catch (err) {
       console.error(err);
-      toast.error("Gagal memuat data baca CT-Scan");
-    }
-  };
-
-  const openModalReport = async (row) => {
-    try {
-      const res = await fetchDetailCTScan(row.registry_id, row.ct_scan_dtl_id);
-      if (res.success) {
-        setSelectedReport(res.data);
-        setShowReportModal(true);
-      }
-    } catch (err) {
-      toast.error("Gagal memuat data report");
+      toast.error("Gagal memuat data baca X-Ray");
     }
   };
 
@@ -286,20 +487,26 @@ const MonitoringCTScan = (
     try {
       setSaving(true);
 
-      await saveHasilCTScan({
+      const res = await saveHasilCTScan({
         registry_id: selectedBaca.registry_id,
-        ct_scan_id: selectedBaca.ct_scan_id,
-        ct_scan_dtl_id: selectedBaca.ct_scan_dtl_id,
+        x_ray_id: selectedBaca.x_ray_id,
+        x_ray_dtl_id: selectedBaca.x_ray_dtl_id,
         hasil_bacaan: hasilBacaan,
         read_by: peg_id,
       });
-
-      toast.success("Hasil bacaan berhasil disimpan & dikirim ke SatuSehat");
-
+      console.log("RES SAVE:", res);
+      if (res.success) {
+        toast.success(res.observation_sent 
+          ? "Hasil bacaan berhasil disimpan & dikirim ke SatuSehat" 
+          : "Hasil bacaan berhasil disimpan (SatuSehat pending)");
+      } else {
+        toast.error(res.message || "Gagal menyimpan hasil");
+      }
+      console.log("SEBELUM LOAD DATA");
       setShowBacaModal(false);
       setHasilBacaan("");
       loadData(currentPage, tanggal);
-
+      console.log("SETELAH LOAD DATA");
     } catch (err) {
       console.error(err);
       toast.error(err?.response?.data?.message || "Gagal menyimpan hasil");
@@ -321,15 +528,10 @@ const MonitoringCTScan = (
           const url = URL.createObjectURL(file);
 
           // default masuk ke foto1 kalau kosong
-          if (!foto1) {
-            setPreview1(url);
-            setCropImage(url);
-            setCropTarget("foto1");
-          } else {
-            setPreview2(url);
-            setCropImage(url);
-            setCropTarget("foto2");
-          }
+          const target = !imageFiles.foto1 ? "foto1" : "foto2";
+
+          setCropImage(url);
+          setCropTarget(target);
 
           setShowCropModal(true);
         }
@@ -339,16 +541,26 @@ const MonitoringCTScan = (
     window.addEventListener("paste", handlePaste);
 
     return () => window.removeEventListener("paste", handlePaste);
-  }, [foto1]);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      Object.values(imagePreview).forEach((url) => {
+        if (url) URL.revokeObjectURL(url);
+      });
+    };
+  }, [imagePreview]);
 
   const handleFileChange = (e, target) => {
     const file = e.target.files[0];
+
     if (!file) return;
 
     const url = URL.createObjectURL(file);
 
     setCropImage(url);
     setCropTarget(target);
+
     setShowCropModal(true);
   };
 
@@ -396,7 +608,7 @@ const MonitoringCTScan = (
       ) : (
         <button
           key={page}
-          onClick={() => loadData(page)}
+          onClick={() => loadData(page, tanggal)}
           className={`btn btn-sm mx-1 ${
             currentPage === page
               ? "btn-outline-primary"
@@ -407,38 +619,6 @@ const MonitoringCTScan = (
         </button>
       ),
     );
-  };
-
-  // FUNCTION CROP
-  const getCroppedImg = (imageSrc, cropPixels) => {
-    return new Promise((resolve) => {
-      const image = new Image();
-      image.src = imageSrc;
-
-      image.onload = () => {
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-
-        canvas.width = cropPixels.width;
-        canvas.height = cropPixels.height;
-
-        ctx.drawImage(
-          image,
-          cropPixels.x,
-          cropPixels.y,
-          cropPixels.width,
-          cropPixels.height,
-          0,
-          0,
-          cropPixels.width,
-          cropPixels.height,
-        );
-
-        canvas.toBlob((blob) => {
-          resolve(blob);
-        }, "image/jpeg");
-      };
-    });
   };
 
   const filteredData = data.filter((row) => {
@@ -497,36 +677,6 @@ const MonitoringCTScan = (
     };
   }, [isMobile]);
 
-  // SATU SEHAT
-  const handleProsesCTScan = async () => {
-    try {
-      if (!selectedDetail?.ct_scan_dtl_id) {
-        toast.error("ct_scan_dtl_id tidak ditemukan");
-        return;
-      }
-
-      const res = await requestCTScan({
-        registry_id: selectedDetail.registry_id,
-        ct_scan_id: selectedDetail.ct_scan_id,           // tambahkan
-        ct_scan_dtl_id: selectedDetail.ct_scan_dtl_id,   // ← WAJIB
-        pengirim_id: selectedDetail.pengirim_id,
-        pemeriksa_id: selectedDetail.pemeriksa_id,
-        keluhan: keluhan,
-      });
-
-      if (res.success) {
-        toast.success("Berhasil membuat order CT-Scan");
-        setShowRequestModal(false);
-        loadData(currentPage, tanggal);
-      } else {
-        toast.error(res.message || "Gagal proses CT-Scan");
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error(err?.response?.data?.message || "Gagal proses CT-Scan");
-    }
-  };
-
   // ======================
   // CETAK PDF HASIL X-RAY
   // ======================
@@ -550,7 +700,7 @@ const MonitoringCTScan = (
       // ==================== HEADER ====================
       doc.setFont("helvetica", "bold");
       doc.setFontSize(16);
-      doc.text("UOBK RSUD WALUYO JATI", pageWidth / 2, 20, { align: "center" });
+      doc.text("RUOBK RSUD WALUYO JATI", pageWidth / 2, 20, { align: "center" });
 
       doc.setFontSize(11);
       doc.setFont("helvetica", "normal");
@@ -608,6 +758,20 @@ const MonitoringCTScan = (
     });
   };
 
+  useEffect(() => {
+    setDicomFile(null);
+
+    setImageFiles({
+      foto1: null,
+      foto2: null,
+    });
+
+    setImagePreview({
+      foto1: null,
+      foto2: null,
+    });
+  }, [uploadMode]);
+
   // -----------------------
   // RENDER
   // -----------------------
@@ -623,7 +787,7 @@ const MonitoringCTScan = (
         dialogClassName="modal-theme"
       >
         <Modal.Header closeButton>
-          <Modal.Title>Detail CT-Scan</Modal.Title>
+          <Modal.Title>Detail X-Ray</Modal.Title>
           <span
             className={`badge ${
               selectedDetail?.status === "done"
@@ -694,26 +858,58 @@ const MonitoringCTScan = (
             </div>
 
             <div className="col-12">
-              <label>
-                <strong>Hasil Bacaan</strong>
-              </label>
+               <div className="mt-2">
+                <label className="fw-semibold">
+                  Keluhan / Anamnesa Klinis
+                </label>
 
-              {selectedDetail?.is_final ? (
-                <div className="text-success small mb-1">
-                  ✔ Menggunakan hasil dari Avesina (final)
-                </div>
-              ) : (
-                <div className="text-success small mb-1">
-                  ✔ Menggunakan hasil dari Avesina Reborn (lokal)
-                </div>
-              )}
+                <textarea
+                  className="form-control form-control-sm"
+                  rows={3}
+                  value={selectedDetail?.keluhan_anamnesa || "-"}
+                  disabled
+                />
+              </div>
 
-              <textarea
-                className="form-control form-control-sm"
-                rows={4}
-                value={selectedDetail?.hasil_bacaan || ""}
-                disabled
-              />
+              <div className="mt-2">
+                <label className="fw-semibold">
+                  Catatan Radiografer
+                </label>
+
+                <textarea
+                  className="form-control form-control-sm"
+                  rows={2}
+                  value={selectedDetail?.catatan_radiografer || "-"}
+                  disabled
+                />
+              </div>
+
+              <div className="mt-2">
+                <label>
+                  <strong>Hasil Bacaan</strong>
+                </label>
+
+                {selectedDetail?.is_final ? (
+                  <div className="text-success small mb-1">
+                    ✔ Menggunakan hasil dari Avesina (final)
+                  </div>
+                ) : selectedDetail?.is_lokal ? (
+                  <div className="text-primary small mb-1">
+                    ℹ Menggunakan hasil dari Avesina Reborn (lokal sementara)
+                  </div>
+                ) : (
+                  <div className="text-warning small mb-1">
+                    ⚠ Belum ada hasil bacaan radiologi
+                  </div>
+                )}
+
+                <textarea
+                  className="form-control form-control-sm"
+                  rows={4}
+                  value={selectedDetail?.hasil_bacaan || "-"}
+                  disabled
+                />
+              </div>
             </div>
           </div>
         </Modal.Body>
@@ -728,7 +924,7 @@ const MonitoringCTScan = (
             onClick={() => handlePrintPDF(selectedDetail)}
             disabled={!selectedDetail}
           >
-            🖨️ Cetak Hasil PDF
+            Cetak PDF
           </Button>
         </Modal.Footer>
       </Modal>
@@ -743,7 +939,7 @@ const MonitoringCTScan = (
         dialogClassName="modal-theme"
       >
         <Modal.Header closeButton>
-          <Modal.Title>Permintaan CT-Scan</Modal.Title>
+          <Modal.Title>Permintaan X-Ray</Modal.Title>
           <span
             className={`badge ${
               selectedDetail?.status === "done"
@@ -814,21 +1010,20 @@ const MonitoringCTScan = (
             </div>
 
             <div className="col-12">
-              <div>
-                <label className="fw-semibold">Keluhan</label>
+               <div className="mt-2">
+                <label className="fw-semibold">
+                  Keluhan / Anamnesa Klinis
+                </label>
 
                 <textarea
                   className="form-control form-control-sm"
-                  rows={isMobile ? 1 : 3}
-                  value={keluhan ? keluhan : "-"}
-                  onChange={(e) => setKeluhan(e.target.value)}
-                  style={{
-                    flex: isMobile ? 1 : "unset",
-                    resize: "none",
-                  }}
+                  rows={3}
+                  value={selectedUpload?.keluhan_anamnesa || "-"}
+                  disabled
                 />
               </div>
             </div>
+
           </div>
         </Modal.Body>
 
@@ -836,7 +1031,7 @@ const MonitoringCTScan = (
           <Button
             variant="success"
             onClick={() => handleProsesCTScan(selectedDetail)}
-            disabled={uploading && !keluhan}
+            disabled={uploading || !notes}
             className="ms-2"
           >
             {uploading ? "Mengirim..." : "Request & Kirim SatuSehat"}
@@ -856,7 +1051,7 @@ const MonitoringCTScan = (
         backdrop="static"
       >
         <Modal.Header closeButton>
-          <Modal.Title>Upload CT-Scan</Modal.Title>
+          <Modal.Title>Upload X-Ray</Modal.Title>
           <span
             className={`badge ${
               selectedUpload?.status === "done"
@@ -892,77 +1087,159 @@ const MonitoringCTScan = (
             </div>
           </div>
 
-          {/* ================= DICOM UPLOAD (PRIMARY) ================= */}
+          {/* ================= MODE UPLOAD ================= */}
           <div className="mt-3">
-            <label className="fw-semibold">Upload File DICOM (.dcm)</label>
+            <label className="fw-semibold d-block mb-2">
+              Pilih Mode Upload
+            </label>
 
-            <input
-              type="file"
-              className="form-control form-control-sm"
-              accept=".dcm,application/dicom"
-              onChange={handleDicomChange}
-            />
-
-            <div className="small text-muted mt-1">
-              Wajib upload file DICOM asli dari PACS (bukan screenshot)
-            </div>
-
-            {dicomFile && (
-              <div className="mt-2 text-success small">
-                ✔ File dipilih: {dicomFile.name}
-              </div>
-            )}
-          </div>
-
-          <div className="alert alert-warning mt-3 py-2 small">
-            Mode upload gambar (JPG) dinonaktifkan. 
-            Gunakan file DICOM untuk kirim SatuSehat dan kualitas pembacaan terbaik.
-          </div>
-            
-          {/* ================= LEGACY JPG UPLOAD (DISABLED) ================= */}
-          {/*<div className="mt-3 row">
-            {[1, 2].map((num) => {
-              const preview = num === 1 ? preview1 : preview2;
-
-              return (
-                <div className="col-md-6 mb-3" key={num}>
-                  <label className="fw-semibold">Foto {num}</label>
-
+            <div className="d-flex gap-3 flex-wrap">
+              
+              {/* DICOM */}
+              <div
+                onClick={() => setUploadMode("dicom")}
+                className={`border rounded p-1 flex-fill cursor-pointer ${
+                  uploadMode === "dicom"
+                    ? "border-primary bg-light"
+                    : ""
+                }`}
+                style={{
+                  cursor: "pointer",
+                  minWidth: "220px",
+                  transition: "0.2s",
+                }}
+              >
+                <div className="form-check">
                   <input
-                    type="file"
-                    className="form-control form-control-smmb-2"
-                    onChange={(e) => handleFileChange(e, `foto${num}`)}
+                    className="form-check-input me-2"
+                    type="radio"
+                    checked={uploadMode === "dicom"}
+                    readOnly
                   />
 
-                  <div className="border rounded text-center p-2">
-                    {preview ? (
-                      <img src={preview} className="img-fluid rounded" />
-                    ) : (
-                      <small className="text-muted">
-                        Bisa paste (Ctrl + V) screenshot di sini
-                      </small>
-                    )}
-                  </div>
+                  <label className="form-check-label fw-semibold">
+                    Upload DICOM
+                  </label>
                 </div>
-              );
-            })}
+              </div>
+
+              {/* IMAGE */}
+              <div
+                onClick={() => setUploadMode("image")}
+                className={`border rounded p-1 flex-fill cursor-pointer ${
+                  uploadMode === "image"
+                    ? "border-success bg-light"
+                    : ""
+                }`}
+                style={{
+                  cursor: "pointer",
+                  minWidth: "220px",
+                  transition: "0.2s",
+                }}
+              >
+                <div className="form-check">
+                  <input
+                    className="form-check-input me-2"
+                    type="radio"
+                    checked={uploadMode === "image"}
+                    readOnly
+                  />
+
+                  <label className="form-check-label fw-semibold">
+                    Upload JPEG / Paste
+                  </label>
+                </div>
+              </div>
+            </div>
           </div>
-          */}
 
-          <div>
-            <label className="fw-semibold">Keluhan</label>
+          {uploadMode === "dicom" && (
+            <div className="mt-3">
+              <label className="fw-semibold">
+                Upload File DICOM (.dcm)
+              </label>
 
-            <textarea
-              className="form-control form-control-sm"
-              rows={isMobile ? 1 : 3}
-              value={selectedUpload?.keluhan}
-              onChange={(e) => setKeluhan(e.target.value)}
-              style={{
-                flex: isMobile ? 1 : "unset",
-                resize: "none",
-              }}
-              disabled
-            />
+              <input
+                type="file"
+                className="form-control form-control-sm"
+                accept=".dcm,application/dicom"
+                onChange={handleDicomChange}
+              />
+
+              {dicomFile && (
+                <div className="mt-2 text-success small">
+                  ✔ File dipilih: {dicomFile.name}
+                </div>
+              )}
+            </div>
+          )}
+            
+          {uploadMode === "image" && (
+            <div className="mt-3 row">
+              {[1, 2].map((num) => {
+                const key = `foto${num}`;
+                const preview = imagePreview[key];
+
+                return (
+                  <div className="col-md-6 mb-3" key={num}>
+                    <label className="fw-semibold">
+                      Foto {num}
+                    </label>
+
+                    <input
+                      type="file"
+                      className="form-control form-control-sm mb-2"
+                      accept="image/*"
+                      onChange={(e) => handleFileChange(e, key)}
+                    />
+
+                    <div className="border rounded text-center p-2">
+                      {preview ? (
+                        <img
+                          src={preview}
+                          className="img-fluid rounded"
+                        />
+                      ) : (
+                        <small className="text-muted">
+                          Bisa paste screenshot di sini
+                        </small>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          
+          <div className="col-12">
+            {/* Keluhan dari dokter */}
+            <div className="mb-3">
+              <label className="form-label fw-semibold">
+                Keluhan / Anamnesa Klinis
+              </label>
+
+              <textarea
+                className="form-control"
+                rows={3}
+                value={selectedUpload?.keluhan_anamnesa || "-"}
+                disabled
+              />
+            </div>
+
+            {/* Catatan radiografer */}
+            <div className="mb-3">
+              <label className="form-label fw-semibold">
+                Catatan Radiografer
+              </label>
+
+              <textarea
+                className="form-control"
+                rows={3}
+                placeholder="Tambahan catatan saat pemeriksaan / upload gambar..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            </div>
           </div>
         </Modal.Body>
 
@@ -973,7 +1250,7 @@ const MonitoringCTScan = (
             disabled={uploading}
             className="ms-2"
           >
-            {uploading ? "Uploading..." : "Upload & Kirim SatuSehat"}
+            {uploading ? "Uploading..." : "Upload"}
           </Button>
 
           <Button variant="secondary" onClick={() => setShowUploadModal(false)}>
@@ -982,69 +1259,178 @@ const MonitoringCTScan = (
         </Modal.Footer>
       </Modal>
 
-      {/* ========== MODAL CROP GAMBAR HAISL SS =========== */}
+      {/* ========== MODAL CROP ========== */}
       <Modal
         show={showCropModal}
         onHide={() => setShowCropModal(false)}
         size="lg"
       >
         <Modal.Header closeButton>
-          <Modal.Title>Crop Gambar</Modal.Title>
+          <Modal.Title>
+            Crop Gambar
+          </Modal.Title>
         </Modal.Header>
 
-        <Modal.Body style={{ height: "400px", position: "relative" }}>
-          {cropImage && (
-            <Cropper
-              image={cropImage}
-              crop={crop}
-              zoom={zoom}
-              aspect={4 / 3}
-              onCropChange={setCrop}
-              onZoomChange={setZoom}
-              onCropComplete={(croppedArea, croppedAreaPixels) => {
-                setCroppedAreaPixels(croppedAreaPixels);
-              }}
-            />
-          )}
+        <Modal.Body>
+
+          {/* ===================== */}
+          {/* PILIH RATIO */}
+          {/* ===================== */}
+
+          <div className="mb-3 d-flex gap-2 flex-wrap">
+
+            <button
+              className={`btn btn-sm ${
+                aspect === null
+                  ? "btn-primary"
+                  : "btn-outline-primary"
+              }`}
+              onClick={() => changeAspect(null)}
+            >
+              Free
+            </button>
+
+            <button
+              className={`btn btn-sm ${
+                aspect === 1
+                  ? "btn-primary"
+                  : "btn-outline-primary"
+              }`}
+              onClick={() => changeAspect(1)}
+            >
+              1:1
+            </button>
+
+            <button
+              className={`btn btn-sm ${
+                aspect === 4 / 3
+                  ? "btn-primary"
+                  : "btn-outline-primary"
+              }`}
+              onClick={() => changeAspect(4 / 3)}
+            >
+              4:3
+            </button>
+
+            <button
+              className={`btn btn-sm ${
+                aspect === 16 / 9
+                  ? "btn-primary"
+                  : "btn-outline-primary"
+              }`}
+              onClick={() => changeAspect(16 / 9)}
+            >
+              16:9
+            </button>
+
+          </div>
+
+          {/* ===================== */}
+          {/* CROPPER */}
+          {/* ===================== */}
+
+          <div
+            className="d-flex justify-content-center"
+            style={{
+              maxHeight: "70vh",
+              overflow: "auto",
+            }}
+          >
+            {cropImage && (
+              <ReactCrop
+                crop={crop}
+                onChange={(c) => setCrop(c)}
+                onComplete={(c) =>
+                  setCompletedCrop(c)
+                }
+                aspect={aspect || undefined}
+              >
+                <img
+                  src={cropImage}
+                  alt="Crop"
+                  style={{
+                    maxWidth: "100%",
+                    maxHeight: "65vh",
+                  }}
+                />
+              </ReactCrop>
+            )}
+          </div>
+
         </Modal.Body>
 
         <Modal.Footer>
+
           <Button
             variant="success"
             onClick={async () => {
-              const croppedBlob = await getCroppedImg(
-                cropImage,
-                croppedAreaPixels,
-              );
 
-              const file = new File([croppedBlob], "crop.jpg", {
-                type: "image/jpeg",
-              });
-
-              if (cropTarget === "foto1") {
-                setFoto1(file);
-                setPreview1(URL.createObjectURL(file));
-              } else {
-                setFoto2(file);
-                setPreview2(URL.createObjectURL(file));
+              if (!completedCrop) {
+                toast.warn(
+                  "Crop belum dipilih"
+                );
+                return;
               }
 
+              const croppedBlob =
+                await getCroppedImg(
+                  cropImage,
+                  completedCrop
+                );
+
+              const file = new File(
+                [croppedBlob],
+                "crop.jpg",
+                {
+                  type: "image/jpeg",
+                }
+              );
+
+              if (cropTarget) {
+
+                setImageFiles((prev) => ({
+                  ...prev,
+                  [cropTarget]: file,
+                }));
+
+                setImagePreview((prev) => ({
+                  ...prev,
+                  [cropTarget]:
+                    URL.createObjectURL(file),
+                }));
+              }
+
+              // RESET
               setShowCropModal(false);
 
-              // RESET STATE BIAR BERSIH
-              setCrop({ x: 0, y: 0 });
-              setZoom(1);
-              setCroppedAreaPixels(null);
+              setCrop({
+                unit: "%",
+                x: 10,
+                y: 10,
+                width: 80,
+                height: 80,
+              });
+
+              setCompletedCrop(null);
+
               setCropImage(null);
+
               setCropTarget(null);
+
             }}
           >
             Simpan Crop
           </Button>
 
-          <Button variant="secondary" onClick={() => setShowCropModal(false)}>
+          <Button
+            variant="secondary"
+            onClick={() =>
+              setShowCropModal(false)
+            }
+          >
             Batal
           </Button>
+
         </Modal.Footer>
       </Modal>
 
@@ -1057,7 +1443,7 @@ const MonitoringCTScan = (
         fullscreen={isMobile}   // ← Fullscreen di HP
       >
         <Modal.Header closeButton>
-          <Modal.Title>Baca CT-Scan - {selectedBaca?.patient_nm}</Modal.Title>
+          <Modal.Title>Baca X-Ray - {selectedBaca?.patient_nm}</Modal.Title>
           <span className={`badge ms-2 ${selectedBaca?.status === "done" ? "bg-success" : selectedBaca?.status === "uploaded" ? "bg-warning text-dark" : "bg-secondary"}`}>
             {selectedBaca?.status}
           </span>
@@ -1104,6 +1490,15 @@ const MonitoringCTScan = (
                 />
               </div>
             )}
+
+            {selectedBaca?.foto2 && (
+              <div className="col-lg-5 mt-3">
+                <ZoomImage
+                  src={`${import.meta.env.VITE_API_URL}${selectedBaca.foto2}`}
+                  isMobile={isMobile}
+                />
+              </div>
+            )}
           </div>
 
           {/* Form Hasil Bacaan */}
@@ -1112,8 +1507,8 @@ const MonitoringCTScan = (
             <textarea
               className="form-control form-control-sm"
               rows={isMobile ? 1 : 3}
-              value={keluhan ? keluhan : "-"}
-              onChange={(e) => setKeluhan(e.target.value)}
+              value={notes ? notes : "-"}
+              onChange={(e) => setNotes(e.target.value)}
               style={{
                 flex: isMobile ? 1 : "unset",
                 resize: "none",
@@ -1144,7 +1539,7 @@ const MonitoringCTScan = (
             onClick={handleSaveAndSendObservation}
             disabled={saving}
           >
-            {saving ? "Menyimpan..." : "Simpan & Kirim ke SatuSehat"}
+            {saving ? "Menyimpan..." : "Simpan"}
           </Button>
         </Modal.Footer>
       </Modal>
@@ -1170,7 +1565,7 @@ const MonitoringCTScan = (
       {/* ================= CARD ================= */}
       <div className={`card shadow-sm card-theme ${isMobile ? "mt-2" : ""}`}>
         <div className="card-header py-2 px-3">
-          <h6 className="mb-0">Monitoring CT-Scan</h6>
+          <h6 className="mb-0">Monitoring X-Ray</h6>
         </div>
 
         <div className="card-body px-3 py-3">
@@ -1206,7 +1601,11 @@ const MonitoringCTScan = (
               </label>
               
               <DatePicker
-                selected={tanggal ? new Date(tanggal) : null}
+                selected={
+                  tanggal
+                    ? new Date(`${tanggal}T00:00:00`)
+                    : null
+                }
                 onChange={(date) => setTanggal(date ? date.toISOString().split('T')[0] : '')}
                 dateFormat="d MMMM yyyy"
                 className="form-control form-control-sm"
@@ -1219,7 +1618,7 @@ const MonitoringCTScan = (
                 
                 // === SOLUSI WIDTH ===
                 wrapperClassName="w-100"
-                style={{ width: "100%" }}
+                style={{ width: "100%", zIndex: "99999" }}
               />
             </div>
 
@@ -1310,11 +1709,6 @@ const MonitoringCTScan = (
                   {!isMobile && <th>NRM / Nama</th>}
                   {!isMobile && <th>Pengirim (IHS) / Pemeriksa (IHS)</th>}
                   {!isMobile && <th>Tindakan / Mapping</th>}
-                  {!isMobile && <th className="text-center">ENC</th>}
-                  {!isMobile && <th className="text-center">REQ</th>}
-                  {!isMobile && <th className="text-center">IMG</th>}
-                  {!isMobile && <th className="text-center">OBS</th>}
-                  {!isMobile && <th className="text-center">REP</th>}
                   {!isMobile && <th className="text-center">Status</th>}
 
                   <th className="text-center">Aksi</th>
@@ -1347,10 +1741,12 @@ const MonitoringCTScan = (
                   //console.log(filteredData);
 
                   const {
-                    patient = false,
-                    encounter = false,
-                    service_request = false,
-                    imaging = false,
+                    patient = null,
+                    encounter = null,
+                    service_request = null,
+                    imaging = null,
+                    observation = null,
+                    report = null,
                   } = satu_sehat;
 
                   const isNotFinal = !is_final;
@@ -1367,49 +1763,121 @@ const MonitoringCTScan = (
                   // radiolog ada (optional kalau dipakai)
                   const hasPemeriksa = !!pemeriksa_ihs;
 
-                  const canRequest =
-                    //isNotFinal &&
-                    patient &&
-                    encounter &&
-                    hasPengirim &&
-                    hasPemeriksa &&
-                    hasValidTindakan &&
-                    !service_request;
+                  const isSSSuccess = (item) =>
+                    item?.status === "success";
 
-                  const canUpload = 
-                    //isNotFinal &&
-                    status === "ordered" &&
-                    service_request &&
-                    hasValidTindakan &&
-                    !imaging;
-                  
-                  // bisa baca kalau sudah upload & belum final
+                  const isSSPending = (item) =>
+                    ["queued", "processing"].includes(item?.status);
+
+                  const isSSFailed = (item) =>
+                    ["failed", "skipped"].includes(item?.status);
+
+                  const imgSuccess = isSSSuccess(imaging);
+                  const imgPending = isSSPending(imaging);
+
+                  const repSuccess = isSSSuccess(report);
+                  const repPending = isSSPending(report);
+
+                  const obsSuccess = isSSSuccess(observation);
+
+                  // ====================
+                  // ACTION RULES
+                  // ====================
+
+                  // UPLOAD
+                  const canUpload =
+                    ["none", "ordered", "uploaded"].includes(status)
+                    //&& !is_final;
+
+                  // BACA
                   const canBaca =
-                    //isNotFinal &&
-                    status === "uploaded";
+                    ["uploaded", "ordered", "read"].includes(status);
 
-                  // bisa simpan (Observasi / Avesina) kalau sudah dibaca
-                  const canSimpan =
-                    //isNotFinal;
-                    status === "read";
-
-                  // Imaging hanya kalau belum pernah kirim
-                  const canSendImaging =
-                    status === "uploaded" &&
-                    service_request &&
-                    !imaging;
-
-                  // Diagnostic hanya kalau sudah baca
+                  // REPORT
                   const canSendDiagnostic =
                     status === "read" &&
-                    imaging &&
-                    !row.satu_sehat?.report;
+                    imgSuccess &&
+                    !repSuccess &&
+                    !repPending;
 
-                  // Observation optional (boleh setelah read)
+                  // OBSERVATION
                   const canSendObservation =
                     status === "read" &&
-                    row.satu_sehat?.report && 
-                    !row.satu_sehat?.observation;
+                    repSuccess &&
+                    !obsSuccess;
+
+                  // SAVE LOCAL
+                  const canSimpan =
+                    status === "read";
+
+                  const renderStatusBadge = (row) => {
+                    if (row.is_lokal) {
+                      return (
+                        <span className="badge bg-dark">
+                          Final Reborn
+                        </span>
+                      );
+                    }
+                  
+                    if (row.is_final) {
+                      return (
+                        <span className="badge bg-purple">
+                          Final Avesina
+                        </span>
+                      );
+                    }
+                  
+                    switch (row.status) {
+                      case "none":
+                        return (
+                          <span className="badge bg-secondary">
+                            Belum Upload
+                          </span>
+                        );
+                  
+                      case "ordered":
+                        return (
+                          <span className="badge bg-info text-dark">
+                            Sudah Diminta
+                          </span>
+                        );
+                  
+                      case "uploaded":
+                        return (
+                          <span className="badge bg-warning text-dark">
+                            Sudah Upload
+                          </span>
+                        );
+                  
+                      case "read":
+                        return (
+                          <span className="badge bg-primary">
+                            Sudah Dibaca
+                          </span>
+                        );
+                  
+                      case "done":
+                        return (
+                          <span className="badge bg-success">
+                            Selesai
+                          </span>
+                        );
+                  
+                      case "failed":
+                        return (
+                          <span className="badge bg-danger">
+                            Gagal
+                          </span>
+                        );
+                  
+                      default:
+                        return (
+                          <span className="badge bg-light text-dark border">
+                            Unknown
+                          </span>
+                        );
+                    }
+                  };
 
                   return (
                     <tr key={row.unit_visit_id || i}>
@@ -1434,45 +1902,7 @@ const MonitoringCTScan = (
                             ))}
                           </div>
                           <div>
-                            {row.is_lokal ? (
-                              <span className="badge bg-dark">
-                                Final Reborn
-                              </span>
-                            ) : (
-                              <span className="badge bg-purple">
-                                Final Avesina
-                              </span>
-                            )}
-
-                            {row.status === "none" && (
-                              <span className="badge bg-secondary">
-                                Belum Upload
-                              </span>
-                            )}
-
-                            {row.status === "ordered" && (
-                              <span className="badge bg-info text-dark">
-                                Sudah Diminta
-                              </span>
-                            )}
-
-                            {row.status === "uploaded" && (
-                              <span className="badge bg-warning text-dark">
-                                Sudah Upload
-                              </span>
-                            )}
-
-                            {row.status === "read" && (
-                              <span className="badge bg-primary">
-                                Sudah Dibaca
-                              </span>
-                            )}
-
-                            {row.status === "done" && (
-                              <span className="badge bg-success">
-                                Selesai
-                              </span>
-                            )}
+                            {renderStatusBadge(row)}
                           </div>
                         </td>
                       )}
@@ -1481,7 +1911,7 @@ const MonitoringCTScan = (
                         <td>
                           <span
                             className={`badge me-1 ${
-                              row.satu_sehat?.patient
+                              row.satu_sehat?.patient?.status === "success"
                                 ? "bg-success"
                                 : "bg-danger"
                             }`}
@@ -1560,98 +1990,8 @@ const MonitoringCTScan = (
 
                       {!isMobile && (
                         <td className="text-center">
-                          {row.satu_sehat?.encounter ? (
-                            <span className="badge bg-secondary">ENC</span>
-                          ) : (
-                            <span className="badge bg-light text-muted border">ENC</span>
-                          )}
+                          {renderStatusBadge(row)}
                         </td>
-                      )}
-
-                      {!isMobile && (
-                        <td className="text-center">
-                          {row.satu_sehat?.service_request ? (
-                            <span className="badge bg-primary">REQ</span>
-                          ) : (
-                            <span className="badge bg-light text-muted border">REQ</span>
-                          )}
-                        </td>
-                      )}
-
-                      {!isMobile && (
-                        <td className="text-center">
-                          {row.satu_sehat?.imaging ? (
-                            <span className="badge bg-info text-dark">IMG</span>
-                          ) : (
-                            <span className="badge bg-light text-muted border">IMG</span>
-                          )}
-                        </td>
-                      )}
-
-                      {!isMobile && (
-                        <td className="text-center">
-                          {row.satu_sehat?.observation ? (
-                            <span className="badge bg-dark">OBS</span>
-                          ) : (
-                            <span className="badge bg-light text-muted border">OBS</span>
-                          )}
-                        </td>
-                      )}
-
-                      {!isMobile && (
-                        <td className="text-center">
-                          {row.satu_sehat?.report ? (
-                            <span className="badge bg-warning text-dark">REP</span>
-                          ) : (
-                            <span className="badge bg-light text-muted border">REP</span>
-                          )}
-                        </td>
-                      )}
-
-                      {!isMobile && (
-                        <div className="text-center">
-                          {row.is_lokal ? (
-                            <span className="badge bg-dark">
-                              Final Reborn
-                            </span>
-                          ) : (
-                            <span className="badge bg-purple">
-                              Final Avesina
-                            </span>
-                          )}
-
-                          <br/>
-
-                          {row.status === "none" && (
-                            <span className="badge bg-secondary">
-                              Belum Upload
-                            </span>
-                          )}
-
-                          {row.status === "ordered" && (
-                            <span className="badge bg-info text-dark">
-                              Sudah Diminta
-                            </span>
-                          )}
-
-                          {row.status === "uploaded" && (
-                            <span className="badge bg-warning text-dark">
-                              Sudah Upload
-                            </span>
-                          )}
-
-                          {row.status === "read" && (
-                            <span className="badge bg-primary">
-                              Sudah Dibaca
-                            </span>
-                          )}
-
-                          {row.status === "done" && (
-                            <span className="badge bg-success">
-                              Selesai
-                            </span>
-                          )}
-                        </div>
                       )}
 
                       <td className="text-center">
@@ -1664,34 +2004,26 @@ const MonitoringCTScan = (
 
                         {isMobile && <hr className="m-2" />}
 
-                        {role === "physician" && (
-                          <button
-                            className="btn btn-sm btn-outline-success"
-                            disabled={!canRequest}
-                            onClick={() => openModalRequest(row)}
-                            title={
-                              !hasValidTindakan
-                                ? "Mapping SNOMED & LOINC belum lengkap"
-                                : ""
-                            }
-                          >
-                            Request
-                          </button>
-                        )}
-
+                        {/* === RADIOGRAFER - UPLOAD === */}
                         {role === "radiografer" && (
                           <button
                             className="btn btn-sm btn-outline-success ms-1"
                             disabled={!canUpload}
                             onClick={() => openModalUpload(row)}
+                            title={
+                              !hasValidTindakan 
+                                ? "Mapping SNOMED/LOINC belum lengkap → hanya lokal" 
+                                : ""
+                            }
                           >
                             Upload
                           </button>
                         )}
 
+                        {/* === RADIOLOG - BACA === */}
                         {role === "radiolog" && (
                           <button
-                            className="btn btn-sm btn-outline-success"
+                            className="btn btn-sm btn-outline-success ms-1"
                             disabled={!canBaca}
                             onClick={() => openModalBaca(row)}
                           >
@@ -1703,15 +2035,6 @@ const MonitoringCTScan = (
                           <hr className="m-2" />
                         )}
 
-                        {role === "radiolog" && (
-                          <button
-                            className="btn btn-sm btn-outline-info ms-1"
-                            disabled={!canSendDiagnostic}
-                            onClick={() => openModalReport(row)}
-                          >
-                            Report
-                          </button>
-                        )}
                       </td>
                     </tr>
                   );
@@ -1737,22 +2060,6 @@ const MonitoringCTScan = (
                   <span className="badge bg-primary me-1">LN</span>
                   <span className="badge bg-danger me-1">SN/LN</span>
                   SNOMED/LOINC mapping sudah/belum tersedia
-                  <br />
-                  <span className="badge bg-secondary me-1">ENC</span>
-                  Encounter pasien sudah tercatat
-                  <br />
-                  <span className="badge bg-primary me-1">REQ</span>
-                  ServiceRequest radiologi sudah dibuat
-                </div>
-                <div className="col-md-5 small">
-                  <span className="badge bg-info text-dark me-1">IMG</span>
-                  ImagingStudy CT-Scan sudah dikirim (mini-PACS non-DICOM)
-                  <br />
-                  <span className="badge bg-dark me-1">OBS</span>
-                  Observation hasil bacaan (temuan medis) sudah dikirim
-                  <br />
-                  <span className="badge bg-warning text-dark me-1">REP</span>
-                  DiagnosticReport hasil bacaan radiologi sudah dikirim
                 </div>
               </div>
             </div>

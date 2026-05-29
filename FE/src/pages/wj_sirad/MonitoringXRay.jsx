@@ -11,8 +11,10 @@ import { Modal, Button } from "react-bootstrap";
 import { formatDate } from "../../utils/FormatDate";
 import { useMediaQuery } from "react-responsive";
 
-import Cropper from "react-easy-crop";
 import ZoomImage from "../../components/ZoomImage";
+
+import ReactCrop from "react-image-crop";
+import "react-image-crop/dist/ReactCrop.css";
 
 import DicomViewer from "../../components/DicomViewer";
 
@@ -87,10 +89,92 @@ const MonitoringXRay = (
   const [cropTarget, setCropTarget] = useState(null); // foto1 / foto2
   const [showCropModal, setShowCropModal] = useState(false);
 
-  const [crop, setCrop] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
+  const [crop, setCrop] = useState({
+    unit: "%",
+    x: 10,
+    y: 10,
+    width: 80,
+    height: 80,
+  });
+  const [aspect, setAspect] = useState(null);
+  const [completedCrop, setCompletedCrop] = useState(null);
 
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+  // =====================
+  // CHANGE ASPECT
+  // =====================
+
+  const changeAspect = (newAspect) => {
+
+    setAspect(newAspect);
+
+    setCrop({
+      unit: "%",
+      x: 10,
+      y: 10,
+      width: 80,
+      height: 80,
+    });
+  };
+
+  // =====================
+  // GET CROPPED IMAGE
+  // =====================
+
+  const getCroppedImg = (
+    imageSrc,
+    crop
+  ) => {
+
+    return new Promise((resolve) => {
+
+      const image = new Image();
+
+      image.src = imageSrc;
+
+      image.onload = () => {
+
+        const canvas =
+          document.createElement("canvas");
+
+        const scaleX =
+          image.naturalWidth /
+          image.width;
+
+        const scaleY =
+          image.naturalHeight /
+          image.height;
+
+        canvas.width =
+          crop.width;
+
+        canvas.height =
+          crop.height;
+
+        const ctx =
+          canvas.getContext("2d");
+
+        ctx.drawImage(
+          image,
+
+          crop.x * scaleX,
+          crop.y * scaleY,
+
+          crop.width * scaleX,
+          crop.height * scaleY,
+
+          0,
+          0,
+
+          crop.width,
+          crop.height
+        );
+
+        canvas.toBlob((blob) => {
+          resolve(blob);
+        }, "image/jpeg");
+      };
+    });
+  };
 
   // -----------------------
   // MOBILE VIEW
@@ -535,38 +619,6 @@ const MonitoringXRay = (
         </button>
       ),
     );
-  };
-
-  // FUNCTION CROP
-  const getCroppedImg = (imageSrc, cropPixels) => {
-    return new Promise((resolve) => {
-      const image = new Image();
-      image.src = imageSrc;
-
-      image.onload = () => {
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-
-        canvas.width = cropPixels.width;
-        canvas.height = cropPixels.height;
-
-        ctx.drawImage(
-          image,
-          cropPixels.x,
-          cropPixels.y,
-          cropPixels.width,
-          cropPixels.height,
-          0,
-          0,
-          cropPixels.width,
-          cropPixels.height,
-        );
-
-        canvas.toBlob((blob) => {
-          resolve(blob);
-        }, "image/jpeg");
-      };
-    });
   };
 
   const filteredData = data.filter((row) => {
@@ -1207,46 +1259,135 @@ const MonitoringXRay = (
         </Modal.Footer>
       </Modal>
 
-      {/* ========== MODAL CROP GAMBAR HAISL SS =========== */}
+      {/* ========== MODAL CROP ========== */}
       <Modal
         show={showCropModal}
         onHide={() => setShowCropModal(false)}
         size="lg"
       >
         <Modal.Header closeButton>
-          <Modal.Title>Crop Gambar</Modal.Title>
+          <Modal.Title>
+            Crop Gambar
+          </Modal.Title>
         </Modal.Header>
 
-        <Modal.Body style={{ height: "400px", position: "relative" }}>
-          {cropImage && (
-            <Cropper
-              image={cropImage}
-              crop={crop}
-              zoom={zoom}
-              aspect={4 / 3}
-              onCropChange={setCrop}
-              onZoomChange={setZoom}
-              onCropComplete={(croppedArea, croppedAreaPixels) => {
-                setCroppedAreaPixels(croppedAreaPixels);
-              }}
-            />
-          )}
+        <Modal.Body>
+
+          {/* ===================== */}
+          {/* PILIH RATIO */}
+          {/* ===================== */}
+
+          <div className="mb-3 d-flex gap-2 flex-wrap">
+
+            <button
+              className={`btn btn-sm ${
+                aspect === null
+                  ? "btn-primary"
+                  : "btn-outline-primary"
+              }`}
+              onClick={() => changeAspect(null)}
+            >
+              Free
+            </button>
+
+            <button
+              className={`btn btn-sm ${
+                aspect === 1
+                  ? "btn-primary"
+                  : "btn-outline-primary"
+              }`}
+              onClick={() => changeAspect(1)}
+            >
+              1:1
+            </button>
+
+            <button
+              className={`btn btn-sm ${
+                aspect === 4 / 3
+                  ? "btn-primary"
+                  : "btn-outline-primary"
+              }`}
+              onClick={() => changeAspect(4 / 3)}
+            >
+              4:3
+            </button>
+
+            <button
+              className={`btn btn-sm ${
+                aspect === 16 / 9
+                  ? "btn-primary"
+                  : "btn-outline-primary"
+              }`}
+              onClick={() => changeAspect(16 / 9)}
+            >
+              16:9
+            </button>
+
+          </div>
+
+          {/* ===================== */}
+          {/* CROPPER */}
+          {/* ===================== */}
+
+          <div
+            className="d-flex justify-content-center"
+            style={{
+              maxHeight: "70vh",
+              overflow: "auto",
+            }}
+          >
+            {cropImage && (
+              <ReactCrop
+                crop={crop}
+                onChange={(c) => setCrop(c)}
+                onComplete={(c) =>
+                  setCompletedCrop(c)
+                }
+                aspect={aspect || undefined}
+              >
+                <img
+                  src={cropImage}
+                  alt="Crop"
+                  style={{
+                    maxWidth: "100%",
+                    maxHeight: "65vh",
+                  }}
+                />
+              </ReactCrop>
+            )}
+          </div>
+
         </Modal.Body>
 
         <Modal.Footer>
+
           <Button
             variant="success"
             onClick={async () => {
-              const croppedBlob = await getCroppedImg(
-                cropImage,
-                croppedAreaPixels,
+
+              if (!completedCrop) {
+                toast.warn(
+                  "Crop belum dipilih"
+                );
+                return;
+              }
+
+              const croppedBlob =
+                await getCroppedImg(
+                  cropImage,
+                  completedCrop
+                );
+
+              const file = new File(
+                [croppedBlob],
+                "crop.jpg",
+                {
+                  type: "image/jpeg",
+                }
               );
 
-              const file = new File([croppedBlob], "crop.jpg", {
-                type: "image/jpeg",
-              });
-
               if (cropTarget) {
+
                 setImageFiles((prev) => ({
                   ...prev,
                   [cropTarget]: file,
@@ -1254,26 +1395,42 @@ const MonitoringXRay = (
 
                 setImagePreview((prev) => ({
                   ...prev,
-                  [cropTarget]: URL.createObjectURL(file),
+                  [cropTarget]:
+                    URL.createObjectURL(file),
                 }));
               }
 
+              // RESET
               setShowCropModal(false);
 
-              // RESET STATE BIAR BERSIH
-              setCrop({ x: 0, y: 0 });
-              setZoom(1);
-              setCroppedAreaPixels(null);
+              setCrop({
+                unit: "%",
+                x: 10,
+                y: 10,
+                width: 80,
+                height: 80,
+              });
+
+              setCompletedCrop(null);
+
               setCropImage(null);
+
               setCropTarget(null);
+
             }}
           >
             Simpan Crop
           </Button>
 
-          <Button variant="secondary" onClick={() => setShowCropModal(false)}>
+          <Button
+            variant="secondary"
+            onClick={() =>
+              setShowCropModal(false)
+            }
+          >
             Batal
           </Button>
+
         </Modal.Footer>
       </Modal>
 
@@ -1833,51 +1990,7 @@ const MonitoringXRay = (
 
                       {!isMobile && (
                         <td className="text-center">
-                          {row.is_lokal ? (
-                            <span className="badge bg-dark">
-                              Final Reborn
-                            </span>
-                          ) : row.is_final ? (
-                            <span className="badge bg-purple">
-                              Final Avesina
-                            </span>
-                          ) : (
-                            <span className="badge bg-danger">
-                              Belum Dibaca
-                            </span>
-                          )}
-
-                          <br/>
-
-                          {row.status === "none" && (
-                            <span className="badge bg-secondary">
-                              Belum Upload
-                            </span>
-                          )}
-
-                          {row.status === "ordered" && (
-                            <span className="badge bg-info text-dark">
-                              Sudah Diminta
-                            </span>
-                          )}
-
-                          {row.status === "uploaded" && (
-                            <span className="badge bg-warning text-dark">
-                              Sudah Upload
-                            </span>
-                          )}
-
-                          {row.status === "read" && (
-                            <span className="badge bg-primary">
-                              Sudah Dibaca
-                            </span>
-                          )}
-
-                          {row.status === "done" && (
-                            <span className="badge bg-success">
-                              Selesai
-                            </span>
-                          )}
+                          {renderStatusBadge(row)}
                         </td>
                       )}
 
@@ -1947,16 +2060,6 @@ const MonitoringXRay = (
                   <span className="badge bg-primary me-1">LN</span>
                   <span className="badge bg-danger me-1">SN/LN</span>
                   SNOMED/LOINC mapping sudah/belum tersedia
-                </div>
-                <div className="col-md-5 small">
-                  <span className="badge bg-info text-dark me-1">IMG</span>
-                  ImagingStudy X-Ray sudah dikirim (mini-PACS non-DICOM)
-                  <br />
-                  <span className="badge bg-dark me-1">OBS</span>
-                  Observation hasil bacaan (temuan medis) sudah dikirim
-                  <br />
-                  <span className="badge bg-warning text-dark me-1">REP</span>
-                  DiagnosticReport hasil bacaan radiologi sudah dikirim
                 </div>
               </div>
             </div>
