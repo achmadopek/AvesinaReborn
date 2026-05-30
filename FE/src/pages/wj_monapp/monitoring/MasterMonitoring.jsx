@@ -85,47 +85,97 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
   // VISITE DOKTER
   const [visiteStats, setVisiteStats] = useState({
     totalVisite: 0,
+
     spmStandar: 0,
     spmTidakStandar: 0,
+
     inmStandar: 0,
     inmTidakStandar: 0,
+
+    spmPercent: 0,
+    inmPercent: 0,
   });
-
-  const totalVisite = visiteStats.totalVisite || 0;
-
-const spmPercent = totalVisite
-  ? (visiteStats.spmStandar / totalVisite) * 100
-  : 0;
-
-const inmPercent = totalVisite
-  ? (visiteStats.inmStandar / totalVisite) * 100
-  : 0;
 
   const today = new Date().toLocaleDateString("sv-SE");
 
   useEffect(() => {
-    const loadICareStats = async () => {
+
+    const loadVisiteStats = async () => {
+
       try {
-        const res = await fetchPaginatedDataMonitoringIcare({
-          page: 1,
-          limit: 1,
-          startDate: today,
-          endDate: today,
-          poli: "",
-          search: "",
+
+        const today =
+          new Date()
+            .toISOString()
+            .slice(0, 10);
+
+        const res =
+          await fetchMonitoringVisiteSummary({
+
+            startDate: today,
+            endDate: today
+          });
+
+        const summary =
+          res.summary || {};
+
+        const spmTotal =
+          Number(summary.spmStandar || 0) +
+          Number(summary.spmTidakStandar || 0);
+
+        const inmTotal =
+          Number(summary.inmStandar || 0) +
+          Number(summary.inmTidakStandar || 0);
+
+        const spmPercent =
+          spmTotal === 0
+            ? 0
+            : (
+                (summary.spmStandar / spmTotal) *
+                100
+              );
+
+        const inmPercent =
+          inmTotal === 0
+            ? 0
+            : (
+                (summary.inmStandar / inmTotal) *
+                100
+              );
+
+        setVisiteStats({
+
+          totalVisite:
+            summary.totalAktivitas || 0,
+
+          spmStandar:
+            summary.spmStandar || 0,
+
+          spmTidakStandar:
+            summary.spmTidakStandar || 0,
+
+          inmStandar:
+            summary.inmStandar || 0,
+
+          inmTidakStandar:
+            summary.inmTidakStandar || 0,
+
+          spmPercent,
+
+          inmPercent
         });
 
-        setIcareStats({
-          sukses: res.totalSuccess || 0,
-          gagal: res.totalError || 0,
-          total: Number(res.totalSuccess) + Number(res.totalError) || 0,
-        });
       } catch (error) {
-        console.error("Gagal ambil statistik iCare:", error);
+
+        console.error(
+          "Gagal ambil statistik visite:",
+          error
+        );
       }
     };
 
-    loadICareStats();
+    loadVisiteStats();
+
   }, []);
 
   useEffect(() => {
@@ -207,40 +257,6 @@ const inmPercent = totalVisite
     // cleanup
     return () => clearInterval(interval);
   }, [today]);
-
-  useEffect(() => {
-    const loadVisiteStats = async () => {
-      try {
-        const today = new Date().toISOString().slice(0, 10);
-  
-        const res = await fetchMonitoringVisiteSummary({
-          page: 1,
-          limit: 1,
-          startDate: today,
-          endDate: today,
-          poli: "ALL",
-          search: "",
-        });
-  
-        const summary = res.summary || {};
-  
-        const totalVisite = summary.totalVisite || 0;
-  
-        setVisiteStats({
-          totalVisite,
-          spmStandar: summary.spmStandar || 0,
-          spmTidakStandar: summary.spmTidakStandar || 0,
-          inmStandar: summary.inmStandar || 0,
-          inmTidakStandar: summary.inmTidakStandar || 0,
-        });
-  
-      } catch (error) {
-        console.error("Gagal ambil statistik visite:", error);
-      }
-    };
-  
-    loadVisiteStats();
-  }, []);
 
   // daftar menu monitoring
   const menuMonitoring = [
@@ -387,23 +403,25 @@ const inmPercent = totalVisite
 
         {
           label: "SPM",
+
           value: (
             <>
-              {spmPercent.toFixed(0)}
+              {(visiteStats.spmPercent || 0).toFixed(0)}
               <span className="fs-6">%</span>
             </>
           )
         },
 
-                {
+        {
           label: "INM",
+
           value: (
             <>
-              {inmPercent.toFixed(0)}
+              {(visiteStats.inmPercent || 0).toFixed(0)}
               <span className="fs-6">%</span>
             </>
           )
-        },
+        }
       ],
 
       disabled: false,
