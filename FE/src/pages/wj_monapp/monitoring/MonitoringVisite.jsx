@@ -19,7 +19,8 @@ import {
 } from "recharts";
 
 import {
-  fetchMonitoringVisite
+  fetchMonitoringVisiteSummary,
+  fetchMonitoringVisiteActivity
 } from "../../../api/wj_monapp/MasterMonitoring";
 
 import SearchSelectDokter from "../../../components/search/SearchSelectDokter";
@@ -29,6 +30,9 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
   const [searchParams] = useSearchParams();
 
   const [data, setData] = useState([]);
+
+  const [summary, setSummary] = useState({});
+
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -36,28 +40,16 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
   
-  const [statusFilter, setStatusFilter] = useState("");
   const [dokter, setDokter] = useState(null);
-  const [dokterList, setDokterList] = useState([]);
 
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const [summary, setSummary] = useState(null);
-
-  const [rekapDokter, setRekapDokter] = useState([]);
-
   const [sortBy, setSortBy] = useState("visite_dt");
   const [sortOrder, setSortOrder] = useState("DESC");
 
+  const [pieAktivitas, setPieAktivitas] = useState([]);
   const [chartHarian, setChartHarian] = useState([]);
-
-  const dokterChartData = rekapDokter
-    .slice(0, 10)
-    .map((d) => ({
-      dokter: d.employee_nm,
-      total: Number(d.total_visite)
-    }));
 
   const handleSort = (column) => {
     if (sortBy === column) {
@@ -72,40 +64,61 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
     setCurrentPage(1);
   };
 
-  const coverage =
-    summary?.totalPasienAktif > 0
-      ? (
-          summary?.sudahDivisite /
-          summary?.totalPasienAktif
-        ) * 100
-      : 0;
-
-  const fetchData = async () => {
-    setLoading(true);
-
+  const fetchSummary = async () => {
     try {
-      const res = await fetchMonitoringVisite({
-        page: currentPage,
-        limit,
-        statusFilter,
-        startDate,
-        endDate,
-        search,
-        dokter: dokter?.value || "",
-        sortBy,
-        sortOrder,
-      });
 
-      console.log("RES:", res);
+      const res =
+        await fetchMonitoringVisiteSummary({
 
-      setData(res.data || []);
-      setRekapDokter(res.rekapDokter || []);
-      setDokterList(res.dokterList || []);
-      setTotalPages(res.totalPages || 1);
-      setSummary(res.summary || {});
-      setChartHarian(res.chartHarian || []);
+          dokter:
+            dokter?.value || "",
+
+          startDate,
+          endDate
+        });
+
+      setSummary(
+        res.summary || {}
+      );
+
+      setPieAktivitas(
+        res.pieAktivitas || []
+      );
+
+      setChartHarian(
+        res.chartHarian || []
+      );
     } catch (err) {
-      console.error("Gagal ambil data:", err);
+      console.log(err);
+    }
+  };
+
+  const fetchActivity = async () => {
+    setLoading(true);
+    try {
+      const res =
+        await fetchMonitoringVisiteActivity({
+          page: currentPage,
+          limit,
+
+          dokter: dokter?.value || "",
+
+          startDate,
+          endDate,
+
+          search,
+
+          sortBy,
+          sortOrder
+        });
+      setData(
+        res.data || []
+      );
+      setTotalPages(
+        res.totalPages || 1
+      );
+    } catch (err) {
+      console.log(err);
       setData([]);
     } finally {
       setLoading(false);
@@ -113,19 +126,21 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
   };
 
   useEffect(() => {
-    fetchData();
+
+    fetchSummary();
+    fetchActivity();
+
   }, [
     currentPage,
     startDate,
     endDate,
-    statusFilter,
-    search,
     dokter,
+    search,
     sortBy,
     sortOrder
   ]);
 
-  console.log("dokterList:", dokterList);
+  //console.log("dokterList:", dokterList);
 
   // === Pagination helper ===
   const renderPageNumbers = () => {
@@ -173,13 +188,6 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
     );
   };
 
-  const barData = rekapDokter.map((d) => ({
-    name: d.employee_nm,
-    value: Number(d.total_visite)
-  }));
-
-  const COLORS = ["#4caf50", "#ff9800", "#f44336", "#2196f3"];
-
   return (
   <>
     {/* ============================= */}
@@ -222,44 +230,8 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
             />
           </div>
 
-          {/* STATUS */}
-          <div className="col-md-3 col-6">
-            <label className="form-label small mb-1">
-              Status
-            </label>
-
-            <select
-              className="form-control form-control-sm p-2"
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
-                setCurrentPage(1);
-              }}
-            >
-              <option value="">
-                Semua Data
-              </option>
-
-              <option value="spm_ok">
-                SPM Standar
-              </option>
-
-              <option value="spm_no">
-                SPM Tidak Standar
-              </option>
-
-              <option value="inm_ok">
-                INM Standar
-              </option>
-
-              <option value="inm_no">
-                INM Tidak Standar
-              </option>
-            </select>
-          </div>
-
           {/* DOKTER */}
-          <div className="col-md-3 col-6">
+          <div className="col-md-6 col-6">
             <label className="form-label small mb-1">
               Dokter
             </label>
@@ -325,9 +297,8 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
               onClick={() => {
                 setStartDate(today);
                 setEndDate(today);
-                setStatusFilter("");
                 setSearch("");
-                setDokter("");
+                setDokter(null);
                 setCurrentPage(1);
               }}
             >
@@ -341,351 +312,396 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
     </div>
 
     {/* ============================= */}
-    {/* HERO COVERAGE */}
-    {/* ============================= */}
-    <div className="card shadow-sm border-0 mb-3 mx-2">
-      <div className="card-body">
-
-        <div className="d-flex justify-content-between align-items-center mb-2">
-
-          <div>
-            <h5 className="fw-bold mb-0">
-              Coverage Visite Pasien
-            </h5>
-
-            <small className="text-muted">
-              Monitoring kepatuhan visite rawat inap
-            </small>
-          </div>
-
-          <div className="text-end">
-            <h3 className="fw-bold text-success mb-0">
-              {coverage.toFixed(1)}%
-            </h3>
-
-            <small className="text-muted">
-              Sudah divisite
-            </small>
-          </div>
-
-        </div>
-
-        <div
-          className="progress"
-          style={{
-            height: "14px",
-            borderRadius: "10px"
-          }}
-        >
-          <div
-            className="progress-bar bg-success"
-            style={{
-              width: `${coverage}%`
-            }}
-          />
-        </div>
-
-      </div>
-    </div>
-
-    {/* ============================= */}
     {/* SUMMARY */}
     {/* ============================= */}
-    <div className="row g-3 mb-3 mx-1">
+    <div className="row g-2 mb-2 mx-2 ">
 
-      {/* TOTAL PASIEN */}
-      <div className="col-md-3 col-6">
-        <div className="card shadow-sm border-0 h-100">
+      <div className="col-md-6">
+        <div className="card-theme p-2 h-100">
+          <div className="card-header py-2 px-3">
+            <h6 className="mb-0">
+              Aktifitas Visite Dokter
+            </h6>
+          </div>
+
           <div className="card-body">
 
-            <small className="text-muted d-block mb-1">
-              Total Pasien Aktif
-            </small>
+            <div className="row">
 
-            <h2 className="fw-bold text-primary mb-0">
-              {summary?.totalPasienAktif || 0}
-            </h2>
+              {/* VISITE DPJP */}
+              <div className="col-md-4 col-6">
+                <div className="card shadow-sm border-0 h-100">
+                  <div className="card-body">
 
+                    <small className="text-muted d-block mb-1">
+                      Aktivitas DPJP
+                    </small>
+
+                    <h2 className="fw-bold text-success mb-0">
+                      {summary?.dpjpVisite || 0}
+                    </h2>
+
+                  </div>
+                </div>
+              </div>
+
+              {/* RUBBER */}
+              <div className="col-md-4 col-6">
+                <div className="card shadow-sm border-0 h-100">
+                  <div className="card-body">
+
+                    <small className="text-muted d-block mb-1">
+                      Rubber Visite
+                    </small>
+
+                    <h2 className="fw-bold text-danger mb-0">
+                      {summary?.rubberVisite || 0}
+                    </h2>
+
+                  </div>
+                </div>
+              </div>
+
+              {/* TOTAL AKTIVITAS */}
+              <div className="col-md-4 col-6">
+                <div className="card shadow-sm border-0 h-100">
+                  <div className="card-body">
+
+                    <small className="text-muted d-block mb-1">
+                      Total Aktivitas
+                    </small>
+
+                    <h2 className="fw-bold text-dark mb-0">
+                      {summary?.totalAktivitas || 0}
+                    </h2>
+
+                  </div>
+                </div>
+              </div>
+
+            </div>
           </div>
         </div>
       </div>
 
-      {/* SUDAH DIVISITE */}
-      <div className="col-md-3 col-6">
-        <div className="card shadow-sm border-0 h-100">
+      <div className="col-md-6">
+        <div className="card-theme p-2 h-100">
+          <div className="card-header py-2 px-3">
+            <h6 className="mb-0">
+              Kuantitas Visite Dokter
+            </h6>
+          </div>
+
           <div className="card-body">
 
-            <small className="text-muted d-block mb-1">
-              Sudah Divisite
-            </small>
+            <div className="row g-3 mb-3 mx-1">
 
-            <h2 className="fw-bold text-success mb-0">
-              {summary?.sudahDivisite || 0}
-            </h2>
+              {/* VISITE DPJP */}
+              <div className="col-md-4 col-6">
+                <div className="card shadow-sm border-0 h-100">
+                  <div className="card-body">
 
+                    <small className="text-muted d-block mb-1">
+                      Memiliki DPJP
+                    </small>
+
+                    <h2 className="fw-bold text-success mb-0">
+                      {summary?.pasienDPJP || 0}
+                    </h2>
+
+                  </div>
+                </div>
+              </div>
+
+              {/* RUBBER */}
+              <div className="col-md-4 col-6">
+                <div className="card shadow-sm border-0 h-100">
+                  <div className="card-body">
+
+                    <small className="text-muted d-block mb-1">
+                      Belum Memiliki DPJP
+                    </small>
+
+                    <h2 className="fw-bold text-danger mb-0">
+                      {summary?.pasienBelumDPJP || 0}
+                    </h2>
+
+                  </div>
+                </div>
+              </div>
+
+              {/* TOTAL AKTIVITAS */}
+              <div className="col-md-4 col-6">
+                <div className="card shadow-sm border-0 h-100">
+                  <div className="card-body">
+
+                    <small className="text-muted d-block mb-1">
+                      Total Pasien Rawat Inap
+                    </small>
+
+                    <h2 className="fw-bold text-dark mb-0">
+                      {summary?.totalPasienRawatInap || 0}
+                    </h2>
+
+                  </div>
+                </div>
+              </div>
+
+            </div>
           </div>
         </div>
       </div>
+    </div>
+    
+    
+    {/* ============================= */}
+    {/* ANALISA VISITE */}
+    {/* ============================= */}
+    <div className="row g-2 mb-2 mx-2 ">
 
-      {/* BELUM DIVISITE */}
-      <div className="col-md-3 col-6">
-        <div className="card shadow-sm border-0 h-100">
+      <div className="col-md-6">
+        <div className="card-theme p-2 h-100">
+
+          <div className="card-header py-2 px-3">
+            <h6 className="mb-0">
+              Analisa Visite Dokter
+            </h6>
+          </div>
+
           <div className="card-body">
 
-            <small className="text-muted d-block mb-1">
-              Belum Divisite
-            </small>
+            <div className="row g-3">
 
-            <h2 className="fw-bold text-danger mb-0">
-              {summary?.belumDivisite || 0}
-            </h2>
+              <div className="col-md-4 col-6">
+                <div className="card shadow-sm h-100">
+                  <div className="card-body">
+
+                    <h6 className="fw-bold mb-3">
+                      Komposisi Aktivitas
+                    </h6>
+
+                    <ResponsiveContainer width="100%" height={350}>
+                      <PieChart>
+
+                        <Pie
+                          data={[
+                            {
+                              name: "DPJP",
+                              value: summary?.dpjpVisite || 0
+                            },
+                            {
+                              name: "Rubber",
+                              value: summary?.rubberVisite || 0
+                            }
+                          ]}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={75}
+                          label={({ name, percent }) =>
+                            `${name} ${(percent * 100).toFixed(1)}%`
+                          }
+                        >
+                          <Cell fill="#198754" />
+                          <Cell fill="#dc3545" />
+                        </Pie>
+
+                        <Tooltip />
+                        <Legend />
+
+                      </PieChart>
+                    </ResponsiveContainer>
+
+                  </div>
+                </div>
+              </div>
+
+              {/* PIE KEPATUHAN VISITE */}
+              <div className="col-md-4 col-6">
+                <div className="card shadow-sm h-100">
+                  <div className="card-body">
+
+                  <h6 className="fw-bold mb-3">
+                    Kepatuhan SPM
+                  </h6>
+
+                    <ResponsiveContainer width="100%" height={350}>
+                      <PieChart>
+
+                        <Pie
+                          data={[
+                            {
+                              name: "Standar",
+                              value: Number(
+                                summary.spmStandar || 0
+                              )
+                            },
+                            {
+                              name: "Tidak Standar",
+                              value: Number(
+                                summary.spmTidakStandar || 0
+                              )
+                            }
+                          ]}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={75}
+                          label={({ name, percent }) =>
+                            `${name} ${(percent * 100).toFixed(1)}%`
+                          }
+                        >
+                          <Cell fill="#0dcaf0" />
+                          <Cell fill="#6c757d" />
+                        </Pie>
+
+                        <Tooltip />
+                        <Legend />
+
+                      </PieChart>
+                    </ResponsiveContainer>
+
+                  </div>
+                </div>
+              </div>
+
+              {/* PIE KEPATUHAN VISITE */}
+              <div className="col-md-4 col-6">
+                <div className="card shadow-sm h-100">
+                  <div className="card-body">
+
+                  <h6 className="fw-bold mb-3">
+                    Kepatuhan INM
+                  </h6>
+
+                    <ResponsiveContainer width="100%" height={350}>
+                      <PieChart>
+
+                      <Pie
+                        data={[
+                          {
+                            name: "Standar",
+                            value: Number(
+                              summary.inmStandar || 0
+                            )
+                          },
+                          {
+                            name: "Tidak Standar",
+                            value: Number(
+                              summary.inmTidakStandar || 0
+                            )
+                          }
+                        ]}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={75}
+                        label={({ name, percent }) =>
+                          `${name} ${(percent * 100).toFixed(1)}%`
+                        }
+                      >
+                        <Cell fill="#0d6efd" />
+                        <Cell fill="#ffc107" />
+                      </Pie>
+
+                        <Tooltip />
+                        <Legend />
+
+                      </PieChart>
+                    </ResponsiveContainer>
+
+                  </div>
+                </div>
+              </div>
+
+            </div>
 
           </div>
+
         </div>
       </div>
 
-      {/* RUBBER */}
-      <div className="col-md-3 col-6">
-        <div className="card shadow-sm border-0 h-100">
+      <div className="col-md-6">
+        <div className="card-theme p-2 h-100">
+
+          <div className="card-header py-2 px-3">
+            <h6 className="mb-0">
+              Grafik Harian Aktifitas Visite Dokter
+            </h6>
+          </div>
+
           <div className="card-body">
 
-            <small className="text-muted d-block mb-1">
-              Rubber Visite
-            </small>
+            <div className="row g-3">
 
-            <h2 className="fw-bold text-secondary mb-0">
-              {summary?.rubberVisite || 0}
-            </h2>
+              <div className="col-12">
+                <div className="card shadow-sm h-100">
+                  <div className="card-body">
+
+                    <h6 className="fw-bold mb-3">
+                      Trend Aktivitas Harian
+                    </h6>
+
+                    <ResponsiveContainer
+                      width="100%"
+                      height={350}
+                    >
+                      <LineChart
+                        data={chartHarian}
+                      >
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                        />
+
+                        <XAxis
+                          dataKey="tanggal"
+                        />
+
+                        <YAxis />
+
+                        <Tooltip />
+
+                        <Legend />
+
+                        <Line
+                          type="monotone"
+                          dataKey="dpjp"
+                          name="DPJP"
+                          stroke="#198754"
+                          strokeWidth={2}
+                        />
+
+                        <Line
+                          type="monotone"
+                          dataKey="rubber"
+                          name="Rubber"
+                          stroke="#dc3545"
+                          strokeWidth={2}
+                        />
+
+                      </LineChart>
+                    </ResponsiveContainer>
+
+                  </div>
+                </div>
+              </div>
+            </div>
 
           </div>
+
         </div>
       </div>
-
     </div>
 
-      {/* GRAFIK */}
-      <div className="card-theme ms-2 me-2 mb-3 p-2">
-
-        <div className="card-header py-2 px-3">
-          <h6 className="mb-0">
-            Analisa Visite Dokter
-          </h6>
-        </div>
-
-        <div className="card-body">
-
-          <div className="row g-3">
-
-            <div className="col-md-2">
-              <div className="card shadow-sm h-100">
-                <div className="card-body">
-
-                  <h6 className="fw-bold mb-3">
-                    Coverage Visite Pasien
-                  </h6>
-
-                  <ResponsiveContainer width="100%" height={350}>
-                    <PieChart>
-
-                      <Pie
-                        data={[
-                          {
-                            name: "Sudah",
-                            value: Number(summary?.sudahDivisite || 0)
-                          },
-                          {
-                            name: "Belum",
-                            value: Number(summary?.belumDivisite || 0)
-                          }
-                        ]}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={75}
-                        label={({ name, percent }) =>
-                          `${name} ${(percent * 100).toFixed(1)}%`
-                        }
-                      >
-                        <Cell fill="#198754" />
-                        <Cell fill="#dc3545" />
-                      </Pie>
-
-                      <Tooltip />
-                      <Legend />
-
-                    </PieChart>
-                  </ResponsiveContainer>
-
-                </div>
-              </div>
-            </div>
-
-            {/* PIE KEPATUHAN VISITE */}
-            <div className="col-md-2">
-              <div className="card shadow-sm h-100">
-                <div className="card-body">
-
-                <h6 className="fw-bold mb-3">
-                  Kepatuhan SPM
-                </h6>
-
-                  <ResponsiveContainer width="100%" height={350}>
-                    <PieChart>
-
-                      <Pie
-                        data={[
-                          {
-                            name: "Standar\n(05:00 - 14:00)",
-                            value: Number(summary?.spmStandar || 0)
-                          },
-                          {
-                            name: "Tidak Standar\n(<05:00 / >14:00)",
-                            value: Number(summary?.spmTidakStandar || 0)
-                          }
-                        ]}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={75}
-                        label={({ name, percent }) =>
-                          `${name} ${(percent * 100).toFixed(1)}%`
-                        }
-                      >
-                        <Cell fill="#198754" />
-                        <Cell fill="#dc3545" />
-                      </Pie>
-
-                      <Tooltip />
-                      <Legend />
-
-                    </PieChart>
-                  </ResponsiveContainer>
-
-                </div>
-              </div>
-            </div>
-
-            {/* PIE KEPATUHAN VISITE */}
-            <div className="col-md-2">
-              <div className="card shadow-sm h-100">
-                <div className="card-body">
-
-                <h6 className="fw-bold mb-3">
-                  Kepatuhan INM
-                </h6>
-
-                  <ResponsiveContainer width="100%" height={350}>
-                    <PieChart>
-
-                    <Pie
-                      data={[
-                        {
-                          name: "Standar\n(08:00 - 14:00)",
-                          value: Number(summary?.inmStandar || 0)
-                        },
-                        {
-                          name: "Tidak Standar\n(<08:00 / >14:00)",
-                          value: Number(summary?.inmTidakStandar || 0)
-                        }
-                      ]}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={75}
-                      label={({ name, percent }) =>
-                        `${name} ${(percent * 100).toFixed(1)}%`
-                      }
-                    >
-                      <Cell fill="#0d6efd" />
-                      <Cell fill="#ffc107" />
-                    </Pie>
-
-                      <Tooltip />
-                      <Legend />
-
-                    </PieChart>
-                  </ResponsiveContainer>
-
-                </div>
-              </div>
-            </div>
-
-            {/* GRAFIK HARIAN */}
-            <div className="col-lg-6">
-
-              <div className="card shadow-sm h-100">
-                <div className="card-body">
-
-                  <h6 className="fw-bold mb-3">
-                    Kepatuhan Jam Visite Harian
-                  </h6>
-
-                  <ResponsiveContainer width="100%" height={350}>
-
-                    <BarChart data={chartHarian}>
-
-                      <CartesianGrid strokeDasharray="3 3" />
-
-                      <XAxis
-                        dataKey="tanggal"
-                        tick={{ fontSize: 11 }}
-                      />
-
-                      <YAxis />
-
-                      <Tooltip />
-
-                      <Legend />
-
-                      {/* SPM */}
-                      <Bar
-                        dataKey="spmStandar"
-                        name="SPM Standar"
-                        fill="#198754"
-                      />
-
-                      <Bar
-                        dataKey="spmTidak"
-                        name="SPM Tidak Standar"
-                        fill="#dc3545"
-                      />
-
-                      {/* INM */}
-                      <Bar
-                        dataKey="inmStandar"
-                        name="INM Standar"
-                        fill="#0d6efd"
-                      />
-
-                      <Bar
-                        dataKey="inmTidak"
-                        name="INM Tidak Standar"
-                        fill="#ffc107"
-                      />
-
-                    </BarChart>
-
-                  </ResponsiveContainer>
-
-                </div>
-              </div>
-
-            </div>
-
-          </div>
-
-        </div>
-
-      </div>
 
       {/* TABEL */}
       <div className="card-theme ms-2 me-2 mb-2 p-2">
         <div className="card-header py-2 px-3">
           <h6 className="mb-0">
-            Monitoring Visite Dokter
+            History Visite Dokter
           </h6>
         </div>
 
@@ -713,7 +729,6 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
                   role="button"
                   className="text-center"
                   style={{ cursor: "pointer", width: "120px" }}
-                  onClick={() => handleSort("spm_status")}
                 >
                   Status SPM
                   {sortBy === "spm_status" &&
@@ -724,7 +739,6 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
                   role="button"
                   className="text-center"
                   style={{ cursor: "pointer", width: "120px" }}
-                  onClick={() => handleSort("inm_status")}
                 >
                   Status INM
                   {sortBy === "inm_status" &&
@@ -734,9 +748,8 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
                 <th
                   role="button"
                   style={{ cursor: "pointer" }}
-                  onClick={() => handleSort("employee_nm")}
                 >
-                  Dokter
+                  Dokter Visite
                   {sortBy === "employee_nm" &&
                     (sortOrder === "ASC" ? " ▲" : " ▼")}
                 </th>
@@ -744,7 +757,6 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
                 <th
                   role="button"
                   style={{ cursor: "pointer" }}
-                  onClick={() => handleSort("medical_service_name")}
                 >
                   Pelayanan
                   {sortBy === "medical_service_name" &&
@@ -754,7 +766,6 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
                 <th
                   role="button"
                   style={{ cursor: "pointer" }}
-                  onClick={() => handleSort("srvc_unit_nm")}
                 >
                   Poli
                   {sortBy === "srvc_unit_nm" &&
@@ -764,7 +775,6 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
                 <th
                   role="button"
                   style={{ cursor: "pointer" }}
-                  onClick={() => handleSort("mr_code")}
                 >
                   NRM
                   {sortBy === "mr_code" &&
@@ -774,20 +784,28 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
                 <th
                   role="button"
                   style={{ cursor: "pointer" }}
-                  onClick={() => handleSort("patient_nm")}
                 >
                   Nama Pasien
                   {sortBy === "patient_nm" &&
                     (sortOrder === "ASC" ? " ▲" : " ▼")}
                 </th>
 
+                <th>
+                  DPJP Pasien
+                </th>
+                <th>
+                  Jenis
+                </th>
+                <th>
+                  Sumber
+                </th>
               </tr>
             </thead>
 
               <tbody>
                 {data.length > 0 ? (
                   data.map((item, index) => (
-                    <tr key={item.visite_id}>
+                    <tr key={`${item.sumber}-${item.row_id}`}>
                       <td>
                         {(currentPage - 1) * limit + index + 1}
                       </td>
@@ -803,15 +821,15 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
                             dt.getHours() * 60 + dt.getMinutes();
 
                           const isSPM =
-                            totalMenit >= 360 &&
+                            totalMenit >= 300 &&
                             totalMenit <= 840;
 
                           return (
                             <span
                               className={`badge ${
                                 isSPM
-                                  ? "bg-success"
-                                  : "bg-danger"
+                                  ? "bg-info text-dark"
+                                  : "bg-secondary"
                               }`}
                             >
                               {isSPM ? "Sudah Standar" : "Belum Standar"}
@@ -862,11 +880,37 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
                       <td>
                         {item.patient_nm}
                       </td>
+                      <td>
+                        {item.dpjp_nm}
+                      </td>
+
+                      <td className="text-center">
+                        {item.jenis === "DPJP" ? (
+                          <span className="badge bg-success">
+                            DPJP
+                          </span>
+                        ) : (
+                          <span className="badge bg-danger">
+                            Rubber
+                          </span>
+                        )}
+                      </td>
+                      <td className="text-center">
+                        <span
+                          className={`badge ${
+                            item.sumber === "VISITE"
+                              ? "bg-primary"
+                              : "bg-warning text-dark"
+                          }`}
+                        >
+                          {item.sumber}
+                        </span>
+                      </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="5" className="text-center">
+                    <td colSpan="11" className="text-center">
                       Tidak ada data
                     </td>
                   </tr>

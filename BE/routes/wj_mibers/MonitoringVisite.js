@@ -3,6 +3,14 @@ const router = express.Router();
 
 const monitoringVisiteController = require("../../controllers/wj_mibers/monitoringVisiteController");
 
-router.get("/", monitoringVisiteController.getData);
+router.get(
+  "/summary",
+  monitoringVisiteController.getSummary
+);
+
+router.get(
+  "/activity",
+  monitoringVisiteController.getActivity
+);
 
 module.exports = router;

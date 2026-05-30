@@ -168,7 +168,7 @@ const CetakSertifikat = () => {
       .save();
   };
 
-  const BASE_URL = import.meta.env.VITE_API_URL || "http://192.168.5.142:3001";
+  const BASE_URL = import.meta.env.VITE_API_URL || "http://192.168.0.236:3001";
 
   if (!data) return <div>Memuat...</div>;
 

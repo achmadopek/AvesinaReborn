@@ -154,10 +154,30 @@ export const kirimSpecimenSatuSehat = async (lab_srvc_id) => {
 };
 
 
-export const fetchMonitoringVisite = async (params) => {
-  const res = await API.get("/api/mibers/MonitoringVisite",
-    { params }
-  );
+// ======================================
+// SUMMARY
+// ======================================
+export const fetchMonitoringVisiteSummary =
+  async (params) => {
 
-  return res.data;
-};
+    const res = await API.get(
+      "/api/mibers/MonitoringVisite/summary",
+      { params }
+    );
+
+    return res.data;
+  };
+
+// ======================================
+// ACTIVITY
+// ======================================
+export const fetchMonitoringVisiteActivity =
+  async (params) => {
+
+    const res = await API.get(
+      "/api/mibers/MonitoringVisite/activity",
+      { params }
+    );
+
+    return res.data;
+  };

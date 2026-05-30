@@ -29,7 +29,7 @@ export default defineConfig(({ mode }) => {
 
       proxy: {
         '/uploads': {
-          target: 'http://192.168.5.142:3001',
+          target: 'http://192.168.0.236:3001',
           changeOrigin: true,
           secure: false,
         },

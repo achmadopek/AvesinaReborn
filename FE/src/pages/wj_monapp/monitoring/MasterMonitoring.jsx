@@ -8,7 +8,8 @@ import {
   fetchPaginatedDataMonitoringAntrian,
   fetchPaginatedDataMonitoringTHP,
   fetchMonitoringDisplaySummary,
-  fetchMonitoringVisite
+  fetchMonitoringVisiteSummary,
+  fetchMonitoringVisiteActivity,
 } from "../../../api/wj_monapp/MasterMonitoring";
 import { AuthContext } from "../../../context/AuthContext";
 import { useNotification } from "../../../context/NotificationContext";
@@ -212,7 +213,7 @@ const inmPercent = totalVisite
       try {
         const today = new Date().toISOString().slice(0, 10);
   
-        const res = await fetchMonitoringVisite({
+        const res = await fetchMonitoringVisiteSummary({
           page: 1,
           limit: 1,
           startDate: today,

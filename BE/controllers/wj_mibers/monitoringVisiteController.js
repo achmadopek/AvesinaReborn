@@ -2,16 +2,498 @@ require("dotenv").config();
 const ExcelJS = require("exceljs");
 const db = require("../../db/connection-avesina");
 
-exports.getData = async (req, res) => {
+// =========================================
+// CONSTANT
+// =========================================
+const ALLOWED_MEDICAL_SERVICE_IDS = [
+  "VISRI0010",
+  "VISRI0001",
+  "AC0053",
+  "AC0047",
+  "240316706052RSJK"
+];
+
+// =========================================
+// HELPER
+// =========================================
+const buildActivityFilter = ({
+  dokter,
+  startDate,
+  endDate,
+  search,
+  aliasDate,
+  aliasMedicalService
+}) => {
+
+  let filter = `
+    WHERE ${aliasMedicalService} IN (?)
+  `;
+
+  const params = [
+    ALLOWED_MEDICAL_SERVICE_IDS
+  ];
+
+  // ======================================
+  // FILTER DOKTER PELAKU VISITE
+  // ======================================
+  if (dokter) {
+    filter += `
+      AND e.employee_id = ?
+    `;
+
+    params.push(dokter);
+  }
+
+  // ======================================
+  // FILTER TANGGAL
+  // ======================================
+  if (startDate && endDate) {
+    filter += `
+      AND ${aliasDate} BETWEEN ? AND ?
+    `;
+
+    params.push(
+      `${startDate} 00:00:00`,
+      `${endDate} 23:59:59`
+    );
+  }
+
+  // ======================================
+  // SEARCH
+  // ======================================
+  if (search) {
+    filter += `
+      AND (
+        e.employee_nm LIKE ?
+        OR p.patient_nm LIKE ?
+        OR p.mr_code LIKE ?
+        OR su.srvc_unit_nm LIKE ?
+      )
+    `;
+
+    params.push(
+      `%${search}%`,
+      `%${search}%`,
+      `%${search}%`,
+      `%${search}%`
+    );
+  }
+
+  return {
+    filter,
+    params
+  };
+};
+
+const normalize = (value) =>
+  String(value || "")
+    .trim()
+    .toUpperCase();
+
+const isDPJPActivity = (row) =>
+  normalize(row.employee_id) ===
+  normalize(row.employee_respon);
+
+const getComplianceSummary = (activities) => {
+
+  const result = {
+    spmStandar: 0,
+    spmTidakStandar: 0,
+    inmStandar: 0,
+    inmTidakStandar: 0,
+    chartHarian: {}
+  };
+
+  activities.forEach((item) => {
+
+    const dt = new Date(item.visite_dt);
+
+    const menit =
+      dt.getHours() * 60 +
+      dt.getMinutes();
+
+    const tanggal =
+      dt.toISOString().split("T")[0];
+
+    const isSPM =
+      menit >= 300 && menit <= 840;
+
+    const isINM =
+      menit >= 480 && menit <= 840;
+
+    // ==========================
+    // INIT DULU
+    // ==========================
+    if (!result.chartHarian[tanggal]) {
+
+      result.chartHarian[tanggal] = {
+
+        tanggal,
+
+        total: 0,
+
+        dpjp: 0,
+        rubber: 0,
+
+        spmStandar: 0,
+        spmTidakStandar: 0,
+
+        inmStandar: 0,
+        inmTidakStandar: 0
+      };
+    }
+
+    // ==========================
+    // SUMMARY GLOBAL
+    // ==========================
+    if (isSPM) {
+      result.spmStandar++;
+      result.chartHarian[tanggal].spmStandar++;
+    } else {
+      result.spmTidakStandar++;
+      result.chartHarian[tanggal].spmTidakStandar++;
+    }
+
+    if (isINM) {
+      result.inmStandar++;
+      result.chartHarian[tanggal].inmStandar++;
+    } else {
+      result.inmTidakStandar++;
+      result.chartHarian[tanggal].inmTidakStandar++;
+    }
+
+    // ==========================
+    // TOTAL HARIAN
+    // ==========================
+    result.chartHarian[tanggal].total++;
+
+    if (isDPJPActivity(item)) {
+      result.chartHarian[tanggal].dpjp++;
+    } else {
+      result.chartHarian[tanggal].rubber++;
+    }
+  });
+
+  return {
+    ...result,
+    chartHarian: Object.values(
+      result.chartHarian
+    ).sort(
+      (a, b) =>
+        new Date(a.tanggal) -
+        new Date(b.tanggal)
+    )
+  };
+};
+
+const getRawatInapSummary = (
+  activities
+) => {
+
+  const pasienMap =
+    new Map();
+
+  activities.forEach((item) => {
+
+    if (
+      !pasienMap.has(
+        item.registry_id
+      )
+    ) {
+
+      pasienMap.set(
+        item.registry_id,
+        Boolean(
+          item.employee_respon
+        )
+      );
+    }
+  });
+
+  let pasienDPJP = 0;
+  let pasienBelumDPJP = 0;
+
+  pasienMap.forEach(
+    (hasDPJP) => {
+
+      if (hasDPJP) {
+        pasienDPJP++;
+      } else {
+        pasienBelumDPJP++;
+      }
+    }
+  );
+
+  return {
+
+    pasienDPJP,
+
+    pasienBelumDPJP,
+
+    totalPasienRawatInap:
+      pasienMap.size
+  };
+};
+
+// =========================================
+// GET SUMMARY
+// =========================================
+exports.getSummary = async (req, res) => {
+
   try {
-    // =========================================
-    // QUERY PARAM
-    // =========================================
+
+    const {
+      dokter = "",
+      startDate = "",
+      endDate = ""
+    } = req.query;
+
+    const visiteFilter =
+      buildActivityFilter({
+        dokter,
+        startDate,
+        endDate,
+        search: "",
+        aliasDate: "v.visite_dt",
+        aliasMedicalService:
+          "v.medical_service_id"
+      });
+
+    const treatmentFilter =
+      buildActivityFilter({
+        dokter,
+        startDate,
+        endDate,
+        search: "",
+        aliasDate: "t.treatment_dt",
+        aliasMedicalService:
+          "t.medical_service_id"
+      });
+
+    const visiteSql = `
+      SELECT
+        'VISITE' AS sumber,
+
+        r.registry_id,
+        r.employee_respon,
+
+        v.visite_id AS row_id,
+        v.visite_dt,
+
+        e.employee_id,
+        e.employee_nm,
+
+        edpjp.employee_nm AS dpjp_nm,
+
+        p.mr_code,
+        p.patient_nm,
+
+        su.srvc_unit_nm,
+
+        ms.medical_service_name
+
+      FROM visite v
+
+      JOIN unit_visit uv
+        ON uv.unit_visit_id = v.unit_visit_id
+
+      JOIN registry r
+        ON r.registry_id = uv.registry_id
+
+      JOIN patient p
+        ON p.mr_id = r.mr_id
+
+      JOIN employee e
+        ON e.employee_id = v.employee_id
+
+      LEFT JOIN employee edpjp
+        ON edpjp.employee_id = r.employee_respon
+
+      JOIN service_unit su
+        ON su.srvc_unit_id = uv.unit_id_to
+
+      JOIN medical_service ms
+        ON ms.medical_service_id =
+           v.medical_service_id
+
+      ${visiteFilter.filter}
+    `;
+
+    const treatmentSql = `
+      SELECT
+        'TREATMENT' AS sumber,
+
+        r.registry_id,
+        r.employee_respon,
+
+        t.treatment_id AS row_id,
+        t.treatment_dt AS visite_dt,
+
+        e.employee_id,
+        e.employee_nm,
+
+        edpjp.employee_nm AS dpjp_nm,
+
+        p.mr_code,
+        p.patient_nm,
+
+        su.srvc_unit_nm,
+
+        ms.medical_service_name
+
+      FROM treatment t
+
+      JOIN unit_visit uv
+        ON uv.unit_visit_id = t.unit_visit_id
+
+      JOIN registry r
+        ON r.registry_id = uv.registry_id
+
+      JOIN patient p
+        ON p.mr_id = r.mr_id
+
+      JOIN employee e
+        ON e.employee_id = t.employee_id
+
+      LEFT JOIN employee edpjp
+        ON edpjp.employee_id = r.employee_respon
+
+      JOIN service_unit su
+        ON su.srvc_unit_id = uv.unit_id_to
+
+      JOIN medical_service ms
+        ON ms.medical_service_id =
+           t.medical_service_id
+
+      ${treatmentFilter.filter}
+    `;
+
+    const [
+      visiteRows,
+      treatmentRows
+    ] = await Promise.all([
+      db.promise().query(
+        visiteSql,
+        visiteFilter.params
+      ),
+      db.promise().query(
+        treatmentSql,
+        treatmentFilter.params
+      )
+    ]);
+
+    const activities = [
+      ...visiteRows[0],
+      ...treatmentRows[0]
+    ];
+
+    const compliance =
+      getComplianceSummary(
+        activities
+      );
+
+    const rawatInapSummary =
+      getRawatInapSummary(
+        activities
+      );
+
+    const dpjpActivities =
+      activities.filter(
+        isDPJPActivity
+      );
+
+    const rubberActivities =
+      activities.filter(
+        (x) => !isDPJPActivity(x)
+      );
+
+    const pieAktivitas = [
+      {
+        name: "DPJP",
+        value: dpjpActivities.length
+      },
+      {
+        name: "Rubber",
+        value: rubberActivities.length
+      }
+    ];
+
+    return res.json({
+      success: true,
+
+      summary: {
+
+        // =================================
+        // AKTIVITAS VISITE
+        // =================================
+        dpjpVisite:
+          dpjpActivities.length,
+
+        rubberVisite:
+          rubberActivities.length,
+
+        totalAktivitas:
+          activities.length,
+
+        // =================================
+        // SPM
+        // =================================
+        spmStandar:
+          compliance.spmStandar,
+
+        spmTidakStandar:
+          compliance.spmTidakStandar,
+
+        // =================================
+        // INM
+        // =================================
+        inmStandar:
+          compliance.inmStandar,
+
+        inmTidakStandar:
+          compliance.inmTidakStandar,
+
+        // =================================
+        // PASIEN RAWAT INAP
+        // =================================
+        pasienDPJP:
+          rawatInapSummary.pasienDPJP,
+
+        pasienBelumDPJP:
+          rawatInapSummary.pasienBelumDPJP,
+
+        totalPasienRawatInap:
+          rawatInapSummary.totalPasienRawatInap
+      },
+
+      pieAktivitas,
+
+      chartHarian:
+        compliance.chartHarian
+    });
+
+  } catch (err) {
+
+    console.error(err);
+
+    return res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+};
+
+// =========================================
+// GET ACTIVITY
+// =========================================
+exports.getActivity = async (req, res) => {
+
+  try {
+
     let {
       page = 1,
       limit = 10,
-      dokter = null,
-      statusFilter = "",
+      dokter = "",
       startDate = "",
       endDate = "",
       search = "",
@@ -22,278 +504,138 @@ exports.getData = async (req, res) => {
     page = parseInt(page);
     limit = parseInt(limit);
 
-    const offset = (page - 1) * limit;
+    const offset =
+      (page - 1) * limit;
 
-    // =========================================
-    // SORT CONFIG
-    // =========================================
-    const allowedSort = {
-      visite_dt: "visite_dt",
-      employee_nm: "employee_nm",
-      medical_service_name: "medical_service_name",
-      srvc_unit_nm: "srvc_unit_nm",
-      patient_nm: "patient_nm",
-      mr_code: "mr_code"
-    };
+    // ======================================
+    // FILTER
+    // ======================================
+    const visiteFilter =
+      buildActivityFilter({
+        dokter,
+        startDate,
+        endDate,
+        search,
+        aliasDate: "v.visite_dt",
+        aliasMedicalService:
+          "v.medical_service_id"
+      });
 
-    const safeSortBy = allowedSort[sortBy]
-      ? sortBy
-      : "visite_dt";
+    const treatmentFilter =
+      buildActivityFilter({
+        dokter,
+        startDate,
+        endDate,
+        search,
+        aliasDate: "t.treatment_dt",
+        aliasMedicalService:
+          "t.medical_service_id"
+      });
 
-    const orderDirection =
-      sortOrder === "ASC"
-        ? "ASC"
-        : "DESC";
-
-    // =========================================
-    // MEDICAL SERVICE FILTER
-    // =========================================
-    const ALLOWED_MEDICAL_SERVICE_IDS = [
-      "VISRI0010",
-      "VISRI0001",
-      "AC0053",
-      "AC0047",
-      "240316706052RSJK"
-    ];
-
-    // =========================================
-    // HELPER FILTER
-    // =========================================
-    const buildFilter = (
-      dateField,
-      medicalServiceField
-    ) => {
-
-      let filter = `
-        WHERE ${dateField} >= '2020-01-01'
-      `;
-
-      const params = [];
-
-      // ---------------------------------------
-      // MEDICAL SERVICE FILTER
-      // ---------------------------------------
-      filter += `
-        AND ${medicalServiceField} IN (?)
-      `;
-
-      params.push(ALLOWED_MEDICAL_SERVICE_IDS);
-
-      // ---------------------------------------
-      // FILTER DOKTER
-      // ---------------------------------------
-     if (dokter) {
-        filter += ` AND e.employee_id = ? `;
-        params.push(dokter);
-      }
-
-      // ---------------------------------------
-      // FILTER TANGGAL
-      // ---------------------------------------
-      if (startDate && endDate) {
-        filter += `
-          AND ${dateField} BETWEEN ? AND ?
-        `;
-
-        params.push(
-          `${startDate} 00:00:00`,
-          `${endDate} 23:59:59`
-        );
-      }
-
-      // ---------------------------------------
-      // SEARCH
-      // ---------------------------------------
-      if (search) {
-        filter += `
-          AND (
-            e.employee_nm LIKE ?
-            OR ms.medical_service_name LIKE ?
-            OR su.srvc_unit_nm LIKE ?
-            OR p.patient_nm LIKE ?
-            OR p.mr_code LIKE ?
-          )
-        `;
-
-        params.push(
-          `%${search}%`,
-          `%${search}%`,
-          `%${search}%`,
-          `%${search}%`,
-          `%${search}%`
-        );
-      }
-
-      return {
-        filter,
-        params
-      };
-    };
-
-    // =========================================
-    // VISITE FILTER
-    // =========================================
-    const visiteFilter = buildFilter(
-      "v.visite_dt",
-      "v.medical_service_id"
-    );
-
-    // =========================================
-    // TREATMENT FILTER
-    // =========================================
-    const treatmentFilter = buildFilter(
-      "t.treatment_dt",
-      "t.medical_service_id"
-    );
-
-    // =========================================
-    // QUERY VISITE
-    // =========================================
+    // ======================================
+    // VISITE SQL
+    // ======================================
     const visiteSql = `
       SELECT
         'VISITE' AS sumber,
+
         r.registry_id,
         r.employee_respon,
-        p.mr_id,
+
         v.visite_id AS row_id,
         v.visite_dt AS visite_dt,
+
         e.employee_id,
         e.employee_nm,
-        ms.medical_service_name,
-        su.srvc_unit_nm,
+
         p.mr_code,
-        p.patient_nm
+        p.patient_nm,
+
+        su.srvc_unit_nm,
+
+        ms.medical_service_name,
+
+        e2.employee_nm AS dpjp_nm
+
       FROM visite v
+
       JOIN unit_visit uv
         ON uv.unit_visit_id = v.unit_visit_id
+
       JOIN registry r
         ON r.registry_id = uv.registry_id
+
       JOIN patient p
         ON p.mr_id = r.mr_id
-      JOIN service_unit su
-        ON su.srvc_unit_id = uv.unit_id_to
+
       JOIN employee e
         ON e.employee_id = v.employee_id
+
+      LEFT JOIN employee e2
+        ON e2.employee_id = r.employee_respon  
+
+      JOIN service_unit su
+        ON su.srvc_unit_id = uv.unit_id_to
+
       JOIN medical_service ms
-        ON ms.medical_service_id = v.medical_service_id
+        ON ms.medical_service_id =
+           v.medical_service_id
+
       ${visiteFilter.filter}
     `;
 
-    // =========================================
-    // QUERY TREATMENT
-    // =========================================
+    // ======================================
+    // TREATMENT SQL
+    // ======================================
     const treatmentSql = `
       SELECT
         'TREATMENT' AS sumber,
+
         r.registry_id,
         r.employee_respon,
-        p.mr_id,
+
         t.treatment_id AS row_id,
         t.treatment_dt AS visite_dt,
+
         e.employee_id,
         e.employee_nm,
-        ms.medical_service_name,
-        su.srvc_unit_nm,
+
         p.mr_code,
-        p.patient_nm
+        p.patient_nm,
+
+        su.srvc_unit_nm,
+
+        ms.medical_service_name,
+
+        e2.employee_nm AS dpjp_nm
+
       FROM treatment t
+
       JOIN unit_visit uv
         ON uv.unit_visit_id = t.unit_visit_id
+
       JOIN registry r
         ON r.registry_id = uv.registry_id
+
       JOIN patient p
         ON p.mr_id = r.mr_id
-      JOIN service_unit su
-        ON su.srvc_unit_id = uv.unit_id_to
+
       JOIN employee e
         ON e.employee_id = t.employee_id
+
+      JOIN employee e2
+        ON e2.employee_id = r.employee_respon
+
+      JOIN service_unit su
+        ON su.srvc_unit_id = uv.unit_id_to
+
       JOIN medical_service ms
-        ON ms.medical_service_id = t.medical_service_id
+        ON ms.medical_service_id =
+           t.medical_service_id
 
       ${treatmentFilter.filter}
     `;
 
-    // =============================
-    // DOKTER MASTER LIST
-    // =============================
-    const dokterListSql = `
-      SELECT employee_id, employee_nm
-      FROM employee
-      WHERE employee_sts IN ('P','O')
-        AND (
-          LOWER(employee_nm) LIKE 'dr.%'
-          OR LOWER(employee_nm) LIKE 'dr %'
-        )
-      ORDER BY employee_nm ASC
-    `;
-
-    // ================================
-    // TOTAL PASIEN DI RENTANG ITU
-    // ================================
-    const buildActivePatientQuery = () => {
-
-    let sql = `
-      SELECT
-        r.registry_id,
-        r.registry_dt,
-        r.out_dt,
-        r.employee_respon,
-        p.mr_id,
-        p.mr_code,
-        p.patient_nm,
-        su.srvc_unit_nm
-      FROM registry r
-      JOIN patient p
-        ON p.mr_id = r.mr_id
-      LEFT JOIN unit_visit uv
-        ON uv.registry_id = r.registry_id
-      JOIN service_unit su
-        ON uv.unit_id_to = su.srvc_unit_id
-      JOIN unit_group ug
-        ON su.unit_group_id = ug.unit_group_id
-      JOIN room_mutation rm
-        ON uv.unit_visit_id = rm.unit_visit_id
-      WHERE r.in_out_sts = 'I'
-        AND ug.unit_group_id = '7'
-        AND r.registry_dt <= ?
-        AND (
-          r.out_dt IS NULL
-          OR r.out_dt >= ?
-        )
-        AND rm.until_dt IS NULL
-    `;
-
-    const params = [
-      `${endDate} 23:59:59`,
-      `${startDate} 00:00:00`
-    ];
-
-    // FILTER DPJP
-    if (
-      dokter &&
-      dokter !== "ALL"
-    ) {
-      sql += `
-        AND r.employee_respon = ?
-      `;
-
-      params.push(dokter);
-    }
-
-    sql += `
-      GROUP BY r.registry_id
-      ORDER BY r.registry_dt ASC
-    `;
-
-    return {
-      sql,
-      params
-    };
-  };
-
-    // =========================================
-    // EXECUTE QUERY
-    // =========================================
     const [visiteRows] =
       await db.promise().query(
         visiteSql,
@@ -305,362 +647,74 @@ exports.getData = async (req, res) => {
         treatmentSql,
         treatmentFilter.params
       );
-    
-    const [dokterList] =
-      await db.promise().query(
-        dokterListSql
-      );
-    
-    const [activePatients] =
-      await db.promise().query(
-        buildActivePatientQuery().sql,
-        buildActivePatientQuery().params
-      );
 
-    // =========================================
-    // MERGE DATA
-    // =========================================
     let rows = [
       ...visiteRows,
       ...treatmentRows
     ];
 
-    // =========================================
-    // TOTAL PASIEN
-    // =========================================
-    const visitedRegistrySet = new Set();
+    rows = rows.map((row) => ({
 
-    rows.forEach((item) => {
+      ...row,
 
-      // FILTER DOKTER
-      if (
-        dokter &&
-        dokter !== "ALL"
-      ) {
+      dpjp_nm:
+        row.dpjp_nm || "(belum ada DPJP)",
 
-        // hanya visite dokter itu
-        if (item.employee_id !== dokter) {
-          return;
-        }
-      }
+      isDPJP:
+        isDPJPActivity(row),
 
-      visitedRegistrySet.add(
-        item.registry_id
-      );
-    });
+      jenis:
+        isDPJPActivity(row)
+          ? "DPJP"
+          : "RUBBER"
+    }));
 
-    // =========================================
-    // PASIEN YANG BELUM DIVISITE
-    // =========================================
-    const belumDivisite =
-    activePatients.filter((patient) => {
-
-      return !visitedRegistrySet.has(
-        patient.registry_id
-      );
-    });
-
-    // =========================================
-    // PASIEN YANG SUDAH DIVISITE
-    // =========================================
-    const sudahDivisite =
-    activePatients.filter((patient) => {
-
-      return visitedRegistrySet.has(
-        patient.registry_id
-      );
-    });
-
-    // =========================================
-    // STATUS FILTER
-    // =========================================
-    if (statusFilter) {
-      rows = rows.filter((item) => {
-        const jam =
-          new Date(item.visite_dt)
-            .toTimeString()
-            .slice(0, 8);
-
-        // -------------------
-        // SPM
-        // -------------------
-        if (statusFilter === "spm_ok") {
-          return (
-            jam >= "05:00:00" &&
-            jam <= "14:00:00"
-          );
-        }
-
-        if (statusFilter === "spm_no") {
-          return (
-            jam < "05:00:00" ||
-            jam > "14:00:00"
-          );
-        }
-
-        // -------------------
-        // INM
-        // -------------------
-        if (statusFilter === "inm_ok") {
-          return (
-            jam >= "08:00:00" &&
-            jam <= "14:00:00"
-          );
-        }
-
-        if (statusFilter === "inm_no") {
-          return (
-            jam < "08:00:00" ||
-            jam > "14:00:00"
-          );
-        }
-
-        return true;
-      });
-    }
-
-    // =========================================
+    // ======================================
     // SORT
-    // =========================================
+    // ======================================
     rows.sort((a, b) => {
-      const field = allowedSort[safeSortBy];
 
-      let valA = a[field];
-      let valB = b[field];
+      const timeA =
+        new Date(a.visite_dt).getTime();
 
-      // SORT DATETIME
-      if (field === "visite_dt") {
-        valA = new Date(valA);
-        valB = new Date(valB);
-      }
+      const timeB =
+        new Date(b.visite_dt).getTime();
 
-      // ASC
-      if (orderDirection === "ASC") {
-        if (valA < valB) return -1;
-        if (valA > valB) return 1;
-        return 0;
-      }
-
-      // DESC
-      if (valA > valB) return -1;
-      if (valA < valB) return 1;
-      return 0;
+      return sortOrder === "ASC"
+        ? timeA - timeB
+        : timeB - timeA;
     });
 
-    // =========================================
-    // CHART HARIAN
-    // =========================================
-    const chartMap = {};
-
-    rows.forEach((item) => {
-      const tanggal = item.visite_dt
-        ?.toISOString()
-        ?.split("T")[0];
-
-      if (!chartMap[tanggal]) {
-        chartMap[tanggal] = {
-          tanggal,
-          spmStandar: 0,
-          spmTidak: 0,
-          inmStandar: 0,
-          inmTidak: 0
-        };
-      }
-
-      const dt = new Date(item.visite_dt);
-
-      const menit =
-        dt.getHours() * 60 +
-        dt.getMinutes();
-
-      // ==============================
-      // SPM
-      // 06:00 - 14:00
-      // ==============================
-      if (menit >= 360 && menit <= 840) {
-        chartMap[tanggal].spmStandar += 1;
-      } else {
-        chartMap[tanggal].spmTidak += 1;
-      }
-
-      // ==============================
-      // INM
-      // 08:00 - 14:00
-      // ==============================
-      if (menit >= 480 && menit <= 840) {
-        chartMap[tanggal].inmStandar += 1;
-      } else {
-        chartMap[tanggal].inmTidak += 1;
-      }
-    });
-
-    const chartHarian = Object.values(chartMap)
-      .sort(
-        (a, b) =>
-          new Date(a.tanggal) -
-          new Date(b.tanggal)
-      );
-    
-    // =========================================
-    // RUBBER VISITE
-    // =========================================
-    const rubberVisite = rows.filter((x) => {
-      return (
-          x.employee_id !==
-          x.employee_respon
-      );
-    }).length;
-
-    // =========================================
-    // DPJP VISITE
-    // =========================================
-    const dpjpVisite = rows.filter((x) => {
-      return (
-          x.employee_id ===
-          x.employee_respon
-      );
-    }).length;
-
-    // =========================================
-    // SUMMARY
-    // =========================================
-    const summary = {
-      totalVisite: rows.length,
-
-      totalPasienAktif:
-          activePatients.length,
-
-      sudahDivisite:
-          sudahDivisite.length,
-
-      belumDivisite:
-          belumDivisite.length,
-
-      totalAktivitas:
-          rows.length,
-
-      rubberVisite,
-      dpjpVisite,
-
-      spmStandar: rows.filter((x) => {
-        const jam = new Date(x.visite_dt)
-          .toTimeString()
-          .slice(0, 8);
-
-        return (
-          jam >= "06:00:00" &&
-          jam <= "14:00:00"
-        );
-      }).length,
-
-      spmTidakStandar: rows.filter((x) => {
-        const jam = new Date(x.visite_dt)
-          .toTimeString()
-          .slice(0, 8);
-
-        return (
-          jam < "06:00:00" ||
-          jam > "14:00:00"
-        );
-      }).length,
-
-      inmStandar: rows.filter((x) => {
-        const jam = new Date(x.visite_dt)
-          .toTimeString()
-          .slice(0, 8);
-
-        return (
-          jam >= "08:00:00" &&
-          jam <= "14:00:00"
-        );
-      }).length,
-
-      inmTidakStandar: rows.filter((x) => {
-        const jam = new Date(x.visite_dt)
-          .toTimeString()
-          .slice(0, 8);
-
-        return (
-          jam < "08:00:00" ||
-          jam > "14:00:00"
-        );
-      }).length
-    };
-
-    // =========================================
-    // REKAP DOKTER
-    // =========================================
-    const dokterMap = {};
-
-    rows.forEach((item) => {
-      if (!dokterMap[item.employee_id]) {
-        dokterMap[item.employee_id] = {
-          employee_id: item.employee_id,
-          employee_nm: item.employee_nm,
-          total_visite: 0
-        };
-      }
-
-      dokterMap[item.employee_id]
-        .total_visite += 1;
-    });
-
-    const rekapDokter =
-      Object.values(dokterMap)
-        .sort(
-          (a, b) =>
-            b.total_visite -
-            a.total_visite
-        );
-    
-    // =========================================
-    // DAFTAR PASIEN DI TOTAL PASIEN
-    // =========================================
-    const pasienList =
-      activePatients.map((x) => ({
-        registry_id: x.registry_id,
-        mr_id: x.mr_id,
-        mr_code: x.mr_code,
-        patient_nm: x.patient_nm,
-        employee_respon:
-          x.employee_respon
-      }));
-
-    // =========================================
+    // ======================================
     // PAGINATION
-    // =========================================
-    const total = rows.length;
+    // ======================================
+    const totalRows =
+      rows.length;
 
-    const paginatedRows =
-      rows.slice(
-        offset,
-        offset + limit
-      );
+    rows = rows.slice(
+      offset,
+      offset + limit
+    );
 
-    // =========================================
+    // ======================================
     // RESPONSE
-    // =========================================
+    // ======================================
     res.json({
-      data: paginatedRows,
-      rekapDokter,
-      dokterList,
-      pasienList,
-      summary,
-      chartHarian,
-      currentPage: page,
-      totalPages: Math.ceil(
-        total / limit
-      ),
-      totalRows: total
-    });
+      success: true,
 
-    /*console.log("TOTAL ROWS:");
-    console.log(total);
-    console.log("SUMMARY:");
-    console.log(summary);*/
+      data: rows,
+
+      currentPage: page,
+
+      totalPages: Math.ceil(
+        totalRows / limit
+      ),
+
+      totalRows
+    });
 
   } catch (err) {
-    console.log("ERROR GET DATA:");
+
     console.log(err);
 
     res.status(500).json({
