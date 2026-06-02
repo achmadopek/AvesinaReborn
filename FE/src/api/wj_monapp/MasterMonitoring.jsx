@@ -41,6 +41,23 @@ export const fetchIcareDailySummary = async ({
   return res.data;
 };
 
+export const fetchDashboardMonitoringIcare = async ({
+  startDate,
+  endDate
+}) => {
+  const response = await API.get(
+    "/api/mibers/MonitoringIcare/dashboard",
+    {
+      params: {
+        startDate,
+        endDate
+      }
+    }
+  );
+
+  return response.data;
+};
+
 export const exportMonitoringIcareToExcel = async ({
   startDate = "",
   endDate = "",

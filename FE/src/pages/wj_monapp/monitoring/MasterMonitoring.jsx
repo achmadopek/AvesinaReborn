@@ -4,9 +4,9 @@ import {
   fetchDaftarPoli,
 } from "../../../api/wj_monapp/MasterAnjungan";
 import {
-  fetchPaginatedDataMonitoringIcare,
-  fetchPaginatedDataMonitoringAntrian,
-  fetchPaginatedDataMonitoringTHP,
+  fetchDashboardMonitoringIcare,
+  //fetchPaginatedDataMonitoringAntrian,
+  //fetchPaginatedDataMonitoringTHP,
   fetchMonitoringDisplaySummary,
   fetchMonitoringVisiteSummary,
   fetchMonitoringVisiteActivity,
@@ -64,9 +64,9 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
   });
 
   const [icareStats, setIcareStats] = useState({
-    sukses: 0,
-    gagal: 0,
-    total: 0,
+    totalSuccess: 0,
+    totalError: 0,
+    totalIcare: 0,
   });
 
   const [antrianStats, setAntrianStats] = useState({
@@ -94,6 +94,36 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
 
     spmPercent: 0,
     inmPercent: 0,
+  });
+
+  const [satuSehatStats, setSatuSehatStats] = useState({
+    totalSuccess: 0,
+    totalError: 0,
+    totalSatuSehat: 0,
+  });
+
+  const [aplicaresStats, setAplicaresStats] = useState({
+    totalSuccess: 0,
+    totalError: 0,
+    totalAplicares: 0,
+  });
+
+  const [mobayStats, setMobayStats] = useState({
+    totalSuccess: 0,
+    totalError: 0,
+    totalMobay: 0,
+  });
+
+  const [pcareStats, setPCareStats] = useState({
+    totalSuccess: 0,
+    totalError: 0,
+    totalPCare: 0,
+  });
+
+  const [wsRekamMedisStats, setWSRekamMedisStats] = useState({
+    totalSuccess: 0,
+    totalError: 0,
+    totalWSRekamMedis: 0,
   });
 
   const today = new Date().toLocaleDateString("sv-SE");
@@ -178,7 +208,7 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
 
   }, []);
 
-  useEffect(() => {
+  /*useEffect(() => {
     const loadAntrianStats = async () => {
       try {
         const res = await fetchPaginatedDataMonitoringAntrian({
@@ -201,9 +231,9 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
     };
 
     loadAntrianStats();
-  }, []);
+  }, []);*/
 
-  useEffect(() => {
+  /*useEffect(() => {
     const loadTHPStats = async () => {
       try {
         const res = await fetchPaginatedDataMonitoringTHP({
@@ -226,7 +256,49 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
     };
 
     loadTHPStats();
-  }, []);
+  }, []);*/
+
+  useEffect(() => {
+
+  const loadDashboard = async () => {
+
+    try {
+
+      const today =
+        new Date()
+          .toISOString()
+          .slice(0, 10);
+
+      const res =
+        await fetchDashboardMonitoringIcare({
+          startDate: today,
+          endDate: today
+        });
+
+      setIcareStats({
+        totalSuccess: Number(res.totalSuccess || 0),
+        totalError: Number(res.totalError || 0),
+        totalIcare: Number(res.totalIcare || 0)
+      });
+
+    } catch (err) {
+
+      console.error(
+        "Gagal load dashboard iCare:",
+        err
+      );
+    }
+  };
+
+  loadDashboard();
+
+  const interval =
+    setInterval(loadDashboard, 30000);
+
+  return () =>
+    clearInterval(interval);
+
+}, []);
 
   useEffect(() => {
     const loadDisplayStats = async () => {
@@ -281,7 +353,7 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
           value: antrianStats.total
         }
       ],
-      disabled: false,
+      disabled: true,
       component: (props) => <MonitoringAntreanRS {...props} />,
     },
 
@@ -290,9 +362,9 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
       label: "Monitoring i-Care",
       wslist: ["FKRTL"],
       stats: [
-        { label: "Sukses", value: icareStats.sukses },
-        { label: "Gagal", value: icareStats.gagal },
-        { label: "Total", value: icareStats.total }
+        { label: "Sukses", value: icareStats.totalSuccess },
+        { label: "Gagal", value: icareStats.totalError },
+        { label: "Total", value: icareStats.totalIcare }
       ],
       disabled: false,
       component: (props) => <MonitoringICare {...props} />,
@@ -303,11 +375,11 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
       label: "Bridging SatuSehat",
       wslist: ["WS Satu Sehat"],
       stats: [
-        { label: "Sukses", value: sukses },
-        { label: "Gagal", value: gagal },
-        { label: "Total", value: total }
+        { label: "Sukses", value: satuSehatStats.totalSuccess },
+        { label: "Gagal", value: satuSehatStats.totalError },
+        { label: "Total", value: satuSehatStats.totalSatuSehat }
       ],
-      disabled: false,
+      disabled: true,
       component: (props) => <MonitoringSatuSehat {...props} />,
     },
 
@@ -320,7 +392,7 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
         { label: "Pegawai ≥ UMR", value: summary.above_umr },
         { label: "Jumlah Pegawai", value: summary.total_pegawai },
       ],
-      disabled: false,
+      disabled: true,
       component: (props) => <MonitoringTHP {...props} />,
     },
 
@@ -360,11 +432,11 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
         "Hapus Ruangan",
       ],
       stats: [
-        { label: "Sukses", value: sukses },
-        { label: "Gagal", value: gagal },
-        { label: "Total", value: total }
+        { label: "Sukses", value: aplicaresStats.totalSuccess },
+        { label: "Gagal", value: aplicaresStats.totalError },
+        { label: "Total", value: aplicaresStats.totalAplicares }
       ],
-      disabled: false,
+      disabled: true,
       component: (props) => <MonitoringAplicares {...props} />,
     },
     {
@@ -377,11 +449,11 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
         "Hutang",
       ],
       stats: [
-        { label: "Hutang", value: sukses },
-        { label: "Lunas", value: gagal },
-        { label: "Total", value: total }
+        { label: "Hutang", value: mobayStats.totalHutang },
+        { label: "Lunas", value: mobayStats.totalLunas },
+        { label: "Total", value: mobayStats.totalMobay }
       ],
-      disabled: false,
+      disabled: true,
       component: (props) => <MonitoringVClaim {...props} />,
     },
 
@@ -455,9 +527,9 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
         "Get Prognosa",
       ],
       stats: [
-        { label: "Sukses", value: sukses },
-        { label: "Gagal", value: gagal },
-        { label: "Total", value: total }
+        { label: "Sukses", value: pcareStats.totalSuccess },
+        { label: "Gagal", value: pcareStats.totalError },
+        { label: "Total", value: pcareStats.totalPCare }
       ],
       disabled: true,
       component: (props) => <MonitoringPCare {...props} />,
@@ -468,9 +540,9 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
       label: "Monitoring WS Rekam Medis",
       wslist: ["Insert Medical Record"],
       stats: [
-        { label: "Sukses", value: sukses },
-        { label: "Gagal", value: gagal },
-        { label: "Total", value: total }
+        { label: "Sukses", value: wsRekamMedisStats.totalSuccess },
+        { label: "Gagal", value: wsRekamMedisStats.totalError },
+        { label: "Total", value: wsRekamMedisStats.totalWSRekamMedis }
       ],
       disabled: true,
       component: (props) => <MonitoringWSRekamMedis {...props} />,

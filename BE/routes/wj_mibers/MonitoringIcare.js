@@ -13,6 +13,8 @@ const monitoringIcareController = require('../../controllers/wj_mibers/monitorin
 router.get('/', monitoringIcareController.getData);
 router.get('/summary', monitoringIcareController.getIcareDailySummary);
 
+router.get("/dashboard", monitoringIcareController.fetchDashboardMonitoringIcare);
+
 // Export data ke Excel
 router.get("/export", monitoringIcareController.exportIcare);
 

@@ -10,19 +10,34 @@ export const NotificationProvider = ({ children }) => {
   const { role, peg_id } = useAuth();
 
   const loadNotificationCount = useCallback(async () => {
+    console.log(
+      "LOAD NOTIF",
+      role,
+      peg_id,
+      new Date().toISOString()
+    );
+
     try {
-      // Cegah fetch kalau peg_id belum ada (misal AuthContext belum selesai init)
       if (role === "pegawai" && !peg_id) {
-        console.warn("Skip fetch notifikasi: peg_id belum siap");
         return;
       }
 
-      const result = await fetchPaginatedData(1, 1000, role, peg_id);
+      const result = await fetchPaginatedData(
+        1,
+        1000,
+        role,
+        peg_id
+      );
+
       setNotificationCount(result.total || 0);
     } catch (err) {
-      console.error("Gagal fetch notifikasi:", err);
+      console.log("ERR DETAIL", {
+        code: err.code,
+        message: err.message,
+        status: err.response?.status,
+      });
     }
-  }, [role, peg_id]); // tambahkan peg_id supaya ikut update
+  }, [role, peg_id]);
 
   useEffect(() => {
     loadNotificationCount();

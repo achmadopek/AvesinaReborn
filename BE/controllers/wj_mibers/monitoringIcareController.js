@@ -314,6 +314,53 @@ exports.getIcareDailySummary = async (req, res) => {
   }
 };
 
+exports.fetchDashboardMonitoringIcare = async (req, res) => {
+  try {
+    const { startDate = "", endDate = "" } = req.query;
+
+    if (!startDate || !endDate) {
+      return res.json({
+        totalSuccess: 0,
+        totalError: 0,
+        totalIcare: 0
+      });
+    }
+
+    const sql = `
+      SELECT
+        SUM(status = 'SUCCESS') AS totalSuccess,
+        SUM(status = 'ERROR') AS totalError,
+        COUNT(*) AS totalIcare
+      FROM monitoring_icare
+      WHERE created_at BETWEEN ? AND ?
+    `;
+
+    const params = [
+      `${startDate} 00:00:00`,
+      `${endDate} 23:59:59`
+    ];
+
+    const [rows] = await db.promise().query(sql, params);
+
+    const row = rows[0] || {};
+
+    res.json({
+      totalSuccess: Number(row.totalSuccess || 0),
+      totalError: Number(row.totalError || 0),
+      totalIcare: Number(row.totalIcare || 0)
+    });
+
+  } catch (err) {
+    console.error(
+      "fetchDashboardMonitoringIcare error:",
+      err.message
+    );
+
+    res.status(500).json({
+      message: err.message
+    });
+  }
+};
 
 exports.exportIcare = async (req, res) => {
   try {
