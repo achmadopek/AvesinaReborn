@@ -28,17 +28,25 @@ class PatientMapper {
     return {
       resourceType: "Patient",
       identifier: identifiers,
+
       name: [{
         use: "official",
         text: patientData.patient_nm || "Unnamed Patient"
       }],
+
       gender: this.mapGender(patientData.gender),
 
-      // 🔥 safe now
       birthDate,
 
+      multipleBirthBoolean: false,
+
       address: patientData.address
-        ? [{ text: patientData.address, country: "ID" }]
+        ? [{
+            use: "home",
+            text: patientData.address,
+            country: "ID",
+            extension: []
+          }]
         : undefined,
 
       telecom: this.buildTelecom(patientData)

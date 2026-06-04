@@ -135,7 +135,7 @@ const InstalasiSPMModal = ({ show, onClose, onSuccess, editData }) => {
                         {/* KODE */}
                         <label>Kode Instalasi</label>
                         <input
-                            className="form-control form-control-smmb-2"
+                            className="form-control form-control-sm mb-2"
                             value={form.kode_instalasi}
                             onChange={(e) =>
                                 setForm({ ...form, kode_instalasi: e.target.value })
@@ -145,7 +145,7 @@ const InstalasiSPMModal = ({ show, onClose, onSuccess, editData }) => {
                         {/* NAMA */}
                         <label>Nama Instalasi</label>
                         <input
-                            className="form-control form-control-smmb-2"
+                            className="form-control form-control-sm mb-2"
                             value={form.nama_instalasi}
                             onChange={(e) =>
                                 setForm({ ...form, nama_instalasi: e.target.value })

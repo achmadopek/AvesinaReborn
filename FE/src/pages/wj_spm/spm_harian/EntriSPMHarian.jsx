@@ -458,7 +458,7 @@ const EntriSPMHarian = () => {
                   <th>Input Nilai</th>
                   <th>Pencapaian</th>
                   <th>Satuan</th>
-                  <th>Contoh</th>
+                  {/* <th>Contoh</th> */}
                 </tr>
               </thead>
 
@@ -514,7 +514,7 @@ const EntriSPMHarian = () => {
                       </td>
 
                       <td>{it.satuan_num}</td>
-                      <td>{it.contoh_num == 0 ? "-" : it.contoh_num}</td>
+                      {/* <td>{it.contoh_num == 0 ? "-" : it.contoh_num}</td> */}
                     </tr>
 
                     <tr>
@@ -539,7 +539,7 @@ const EntriSPMHarian = () => {
                       </td>
 
                       <td>{it.satuan_den}</td>
-                      <td>{it.contoh_den == 0 ? "-" : it.contoh_den}</td>
+                      {/* <td>{it.contoh_den == 0 ? "-" : it.contoh_den}</td> */}
                     </tr>
                   </React.Fragment>
                 ))}

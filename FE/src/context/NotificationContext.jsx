@@ -10,13 +10,6 @@ export const NotificationProvider = ({ children }) => {
   const { role, peg_id } = useAuth();
 
   const loadNotificationCount = useCallback(async () => {
-    console.log(
-      "LOAD NOTIF",
-      role,
-      peg_id,
-      new Date().toISOString()
-    );
-
     try {
       if (role === "pegawai" && !peg_id) {
         return;

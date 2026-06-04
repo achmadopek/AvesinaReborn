@@ -92,3 +92,11 @@ ALTER TYPE queue_status ADD VALUE IF NOT EXISTS 'processing';
 ALTER TYPE queue_status ADD VALUE IF NOT EXISTS 'failed';
 ALTER TYPE queue_status ADD VALUE IF NOT EXISTS 'done';
 ALTER TYPE queue_status ADD VALUE IF NOT EXISTS 'dead';
+
+ALTER TABLE satusehat_queue
+ADD CONSTRAINT uq_queue_resource
+UNIQUE(resource_type, local_resource_id);
+
+ALTER TABLE satusehat_reference_cache
+ADD CONSTRAINT uq_reference_cache
+UNIQUE(reference_type, local_id);

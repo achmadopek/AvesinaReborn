@@ -51,10 +51,14 @@ const processQueue = async () => {
     // ========================================
     if (result?.skipped) {
 
-      // =========================
-      // SKIP FINAL (tidak retry)
-      // =========================
-      if (result.final) {
+      const retryable =
+        result.retryable === true;
+
+      const final =
+        result.final === true;
+
+      // FINAL SKIP
+      if (final) {
 
         await queueRepo.update(queue.id, {
           status: "done",
@@ -71,22 +75,41 @@ const processQueue = async () => {
         return;
       }
 
-      // =========================
-      // SKIP RETRYABLE
-      // =========================
-      await queueRepo.update(queue.id, {
-        status: "failed",
-        retry_count: queue.retry_count + 1,
-        last_error: result.message || "Skipped",
-        locked_by: null,
-        locked_at: null
-      });
+      // RETRYABLE SKIP
+      if (retryable) {
 
-      console.log(
-        `⏭️ Queue skipped: ` +
-        `${queue.local_resource_id} ` +
-        `(${queue.retry_count + 1}/${MAX_RETRY})`
-      );
+        const nextRetry =
+          (queue.retry_count || 0) + 1;
+
+        const nextStatus =
+          nextRetry >= MAX_RETRY
+            ? "dead"
+            : "failed";
+
+        await queueRepo.update(queue.id, {
+          status: nextStatus,
+          retry_count: nextRetry,
+          last_error: result.message || "Retryable skip",
+          locked_by: null,
+          locked_at: null
+        });
+
+        console.log(
+          `⏭️ Queue retryable skip: ${queue.local_resource_id} ` +
+          `(${nextRetry}/${MAX_RETRY})`
+        );
+
+        return;
+      }
+
+      // default skip -> done
+      await queueRepo.update(queue.id, {
+        status: "done",
+        processed_at: new Date(),
+        locked_by: null,
+        locked_at: null,
+        last_error: result.message || null
+      });
 
       return;
     }

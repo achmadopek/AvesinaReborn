@@ -201,7 +201,7 @@ class QueueService {
         registry,
         patientResult.satusehatId
       );
-
+      
     // =========================
     // SKIPPED
     // =========================
@@ -252,3 +252,4 @@ class QueueService {
 }
 
 module.exports = new QueueService();
+

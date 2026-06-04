@@ -28,6 +28,8 @@ const MasterInstalasiSPM = ({ limit = 10 }) => {
                 searchNama
             );
 
+            console.log("API response:", res);
+
             setData(res.data);
             setTotalPages(res.totalPages);
 
@@ -140,7 +142,7 @@ const MasterInstalasiSPM = ({ limit = 10 }) => {
 
                                 {data.length === 0 && (
                                     <tr>
-                                        <td colSpan="6" className="text-center">
+                                        <td colSpan="7" className="text-center">
                                             Tidak ada data
                                         </td>
                                     </tr>
