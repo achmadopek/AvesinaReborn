@@ -1,9 +1,9 @@
 import API from "../axiosInstance";
 
 // ==================== API CALLS ====================
-export const fetchPaginatedDataCTScan = async ({ tgl, role, peg_id }) => {
+export const fetchPaginatedDataCTScan = async ({ tgl, role, employee_id }) => {
   const res = await API.get("/api/sirad/MonitoringCTScan/data", {
-    params: { tgl, role, peg_id }
+    params: { tgl, role, employee_id }
   });
   return res.data;
 };

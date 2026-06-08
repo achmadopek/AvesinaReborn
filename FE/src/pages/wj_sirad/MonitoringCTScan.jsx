@@ -208,7 +208,7 @@ const MonitoringCTScan = (
 
     try {
       //const res = await fetchPaginatedDataCTScan({ tgl, token });
-      const res = await fetchPaginatedDataCTScan({ tgl, role, peg_id });
+      const res = await fetchPaginatedDataCTScan({ tgl, role, employee_id: peg_id });
       setData(res.data || []);
 
       //console.log("DATA", res);
@@ -283,7 +283,7 @@ const MonitoringCTScan = (
   // -----------------------
   const openModalDetail = async (row) => {
     try {
-      const res = await fetchDetailCTScan(row.registry_id, row.x_ray_dtl_id);
+      const res = await fetchDetailCTScan(row.registry_id, row.ct_scan_dtl_id);
       if (res.success) {
         setSelectedDetail(res.data);
         setShowDetailModal(true);
@@ -299,7 +299,7 @@ const MonitoringCTScan = (
 
   const openModalRequest = async (row) => {
     try {
-      const res = await fetchDetailCTScan(row.registry_id, row.x_ray_dtl_id);
+      const res = await fetchDetailCTScan(row.registry_id, row.ct_scan_dtl_id);
       if (res.success) {
         setSelectedDetail(res.data);
         setNotes(res.data.notes || "");
@@ -369,13 +369,13 @@ const MonitoringCTScan = (
     );
 
     formData.append(
-      "x_ray_id",
-      selectedUpload.x_ray_id
+      "ct_scan_id",
+      selectedUpload.ct_scan_id
     );
 
     formData.append(
-      "x_ray_dtl_id",
-      selectedUpload.x_ray_dtl_id
+      "ct_scan_dtl_id",
+      selectedUpload.ct_scan_dtl_id
     );
 
     formData.append(
@@ -464,7 +464,7 @@ const MonitoringCTScan = (
 
   const openModalBaca = async (row) => {
     try {
-      const res = await fetchDetailCTScan(row.registry_id, row.x_ray_dtl_id);
+      const res = await fetchDetailCTScan(row.registry_id, row.ct_scan_dtl_id);
 
       if (res.success) {
         setSelectedBaca(res.data);
@@ -489,8 +489,8 @@ const MonitoringCTScan = (
 
       const res = await saveHasilCTScan({
         registry_id: selectedBaca.registry_id,
-        x_ray_id: selectedBaca.x_ray_id,
-        x_ray_dtl_id: selectedBaca.x_ray_dtl_id,
+        ct_scan_id: selectedBaca.ct_scan_id,
+        ct_scan_dtl_id: selectedBaca.ct_scan_dtl_id,
         hasil_bacaan: hasilBacaan,
         read_by: peg_id,
       });

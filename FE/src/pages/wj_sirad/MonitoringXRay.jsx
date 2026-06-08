@@ -208,7 +208,12 @@ const MonitoringXRay = (
 
     try {
       //const res = await fetchPaginatedDataXRay({ tgl, token });
-      const res = await fetchPaginatedDataXRay({ tgl, role, peg_id });
+      const res = await fetchPaginatedDataXRay({
+        tgl,
+        role,
+        employee_id: peg_id
+      });
+      
       setData(res.data || []);
 
       //console.log("DATA", res);

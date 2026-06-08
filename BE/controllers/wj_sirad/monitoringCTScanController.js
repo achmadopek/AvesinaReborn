@@ -31,37 +31,13 @@ exports.getData = async (req, res) => {
 
   try {
 
-    const {
-      peg_id,
-      role,
-      tgl,
-    } = req.query;
+    const { employee_id, role, tgl } = req.query;
 
     let expert_id = null;
-
-    // ==================================================
-    // FILTER RADIOLOG
-    // ==================================================
-    if (
-      role === "radiolog" &&
-      peg_id
-    ) {
-
-      const [[mapPeg]] =
-        await dbLokal.promise().query(
-          `
-          SELECT employee_id
-          FROM sdm_pegawai
-          WHERE id = ?
-          LIMIT 1
-          `,
-          [peg_id]
-        );
-
-      expert_id =
-        mapPeg?.employee_id || null;
+    if (role === "radiolog" && employee_id) {
+      expert_id = employee_id; // langsung pake, nggak usah query lagi
     }
-
+    
     // ==================================================
     // DATA UTAMA
     // ==================================================
@@ -412,10 +388,7 @@ exports.getDetail = async (
         catatan_radiografer:
           lokal?.notes || null,
 
-        hasil_bacaan:
-          !!String(utama.ct_scan_reading || "").trim() ||
-          lokal?.hasil_bacaan ||
-          null,
+        hasil_bacaan: utama.ct_scan_reading ? utama.ct_scan_reading : (lokal?.hasil_bacaan || null),
 
         status:
           !!String(utama.ct_scan_reading || "").trim()

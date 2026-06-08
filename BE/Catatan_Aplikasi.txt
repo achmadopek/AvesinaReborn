@@ -26,8 +26,8 @@ MOBAY : 20 Mei 2026
 1. Role Pembayaran: Filter data ganti dari Tgl Pengajuan ke berdasarkan tgl verifikasi
 
 RADAR : 3 JUNI 2026
-1. Data tidak tampil di akun Radilog
-2. Hasil bacaan tampil "true" seharusnya hasil bacaannya
+1. Data tidak tampil di akun Radilog ==> OK
+2. Hasil bacaan tampil "true" seharusnya hasil bacaannya ==> OK
 3. Anamnesa dari avesina blm tampil
 4. Tgl dipilih tap yg muncul mundur 1 hari
 5. Tanda sudah upload bisa diinfokan ke radiografer (bisa text bsia tumnail)

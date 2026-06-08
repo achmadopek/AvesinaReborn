@@ -31,35 +31,11 @@ exports.getData = async (req, res) => {
 
   try {
 
-    const {
-      peg_id,
-      role,
-      tgl,
-    } = req.query;
+    const { employee_id, role, tgl } = req.query;
 
     let expert_id = null;
-
-    // ==================================================
-    // FILTER RADIOLOG
-    // ==================================================
-    if (
-      role === "radiolog" &&
-      peg_id
-    ) {
-
-      const [[mapPeg]] =
-        await dbLokal.promise().query(
-          `
-          SELECT employee_id
-          FROM sdm_pegawai
-          WHERE id = ?
-          LIMIT 1
-          `,
-          [peg_id]
-        );
-
-      expert_id =
-        mapPeg?.employee_id || null;
+    if (role === "radiolog" && employee_id) {
+      expert_id = employee_id; // langsung pake, nggak usah query lagi
     }
 
     // ==================================================
@@ -205,11 +181,8 @@ exports.getData = async (req, res) => {
         status:
           lokal?.status || "none",
 
-        is_final:
-          !!String(u.photo_reading || "").trim(),
-
-        is_lokal:
-          !!String(lokal?.hasil_bacaan || "").trim(),
+        is_final: !!String(u.photo_reading || "").trim(),
+        is_lokal: !!String(lokal?.hasil_bacaan || "").trim(),
 
         tindakan_mapping: [
           {
@@ -412,10 +385,8 @@ exports.getDetail = async (
         catatan_radiografer:
           lokal?.notes || null,
 
-        hasil_bacaan:
-          !!String(utama.photo_reading || "").trim() ||
-          lokal?.hasil_bacaan ||
-          null,
+        // SALAH - syntax error, jadi ke-evaluate jadi true
+        hasil_bacaan: utama.photo_reading ? utama.photo_reading : (lokal?.hasil_bacaan || null),
 
         status:
           !!String(utama.photo_reading || "").trim()
