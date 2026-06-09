@@ -4,7 +4,7 @@ const BASE_URL = import.meta.env.VITE_API_URL;
 // Ambil Aplicares dengan pagination (server-side)
 export const fetchPaginatedDataMonitoringAplicares = async (
   page = 1,
-  limit = 10
+  limit = 10,
 ) => {
   const res = await API.get("/api/mibers/MonitoringAplicares", {
     params: {
@@ -30,30 +30,20 @@ export const fetchPaginatedDataMonitoringIcare = async ({
   return res.data;
 };
 
-export const fetchIcareDailySummary = async ({
-  startDate,
-  endDate,
-  poli
-}) => {
+export const fetchIcareDailySummary = async ({ startDate, endDate, poli }) => {
   const res = await API.get("/api/mibers/MonitoringIcare/summary", {
-    params: { startDate, endDate, poli }
+    params: { startDate, endDate, poli },
   });
   return res.data;
 };
 
-export const fetchDashboardMonitoringIcare = async ({
-  startDate,
-  endDate
-}) => {
-  const response = await API.get(
-    "/api/mibers/MonitoringIcare/dashboard",
-    {
-      params: {
-        startDate,
-        endDate
-      }
-    }
-  );
+export const fetchDashboardMonitoringIcare = async ({ startDate, endDate }) => {
+  const response = await API.get("/api/mibers/MonitoringIcare/dashboard", {
+    params: {
+      startDate,
+      endDate,
+    },
+  });
 
   return response.data;
 };
@@ -77,8 +67,8 @@ export const fetchPaginatedDataMonitoringTHP = async ({
   limit = 10,
   startDate = "",
   endDate = "",
-  peg_id,          // optional
-  employee_sts     // optional
+  peg_id, // optional
+  employee_sts, // optional
 }) => {
   const res = await API.get("/api/mibers/MonitoringTHP", {
     params: { page, limit, startDate, endDate, peg_id, employee_sts },
@@ -86,10 +76,7 @@ export const fetchPaginatedDataMonitoringTHP = async ({
   return res.data;
 };
 
-export const exportMonitoringTHP = async ({
-  startDate = "",
-  endDate = "",
-}) => {
+export const exportMonitoringTHP = async ({ startDate = "", endDate = "" }) => {
   const res = await API.get("/api/mibers/MonitoringIcare/export", {
     params: { startDate, endDate },
     responseType: "blob", // penting!
@@ -141,15 +128,13 @@ export const fetchMonitoringDisplaySummary = async ({
 export const fetchMonitoringDisplayMonthly = async ({
   year,
   month,
-  offlineThreshold
+  offlineThreshold,
 }) => {
-  const res = await API.get(
-    "/api/mibers/MonitoringDisplay/monthly",
-    { params: { year, month, offlineThreshold } }
-  );
+  const res = await API.get("/api/mibers/MonitoringDisplay/monthly", {
+    params: { year, month, offlineThreshold },
+  });
   return res.data;
 };
-
 
 // Ambil SatuSehat Specimen dengan pagination (server-side)
 export const fetchPaginatedDataMonitoringSatuSehat = async ({
@@ -170,31 +155,30 @@ export const kirimSpecimenSatuSehat = async (lab_srvc_id) => {
   return res.data;
 };
 
-
 // ======================================
 // SUMMARY
 // ======================================
-export const fetchMonitoringVisiteSummary =
-  async (params) => {
+export const fetchMonitoringVisiteSummary = async (params) => {
+  const res = await API.get("/api/mibers/MonitoringVisite/summary", { params });
 
-    const res = await API.get(
-      "/api/mibers/MonitoringVisite/summary",
-      { params }
-    );
-
-    return res.data;
-  };
+  return res.data;
+};
 
 // ======================================
 // ACTIVITY
 // ======================================
-export const fetchMonitoringVisiteActivity =
-  async (params) => {
+export const fetchMonitoringVisiteActivity = async (params) => {
+  const res = await API.get("/api/mibers/MonitoringVisite/activity", {
+    params,
+  });
 
-    const res = await API.get(
-      "/api/mibers/MonitoringVisite/activity",
-      { params }
-    );
+  return res.data;
+};
 
-    return res.data;
-  };
+export const fetchMonitoringDoctorPerformance = async (params = {}) => {
+  const res = await API.get("/api/mibers/MonitoringVisite/doctor-performance", {
+    params,
+  });
+
+  return res.data;
+};

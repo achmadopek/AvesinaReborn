@@ -3,14 +3,13 @@ const router = express.Router();
 
 const monitoringVisiteController = require("../../controllers/wj_mibers/monitoringVisiteController");
 
-router.get(
-  "/summary",
-  monitoringVisiteController.getSummary
-);
+router.get("/summary", monitoringVisiteController.getSummary);
+
+router.get("/activity", monitoringVisiteController.getActivity);
 
 router.get(
-  "/activity",
-  monitoringVisiteController.getActivity
+  "/doctor-performance",
+  monitoringVisiteController.getDoctorPerformance,
 );
 
 module.exports = router;

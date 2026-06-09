@@ -31,3 +31,16 @@ RADAR : 3 JUNI 2026
 3. Anamnesa dari avesina blm tampil
 4. Tgl dipilih tap yg muncul mundur 1 hari
 5. Tanda sudah upload bisa diinfokan ke radiografer (bisa text bsia tumnail)
+
+SIGMA/VISITE : 8 Juni 2026
+1. Kuantitas Visite Dokter jadi --> Pasien Rawat Inap, isinya:
+2. Sudah Divisite, Belum Divisite, Total Pasien (Aktif) pada rentang itu
+3. Halaman khusus ada tabulasi Rekap Visite Dokter:
+   No. | Nama Dokter | Jml Visite Standar | Jml Visite Tidak Standar | Prosentase Memenuhi
+   ada garfik capaiannya tiap dokter
+
+SPM : 8 Juni 2026
+1. Rekapan Nilai indikator (per jenis pelayanan [IGD, Rajal, ranap, dst], [Per TW/Smt/Tahunan]), isinya:
+   No. Indikator Jan, Feb, Mar. dst.. Total
+       Num      tot Poli A+Poli B, dst
+       Denum    tot Poli A+Poli B, dst.
