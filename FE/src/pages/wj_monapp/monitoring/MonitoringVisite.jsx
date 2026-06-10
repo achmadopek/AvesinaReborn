@@ -327,7 +327,7 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
             </div>
             <div className="card-body">
               <div className="row g-2 text-center">
-                <div className="col-4">
+                <div className="col-6">
                   <div className="card shadow-sm border-0 h-100">
                     <div className="card-body">
                       <small className="text-muted">Memiliki DPJP</small>
@@ -337,7 +337,7 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
                     </div>
                   </div>
                 </div>
-                <div className="col-4">
+                <div className="col-6">
                   <div className="card shadow-sm border-0 h-100">
                     <div className="card-body">
                       <small className="text-muted">Belum DPJP</small>
@@ -347,7 +347,7 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
                     </div>
                   </div>
                 </div>
-                <div className="col-4">
+                {/*<div className="col-4">
                   <div className="card shadow-sm border-0 h-100">
                     <div className="card-body">
                       <small className="text-muted">Total Pasien</small>
@@ -356,7 +356,7 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
                       </h3>
                     </div>
                   </div>
-                </div>
+                </div>*/}
               </div>
             </div>
           </div>
