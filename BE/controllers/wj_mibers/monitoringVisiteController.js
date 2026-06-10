@@ -75,7 +75,8 @@ const buildActivityQueries = (visiteFilter, treatmentFilter) => {
     LEFT JOIN employee edpjp ON edpjp.employee_id = r.employee_respon
     JOIN service_unit su ON su.srvc_unit_id = uv.unit_id_to
     JOIN medical_service ms ON ms.medical_service_id = v.medical_service_id
-    ${visiteFilter.filter}`;
+    ${visiteFilter.filter}
+    AND e.employee_id <> '197601052003122007' -- Exclude dr. Yessy`;
 
   const treatmentSql = `
     SELECT
@@ -99,7 +100,8 @@ const buildActivityQueries = (visiteFilter, treatmentFilter) => {
     LEFT JOIN employee edpjp ON edpjp.employee_id = r.employee_respon
     JOIN service_unit su ON su.srvc_unit_id = uv.unit_id_to
     JOIN medical_service ms ON ms.medical_service_id = t.medical_service_id
-    ${treatmentFilter.filter}`;
+    ${treatmentFilter.filter}
+    AND e.employee_id <> '197601052003122007' -- Exclude dr. Yessy`;
 
   return { visiteSql, treatmentSql };
 };
