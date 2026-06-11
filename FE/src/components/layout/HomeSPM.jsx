@@ -15,7 +15,11 @@ import { useAuth } from "../../context/AuthContext";
 import { fetchRekapSPMIndikator } from "../../api/wj_spm/DashboardSPM";
 
 // contoh API list (sesuaikan dengan punyamu)
-import { fetchRuangan, fetchInstalasi, fetchBidang } from "../../api/wj_spm/EntriHarian";
+import {
+  fetchRuangan,
+  fetchInstalasi,
+  fetchBidang,
+} from "../../api/wj_spm/EntriHarian";
 
 const HomeSPM = () => {
   // ================= STATE =================
@@ -47,8 +51,19 @@ const HomeSPM = () => {
     rekap.find((r) => r.indikator_id === selectedIndikatorId) || rekap[0];
 
   const namaBulan = [
-    "", "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
-    "Jul", "Agu", "Sep", "Okt", "Nov", "Des"
+    "",
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "Mei",
+    "Jun",
+    "Jul",
+    "Agu",
+    "Sep",
+    "Okt",
+    "Nov",
+    "Des",
   ];
 
   // ================= HELPER =================
@@ -147,7 +162,7 @@ const HomeSPM = () => {
         mode,
         selectedId,
         range.start,
-        range.end
+        range.end,
       );
 
       setRekap(res.data || []);
@@ -222,13 +237,10 @@ const HomeSPM = () => {
   // ================= RENDER =================
   return (
     <div className="container-fluid px-2">
-
       {/* HEADER */}
       <div className="card shadow-sm mb-3">
         <div className="card-body">
-          <h5 className="mb-1">
-            Dashboard SPM – {meta?.nama || "-"}
-          </h5>
+          <h5 className="mb-1">Dashboard SPM – {meta?.nama || "-"}</h5>
           <small className="text-muted">
             Periode: {start} s/d {end}
           </small>
@@ -241,7 +253,6 @@ const HomeSPM = () => {
           <b>Filter Grafik</b>
         </div>
         <div className="card-body row g-2 align-items-end">
-
           <div className="col-md-2">
             <label className="form-label">Mode</label>
             <select
@@ -301,7 +312,6 @@ const HomeSPM = () => {
               {loading ? "Loading..." : "Terapkan"}
             </button>
           </div>
-
         </div>
       </div>
 
@@ -329,7 +339,9 @@ const HomeSPM = () => {
                 <tr key={r.indikator_id}>
                   <td className="text-center">{i + 1}</td>
                   <td>{r.indikator}</td>
-                  <td>{r.target} {r.satuan}</td>
+                  <td>
+                    {r.target} {r.satuan}
+                  </td>
 
                   {meta?.periode?.bulan?.map((b) => (
                     <td key={b} className="text-center">
@@ -348,9 +360,7 @@ const HomeSPM = () => {
           </table>
 
           {!loading && rekap.length === 0 && (
-            <div className="text-center text-muted">
-              Tidak ada data
-            </div>
+            <div className="text-center text-muted">Tidak ada data</div>
           )}
         </div>
       </div>
@@ -370,7 +380,10 @@ const HomeSPM = () => {
               })) || [];
 
             return (
-              <div className="card shadow-sm mb-3 col-12 col-md-6" key={indikator.indikator_id}>
+              <div
+                className="card shadow-sm mb-3 col-12 col-md-6"
+                key={indikator.indikator_id}
+              >
                 <div className="card-header">
                   <b>{indikator.indikator}</b>
                 </div>
@@ -412,7 +425,6 @@ const HomeSPM = () => {
           })}
         </div>
       </div>
-
     </div>
   );
 };

@@ -87,9 +87,7 @@ exports.getRekapIndikator = async (req, res) => {
       ORDER BY i.id, tahun, bulan
     `;
 
-    const params = id
-      ? [start_date, end_date, id]
-      : [start_date, end_date];
+    const params = id ? [start_date, end_date, id] : [start_date, end_date];
 
     /**
      * ==========================
@@ -131,9 +129,7 @@ exports.getRekapIndikator = async (req, res) => {
         }
 
         const nilai =
-          r.denominator > 0
-            ? (r.numerator / r.denominator) * 100
-            : null;
+          r.denominator > 0 ? (r.numerator / r.denominator) * 100 : null;
 
         map[r.indikator_id].bulan[r.bulan] =
           nilai !== null ? Number(nilai.toFixed(2)) : null;
@@ -174,7 +170,6 @@ exports.getRekapIndikator = async (req, res) => {
         },
         data: result,
       });
-      
     });
   } catch (err) {
     console.error(err);
