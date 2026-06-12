@@ -250,7 +250,7 @@ const HomeSPM = () => {
       {/* FILTER */}
       <div className="card shadow-sm mb-3">
         <div className="card-header">
-          <b>Filter Grafik</b>
+          <b>Filter Rekap Ringkas SPM</b>
         </div>
         <div className="card-body row g-2 align-items-end">
           <div className="col-md-2">
@@ -318,7 +318,7 @@ const HomeSPM = () => {
       {/* TABLE */}
       <div className="card shadow-sm mb-3">
         <div className="card-header">
-          <b>Rekap Indikator Mutu</b>
+          <b>Rekap Ringkas SPM</b>
         </div>
 
         <div className="card-body table-responsive">

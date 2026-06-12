@@ -223,7 +223,7 @@ exports.getRekapBulanan = (req, res) => {
       const nilai = hitungNilaiAkhir(
         i.total_numerator,
         i.total_denominator,
-        i.measurement
+        i.measurement,
       );
 
       return {
@@ -242,10 +242,8 @@ exports.getRekapBulanan = (req, res) => {
         harian: Object.values(mapHarian),
       },
     });
-
   });
 };
-
 
 exports.generateRekapValidasi = (req, res) => {
   const { instalasi_id, bulan, tahun } = req.body;
@@ -276,44 +274,39 @@ exports.generateRekapValidasi = (req, res) => {
       ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)
     `;
 
-    db_lokal.query(
-      sqlInsertRekap,
-      [instalasi_id, bulan, tahun],
-      (err, r1) => {
-        if (err) return res.status(500).json({ success: false, error: err });
+    db_lokal.query(sqlInsertRekap, [instalasi_id, bulan, tahun], (err, r1) => {
+      if (err) return res.status(500).json({ success: false, error: err });
 
-        const rekap_id = r1.insertId;
+      const rekap_id = r1.insertId;
 
-        // 3. Loop unit → ambil rekap bulanan per unit
-        let selesai = 0;
+      // 3. Loop unit → ambil rekap bulanan per unit
+      let selesai = 0;
 
-        units.forEach((u) => {
-          const unit_id = u.id;
-          const bulanStr = `${tahun}-${String(bulan).padStart(2, "0")}`;
+      units.forEach((u) => {
+        const unit_id = u.id;
+        const bulanStr = `${tahun}-${String(bulan).padStart(2, "0")}`;
 
-          ambilRekapUnit(unit_id, bulanStr, (err, dataRekap) => {
-            if (err) return console.error(err);
+        ambilRekapUnit(unit_id, bulanStr, (err, dataRekap) => {
+          if (err) return console.error(err);
 
-            simpanDetail(rekap_id, unit_id, dataRekap, () => {
-              selesai++;
-              if (selesai === units.length) {
-                res.json({
-                  success: true,
-                  message: "Rekap verifikasi berhasil digenerate",
-                  rekap_id,
-                });
-              }
-            });
+          simpanDetail(rekap_id, unit_id, dataRekap, () => {
+            selesai++;
+            if (selesai === units.length) {
+              res.json({
+                success: true,
+                message: "Rekap verifikasi berhasil digenerate",
+                rekap_id,
+              });
+            }
           });
         });
-      }
-    );
+      });
+    });
   });
 };
 
 function ambilRekapUnit(unit_id, bulan, cb) {
-  const sql =
-    `SELECT
+  const sql = `SELECT
       i.id AS indikator_id,
       i.judul_indikator,
       i.numerator AS nama_numerator,
@@ -414,9 +407,7 @@ function ambilRekapUnit(unit_id, bulan, cb) {
           : null;
 
       const meetPercent =
-        i.days_total > 0
-          ? (i.days_meet / i.days_total) * 100
-          : null;
+        i.days_total > 0 ? (i.days_meet / i.days_total) * 100 : null;
 
       return {
         indikator_id: i.indikator_id,
@@ -555,6 +546,6 @@ exports.validasiBulanan = (req, res) => {
       if (err) return res.status(500).json({ success: false, error: err });
 
       res.json({ success: true });
-    }
+    },
   );
 };

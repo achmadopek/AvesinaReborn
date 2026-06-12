@@ -168,11 +168,30 @@ const generateSPMPDF = async (
             // ======================
             group.items.forEach((r, i) => {
 
-                const indikatorHeight = doc.heightOfString(r.judul_indikator, {
-                    width: 270
+                const indikatorText = String(r.judul_indikator || "");
+                const measurementText = String(r.measurement || "");
+                const indikatorWidth = colNum - colInd - 5;
+                const measurementWidth = colStat - colSat - 5;
+
+                doc.font("Helvetica").fontSize(9);
+
+                const indikatorHeight = doc.heightOfString(indikatorText, {
+                    width: indikatorWidth
                 });
 
-                const rowHeight = Math.max(indikatorHeight, 15);
+                let measurementFontSize = 9;
+                let measurementHeight = doc.heightOfString(measurementText, {
+                    width: measurementWidth
+                });
+
+                if (measurementHeight > 18 || measurementText.length > 18) {
+                    measurementFontSize = 8;
+                    measurementHeight = doc.heightOfString(measurementText, {
+                        width: measurementWidth
+                    });
+                }
+
+                const rowHeight = Math.max(indikatorHeight, measurementHeight, 15);
 
                 if (y + rowHeight > 700) {
                     doc.addPage();
@@ -183,15 +202,17 @@ const generateSPMPDF = async (
 
                 doc.text(nomorGlobal++, colNo, y);
 
-                doc.text(r.judul_indikator, colInd, y, {
-                    width: 270
+                doc.text(indikatorText, colInd, y, {
+                    width: indikatorWidth
                 });
 
                 doc.text(Number(r.numerator_value), colNum, y);
                 doc.text(Number(r.denominator_value), colDen, y);
-                doc.text(r.measurement, colSat, y);
+                doc.fontSize(measurementFontSize).text(measurementText, colSat, y, {
+                    width: measurementWidth
+                });
 
-                doc.text(
+                doc.fontSize(9).text(
                     r.is_meet_standard ? "Memenuhi" : "Belum",
                     colStat,
                     y

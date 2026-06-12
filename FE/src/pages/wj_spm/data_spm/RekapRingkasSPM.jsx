@@ -3,7 +3,11 @@ import { toast } from "react-toastify";
 import { fetchRekapSPMRingkas } from "../../../api/wj_spm/DataSPM";
 
 // contoh API list (sesuaikan dengan punyamu)
-import { fetchRuangan, fetchInstalasi, fetchBidang } from "../../../api/wj_spm/EntriHarian";
+import {
+  fetchRuangan,
+  fetchInstalasi,
+  fetchBidang,
+} from "../../../api/wj_spm/EntriHarian";
 
 const RekapRingkasSPM = () => {
   const [mode, setMode] = useState("unit"); // unit | instalasi | bidang
@@ -22,8 +26,18 @@ const RekapRingkasSPM = () => {
   const [loading, setLoading] = useState(false);
 
   const bulanLabel = [
-    "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
-    "Jul", "Agu", "Sep", "Okt", "Nov", "Des"
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "Mei",
+    "Jun",
+    "Jul",
+    "Agu",
+    "Sep",
+    "Okt",
+    "Nov",
+    "Des",
   ];
 
   // Helper Date Range
@@ -78,9 +92,7 @@ const RekapRingkasSPM = () => {
     }
 
     if (jenisWaktu === "semester") {
-      return semester === "1"
-        ? [1, 2, 3, 4, 5, 6]
-        : [7, 8, 9, 10, 11, 12];
+      return semester === "1" ? [1, 2, 3, 4, 5, 6] : [7, 8, 9, 10, 11, 12];
     }
 
     // tahunan
@@ -99,7 +111,6 @@ const RekapRingkasSPM = () => {
 
     return arr;
   };
-
 
   // -------------------------
   // Load master data sesuai mode
@@ -167,7 +178,7 @@ const RekapRingkasSPM = () => {
         mode,
         selectedId,
         startDate,
-        endDate
+        endDate,
       );
 
       setData(res.data || []);
@@ -245,10 +256,8 @@ const RekapRingkasSPM = () => {
       </div>
 
       <div className="card-body px-3 py-3">
-
         {/* FILTER */}
         <div className="d-flex flex-wrap align-items-end mb-3 gap-2">
-
           {/* MODE */}
           <div>
             <label className="form-label mb-1 fw-semibold">Mode</label>
@@ -329,7 +338,6 @@ const RekapRingkasSPM = () => {
                 onChange={(e) => setTahun(e.target.value)}
               />
             </div>
-
           </div>
 
           {/* BUTTON */}
@@ -377,7 +385,11 @@ const RekapRingkasSPM = () => {
                   </td>
 
                   {(() => {
-                    const bulanRange = getBulanRange(jenisWaktu, triwulan, semester);
+                    const bulanRange = getBulanRange(
+                      jenisWaktu,
+                      triwulan,
+                      semester,
+                    );
                     const dataBulan = buildBulanArray(row.periode, tahun);
 
                     let total = 0;
@@ -414,7 +426,6 @@ const RekapRingkasSPM = () => {
             </tbody>
           </table>
         </div>
-
       </div>
     </div>
   );

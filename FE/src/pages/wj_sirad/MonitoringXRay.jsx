@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   fetchPaginatedDataXRay,
   fetchDetailXRay,
+  requestXRay,
   uploadXRay,
   saveHasilXRay,
 } from "../../api/wj_sirad/MonitoringXRay";
@@ -104,7 +105,6 @@ const MonitoringXRay = (
   // =====================
 
   const changeAspect = (newAspect) => {
-
     setAspect(newAspect);
 
     setCrop({
@@ -120,38 +120,24 @@ const MonitoringXRay = (
   // GET CROPPED IMAGE
   // =====================
 
-  const getCroppedImg = (
-    imageSrc,
-    crop
-  ) => {
-
+  const getCroppedImg = (imageSrc, crop) => {
     return new Promise((resolve) => {
-
       const image = new Image();
 
       image.src = imageSrc;
 
       image.onload = () => {
+        const canvas = document.createElement("canvas");
 
-        const canvas =
-          document.createElement("canvas");
+        const scaleX = image.naturalWidth / image.width;
 
-        const scaleX =
-          image.naturalWidth /
-          image.width;
+        const scaleY = image.naturalHeight / image.height;
 
-        const scaleY =
-          image.naturalHeight /
-          image.height;
+        canvas.width = crop.width;
 
-        canvas.width =
-          crop.width;
+        canvas.height = crop.height;
 
-        canvas.height =
-          crop.height;
-
-        const ctx =
-          canvas.getContext("2d");
+        const ctx = canvas.getContext("2d");
 
         ctx.drawImage(
           image,
@@ -166,7 +152,7 @@ const MonitoringXRay = (
           0,
 
           crop.width,
-          crop.height
+          crop.height,
         );
 
         canvas.toBlob((blob) => {
@@ -211,9 +197,9 @@ const MonitoringXRay = (
       const res = await fetchPaginatedDataXRay({
         tgl,
         role,
-        employee_id: peg_id
+        employee_id: peg_id,
       });
-      
+
       setData(res.data || []);
 
       //console.log("DATA", res);
@@ -295,7 +281,6 @@ const MonitoringXRay = (
       }
 
       console.log(res);
-
     } catch (err) {
       console.error(err);
       toast.error("Gagal memuat detail X-Ray");
@@ -317,7 +302,7 @@ const MonitoringXRay = (
 
   const openModalUpload = (row) => {
     setSelectedUpload(row);
-    
+
     resetUploadState();
 
     setShowUploadModal(true);
@@ -326,143 +311,108 @@ const MonitoringXRay = (
   const handleDicomChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-  
+
     if (!file.name.toLowerCase().endsWith(".dcm")) {
       toast.warn("File harus format DICOM (.dcm)");
       return;
     }
-  
+
     setDicomFile(file);
   };
 
-  const handleUpload = async () => {
+  const handleRequest = async (row) => {
+    try {
+      const payload = {
+        registry_id: row.registry_id,
+        x_ray_id: row.x_ray_id,
+        x_ray_dtl_id: row.x_ray_dtl_id,
 
+        requested_by: peg_id,
+
+        notes,
+      };
+
+      const res = await requestXRay(payload);
+
+      if (res.success) {
+        toast.success(`Request berhasil. ACSN: ${res.accession_number}`);
+
+        setShowRequestModal(false);
+
+        loadData(currentPage, tanggal);
+      }
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Gagal membuat request");
+    }
+  };
+
+  const handleUpload = async () => {
     // ======================
     // VALIDASI
     // ======================
-    if (
-      uploadMode === "dicom" &&
-      !dicomFile
-    ) {
-      toast.warn(
-        "File DICOM wajib dipilih"
-      );
+    if (uploadMode === "dicom" && !dicomFile) {
+      toast.warn("File DICOM wajib dipilih");
       return;
     }
 
-    if (
-      uploadMode === "image" &&
-      !imageFiles.foto1 &&
-      !imageFiles.foto2
-    ) {
-      toast.warn(
-        "Minimal upload 1 gambar"
-      );
+    if (uploadMode === "image" && !imageFiles.foto1 && !imageFiles.foto2) {
+      toast.warn("Minimal upload 1 gambar");
       return;
     }
 
     const formData = new FormData();
 
-    formData.append(
-      "upload_mode",
-      uploadMode
-    );
+    formData.append("upload_mode", uploadMode);
 
-    formData.append(
-      "registry_id",
-      selectedUpload.registry_id
-    );
+    formData.append("registry_id", selectedUpload.registry_id);
 
-    formData.append(
-      "x_ray_id",
-      selectedUpload.x_ray_id
-    );
+    formData.append("x_ray_id", selectedUpload.x_ray_id);
 
-    formData.append(
-      "x_ray_dtl_id",
-      selectedUpload.x_ray_dtl_id
-    );
+    formData.append("x_ray_dtl_id", selectedUpload.x_ray_dtl_id);
 
-    formData.append(
-      "created_by",
-      peg_id
-    );
+    formData.append("created_by", peg_id);
 
     // ======================
     // DICOM
     // ======================
-    if (
-      uploadMode === "dicom" &&
-      dicomFile
-    ) {
-      formData.append(
-        "dicom",
-        dicomFile
-      );
+    if (uploadMode === "dicom" && dicomFile) {
+      formData.append("dicom", dicomFile);
     }
 
     // ======================
     // IMAGE
     // ======================
     if (uploadMode === "image") {
-
       if (imageFiles.foto1) {
-        formData.append(
-          "foto1",
-          imageFiles.foto1
-        );
+        formData.append("foto1", imageFiles.foto1);
       }
 
       if (imageFiles.foto2) {
-        formData.append(
-          "foto2",
-          imageFiles.foto2
-        );
+        formData.append("foto2", imageFiles.foto2);
       }
     }
 
     try {
-
       setUploading(true);
 
-      const res =
-        await uploadXRay(formData);
+      const res = await uploadXRay(formData);
 
       console.log(res);
 
       if (res.success) {
-
-        toast.success(
-          res.message ||
-          "Upload berhasil"
-        );
+        toast.success(res.message || "Upload berhasil");
 
         setShowUploadModal(false);
 
-        loadData(
-          currentPage,
-          tanggal
-        );
-
+        loadData(currentPage, tanggal);
       } else {
-
-        toast.error(
-          res.message ||
-          "Upload gagal"
-        );
+        toast.error(res.message || "Upload gagal");
       }
-
     } catch (err) {
-
       console.error(err);
 
-      toast.error(
-        err?.response?.data?.message ||
-        "Upload gagal"
-      );
-
+      toast.error(err?.response?.data?.message || "Upload gagal");
     } finally {
-
       setUploading(false);
     }
   };
@@ -499,24 +449,22 @@ const MonitoringXRay = (
         hasil_bacaan: hasilBacaan,
         read_by: peg_id,
       });
-      console.log("RES SAVE:", res);
+
       if (res.success) {
-        toast.success(res.observation_sent 
-          ? "Hasil bacaan berhasil disimpan & dikirim ke SatuSehat" 
-          : "Hasil bacaan berhasil disimpan (SatuSehat pending)");
+        toast.success("Hasil bacaan berhasil disimpan");
       } else {
         toast.error(res.message || "Gagal menyimpan hasil");
       }
-      console.log("SEBELUM LOAD DATA");
+
       setShowBacaModal(false);
       setHasilBacaan("");
       loadData(currentPage, tanggal);
-      console.log("SETELAH LOAD DATA");
     } catch (err) {
       console.error(err);
       toast.error(err?.response?.data?.message || "Gagal menyimpan hasil");
     } finally {
       setSaving(false);
+      setLoading(false);
     }
   };
 
@@ -692,11 +640,11 @@ const MonitoringXRay = (
     }
 
     // Import yang BENAR untuk jspdf versi terbaru
-    import('jspdf').then(({ default: jsPDF }) => {
+    import("jspdf").then(({ default: jsPDF }) => {
       const doc = new jsPDF({
         orientation: "portrait",
         unit: "mm",
-        format: "a4"
+        format: "a4",
       });
 
       const pageWidth = doc.internal.pageSize.getWidth();
@@ -705,13 +653,24 @@ const MonitoringXRay = (
       // ==================== HEADER ====================
       doc.setFont("helvetica", "bold");
       doc.setFontSize(16);
-      doc.text("RUOBK RSUD WALUYO JATI", pageWidth / 2, 20, { align: "center" });
+      doc.text("RUOBK RSUD WALUYO JATI", pageWidth / 2, 20, {
+        align: "center",
+      });
 
       doc.setFontSize(11);
       doc.setFont("helvetica", "normal");
-      doc.text("Jl. dr. Soetomo No. 1 Kraksaan 67282 Kab. Probolinggo", pageWidth / 2, 27, { align: "center" });
-      doc.text("Phone : 0335-841160, Fax : 0335-841160", pageWidth / 2, 33, { align: "center" });
-      doc.text("Email : rswaluyojati@yahoo.com", pageWidth / 2, 39, { align: "center" });
+      doc.text(
+        "Jl. dr. Soetomo No. 1 Kraksaan 67282 Kab. Probolinggo",
+        pageWidth / 2,
+        27,
+        { align: "center" },
+      );
+      doc.text("Phone : 0335-841160, Fax : 0335-841160", pageWidth / 2, 33, {
+        align: "center",
+      });
+      doc.text("Email : rswaluyojati@yahoo.com", pageWidth / 2, 39, {
+        align: "center",
+      });
 
       doc.setLineWidth(0.8);
       doc.line(margin, 45, pageWidth - margin, 45);
@@ -719,7 +678,9 @@ const MonitoringXRay = (
       // ==================== JUDUL ====================
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
-      doc.text("HASIL PEMERIKSAAN RADIOLOGI", pageWidth / 2, 55, { align: "center" });
+      doc.text("HASIL PEMERIKSAAN RADIOLOGI", pageWidth / 2, 55, {
+        align: "center",
+      });
 
       // ==================== DATA PASIEN ====================
       doc.setFontSize(11);
@@ -727,9 +688,13 @@ const MonitoringXRay = (
 
       let y = 68;
       doc.text(`NRM          : ${data.mr_code || "-"}`, margin, y);
-      doc.text(`Nama         : ${data.patient_nm || "-"}`, margin, y += 7);
-      doc.text(`Tanggal      : ${formatDate(data.measured_dt)}`, margin, y += 7);
-      doc.text(`Pemeriksaan  : ${data.tindakan || "-"}`, margin, y += 7);
+      doc.text(`Nama         : ${data.patient_nm || "-"}`, margin, (y += 7));
+      doc.text(
+        `Tanggal      : ${formatDate(data.measured_dt)}`,
+        margin,
+        (y += 7),
+      );
+      doc.text(`Pemeriksaan  : ${data.tindakan || "-"}`, margin, (y += 7));
 
       // ==================== HASIL BACAN ====================
       y += 12;
@@ -738,10 +703,10 @@ const MonitoringXRay = (
 
       doc.setFont("helvetica", "normal");
       const splitText = doc.splitTextToSize(
-        data.hasil_bacaan || "-", 
-        pageWidth - margin * 2
+        data.hasil_bacaan || "-",
+        pageWidth - margin * 2,
       );
-      doc.text(splitText, margin, y += 10);
+      doc.text(splitText, margin, (y += 10));
 
       // ==================== FOOTER TTD ====================
       const footerY = 220;
@@ -751,15 +716,27 @@ const MonitoringXRay = (
       doc.text(data.pengirim || "Dokter Pengirim", margin, footerY + 30);
 
       doc.text("Pemeriksa,", pageWidth - margin - 70, footerY);
-      doc.text("( _____________________ )", pageWidth - margin - 70, footerY + 22);
-      doc.text(data.radiolog || "Dokter Radiologi", pageWidth - margin - 70, footerY + 30);
+      doc.text(
+        "( _____________________ )",
+        pageWidth - margin - 70,
+        footerY + 22,
+      );
+      doc.text(
+        data.radiolog || "Dokter Radiologi",
+        pageWidth - margin - 70,
+        footerY + 30,
+      );
 
       // Tanggal cetak
       doc.setFontSize(9);
-      doc.text(`Dicetak pada: ${new Date().toLocaleString('id-ID')}`, margin, 285);
+      doc.text(
+        `Dicetak pada: ${new Date().toLocaleString("id-ID")}`,
+        margin,
+        285,
+      );
 
       // Simpan PDF
-      doc.save(`Hasil_Radiologi_${data.mr_code || 'unknown'}.pdf`);
+      doc.save(`Hasil_Radiologi_${data.mr_code || "unknown"}.pdf`);
     });
   };
 
@@ -824,9 +801,7 @@ const MonitoringXRay = (
               </strong>
               <br />
               Pemeriksaan:
-              <strong className="ms-1">
-                {selectedDetail?.tindakan}
-              </strong>
+              <strong className="ms-1">{selectedDetail?.tindakan}</strong>
               <br />
               Pengirim:
               <strong className="ms-1">{selectedDetail?.pengirim}</strong>
@@ -863,10 +838,8 @@ const MonitoringXRay = (
             </div>
 
             <div className="col-12">
-               <div className="mt-2">
-                <label className="fw-semibold">
-                  Keluhan / Anamnesa Klinis
-                </label>
+              <div className="mt-2">
+                <label className="fw-semibold">Keluhan / Anamnesa Klinis</label>
 
                 <textarea
                   className="form-control form-control-sm"
@@ -877,9 +850,7 @@ const MonitoringXRay = (
               </div>
 
               <div className="mt-2">
-                <label className="fw-semibold">
-                  Catatan Radiografer
-                </label>
+                <label className="fw-semibold">Catatan Radiografer</label>
 
                 <textarea
                   className="form-control form-control-sm"
@@ -923,9 +894,9 @@ const MonitoringXRay = (
           <Button variant="secondary" onClick={() => setShowDetailModal(false)}>
             Tutup
           </Button>
-          
-          <Button 
-            variant="primary" 
+
+          <Button
+            variant="primary"
             onClick={() => handlePrintPDF(selectedDetail)}
             disabled={!selectedDetail}
           >
@@ -976,9 +947,7 @@ const MonitoringXRay = (
               </strong>
               <br />
               Pemeriksaan:
-              <strong className="ms-1">
-                {selectedDetail?.tindakan}
-              </strong>
+              <strong className="ms-1">{selectedDetail?.tindakan}</strong>
               <br />
               Pengirim:
               <strong className="ms-1">{selectedDetail?.pengirim}</strong>
@@ -1015,33 +984,31 @@ const MonitoringXRay = (
             </div>
 
             <div className="col-12">
-               <div className="mt-2">
-                <label className="fw-semibold">
-                  Keluhan / Anamnesa Klinis
-                </label>
+              <div className="mt-2">
+                <label className="fw-semibold">Keluhan / Anamnesa Klinis</label>
 
                 <textarea
                   className="form-control form-control-sm"
                   rows={3}
-                  value={selectedUpload?.keluhan_anamnesa || "-"}
+                  value={selectedDetail?.keluhan_anamnesa || "-"}
                   disabled
                 />
               </div>
             </div>
-
           </div>
         </Modal.Body>
 
         <Modal.Footer>
           <Button
             variant="success"
-            onClick={() => handleProsesXRay(selectedDetail)}
-            disabled={uploading || !notes}
-            className="ms-2"
+            onClick={() => handleRequest(selectedDetail)}
           >
-            {uploading ? "Mengirim..." : "Request & Kirim SatuSehat"}
+            Buat Request
           </Button>
-          <Button variant="secondary" onClick={() => setShowRequestModal(false)}>
+          <Button
+            variant="secondary"
+            onClick={() => setShowRequestModal(false)}
+          >
             Tutup
           </Button>
         </Modal.Footer>
@@ -1099,14 +1066,11 @@ const MonitoringXRay = (
             </label>
 
             <div className="d-flex gap-3 flex-wrap">
-              
               {/* DICOM */}
               <div
                 onClick={() => setUploadMode("dicom")}
                 className={`border rounded p-1 flex-fill cursor-pointer ${
-                  uploadMode === "dicom"
-                    ? "border-primary bg-light"
-                    : ""
+                  uploadMode === "dicom" ? "border-primary bg-light" : ""
                 }`}
                 style={{
                   cursor: "pointer",
@@ -1132,9 +1096,7 @@ const MonitoringXRay = (
               <div
                 onClick={() => setUploadMode("image")}
                 className={`border rounded p-1 flex-fill cursor-pointer ${
-                  uploadMode === "image"
-                    ? "border-success bg-light"
-                    : ""
+                  uploadMode === "image" ? "border-success bg-light" : ""
                 }`}
                 style={{
                   cursor: "pointer",
@@ -1160,9 +1122,7 @@ const MonitoringXRay = (
 
           {uploadMode === "dicom" && (
             <div className="mt-3">
-              <label className="fw-semibold">
-                Upload File DICOM (.dcm)
-              </label>
+              <label className="fw-semibold">Upload File DICOM (.dcm)</label>
 
               <input
                 type="file"
@@ -1178,7 +1138,7 @@ const MonitoringXRay = (
               )}
             </div>
           )}
-            
+
           {uploadMode === "image" && (
             <div className="mt-3 row">
               {[1, 2].map((num) => {
@@ -1187,9 +1147,7 @@ const MonitoringXRay = (
 
                 return (
                   <div className="col-md-6 mb-3" key={num}>
-                    <label className="fw-semibold">
-                      Foto {num}
-                    </label>
+                    <label className="fw-semibold">Foto {num}</label>
 
                     <input
                       type="file"
@@ -1200,10 +1158,7 @@ const MonitoringXRay = (
 
                     <div className="border rounded text-center p-2">
                       {preview ? (
-                        <img
-                          src={preview}
-                          className="img-fluid rounded"
-                        />
+                        <img src={preview} className="img-fluid rounded" />
                       ) : (
                         <small className="text-muted">
                           Bisa paste screenshot di sini
@@ -1215,7 +1170,7 @@ const MonitoringXRay = (
               })}
             </div>
           )}
-          
+
           <div className="col-12">
             {/* Keluhan dari dokter */}
             <div className="mb-3">
@@ -1271,24 +1226,18 @@ const MonitoringXRay = (
         size="lg"
       >
         <Modal.Header closeButton>
-          <Modal.Title>
-            Crop Gambar
-          </Modal.Title>
+          <Modal.Title>Crop Gambar</Modal.Title>
         </Modal.Header>
 
         <Modal.Body>
-
           {/* ===================== */}
           {/* PILIH RATIO */}
           {/* ===================== */}
 
           <div className="mb-3 d-flex gap-2 flex-wrap">
-
             <button
               className={`btn btn-sm ${
-                aspect === null
-                  ? "btn-primary"
-                  : "btn-outline-primary"
+                aspect === null ? "btn-primary" : "btn-outline-primary"
               }`}
               onClick={() => changeAspect(null)}
             >
@@ -1297,9 +1246,7 @@ const MonitoringXRay = (
 
             <button
               className={`btn btn-sm ${
-                aspect === 1
-                  ? "btn-primary"
-                  : "btn-outline-primary"
+                aspect === 1 ? "btn-primary" : "btn-outline-primary"
               }`}
               onClick={() => changeAspect(1)}
             >
@@ -1308,9 +1255,7 @@ const MonitoringXRay = (
 
             <button
               className={`btn btn-sm ${
-                aspect === 4 / 3
-                  ? "btn-primary"
-                  : "btn-outline-primary"
+                aspect === 4 / 3 ? "btn-primary" : "btn-outline-primary"
               }`}
               onClick={() => changeAspect(4 / 3)}
             >
@@ -1319,15 +1264,12 @@ const MonitoringXRay = (
 
             <button
               className={`btn btn-sm ${
-                aspect === 16 / 9
-                  ? "btn-primary"
-                  : "btn-outline-primary"
+                aspect === 16 / 9 ? "btn-primary" : "btn-outline-primary"
               }`}
               onClick={() => changeAspect(16 / 9)}
             >
               16:9
             </button>
-
           </div>
 
           {/* ===================== */}
@@ -1345,9 +1287,7 @@ const MonitoringXRay = (
               <ReactCrop
                 crop={crop}
                 onChange={(c) => setCrop(c)}
-                onComplete={(c) =>
-                  setCompletedCrop(c)
-                }
+                onComplete={(c) => setCompletedCrop(c)}
                 aspect={aspect || undefined}
               >
                 <img
@@ -1361,38 +1301,24 @@ const MonitoringXRay = (
               </ReactCrop>
             )}
           </div>
-
         </Modal.Body>
 
         <Modal.Footer>
-
           <Button
             variant="success"
             onClick={async () => {
-
               if (!completedCrop) {
-                toast.warn(
-                  "Crop belum dipilih"
-                );
+                toast.warn("Crop belum dipilih");
                 return;
               }
 
-              const croppedBlob =
-                await getCroppedImg(
-                  cropImage,
-                  completedCrop
-                );
+              const croppedBlob = await getCroppedImg(cropImage, completedCrop);
 
-              const file = new File(
-                [croppedBlob],
-                "crop.jpg",
-                {
-                  type: "image/jpeg",
-                }
-              );
+              const file = new File([croppedBlob], "crop.jpg", {
+                type: "image/jpeg",
+              });
 
               if (cropTarget) {
-
                 setImageFiles((prev) => ({
                   ...prev,
                   [cropTarget]: file,
@@ -1400,8 +1326,7 @@ const MonitoringXRay = (
 
                 setImagePreview((prev) => ({
                   ...prev,
-                  [cropTarget]:
-                    URL.createObjectURL(file),
+                  [cropTarget]: URL.createObjectURL(file),
                 }));
               }
 
@@ -1421,21 +1346,14 @@ const MonitoringXRay = (
               setCropImage(null);
 
               setCropTarget(null);
-
             }}
           >
             Simpan Crop
           </Button>
 
-          <Button
-            variant="secondary"
-            onClick={() =>
-              setShowCropModal(false)
-            }
-          >
+          <Button variant="secondary" onClick={() => setShowCropModal(false)}>
             Batal
           </Button>
-
         </Modal.Footer>
       </Modal>
 
@@ -1445,11 +1363,13 @@ const MonitoringXRay = (
         onHide={() => setShowBacaModal(false)}
         centered
         size="xl"
-        fullscreen={isMobile}   // ← Fullscreen di HP
+        fullscreen={isMobile} // ← Fullscreen di HP
       >
         <Modal.Header closeButton>
           <Modal.Title>Baca X-Ray - {selectedBaca?.patient_nm}</Modal.Title>
-          <span className={`badge ms-2 ${selectedBaca?.status === "done" ? "bg-success" : selectedBaca?.status === "uploaded" ? "bg-warning text-dark" : "bg-secondary"}`}>
+          <span
+            className={`badge ms-2 ${selectedBaca?.status === "done" ? "bg-success" : selectedBaca?.status === "uploaded" ? "bg-warning text-dark" : "bg-secondary"}`}
+          >
             {selectedBaca?.status}
           </span>
         </Modal.Header>
@@ -1467,7 +1387,9 @@ const MonitoringXRay = (
             </div>
             <div className="col-6 col-md-3">
               <div className="text-muted small">Tanggal</div>
-              <div className="fw-bold">{formatDate(selectedBaca?.measured_dt)}</div>
+              <div className="fw-bold">
+                {formatDate(selectedBaca?.measured_dt)}
+              </div>
             </div>
             <div className="col-6 col-md-3">
               <div className="text-muted small">Tindakan</div>
@@ -1604,14 +1526,12 @@ const MonitoringXRay = (
               <label className="form-label small mb-1">
                 Tanggal Pemeriksaan
               </label>
-              
+
               <DatePicker
-                selected={
-                  tanggal
-                    ? new Date(`${tanggal}T00:00:00`)
-                    : null
+                selected={tanggal ? new Date(`${tanggal}T00:00:00`) : null}
+                onChange={(date) =>
+                  setTanggal(date ? date.toISOString().split("T")[0] : "")
                 }
-                onChange={(date) => setTanggal(date ? date.toISOString().split('T')[0] : '')}
                 dateFormat="d MMMM yyyy"
                 className="form-control form-control-sm"
                 placeholderText="Pilih tanggal"
@@ -1620,7 +1540,6 @@ const MonitoringXRay = (
                 showYearDropdown
                 dropdownMode="select"
                 locale="id"
-                
                 // === SOLUSI WIDTH ===
                 wrapperClassName="w-100"
                 style={{ width: "100%", zIndex: "99999" }}
@@ -1759,7 +1678,7 @@ const MonitoringXRay = (
 
                   // semua tindakan harus valid
                   const hasValidTindakan = tindakan_mapping.some(
-                    (t) => t.snomed_code && t.loinc_code
+                    (t) => t.snomed_code && t.loinc_code,
                   );
 
                   // dokter pengirim ada
@@ -1768,8 +1687,7 @@ const MonitoringXRay = (
                   // radiolog ada (optional kalau dipakai)
                   const hasPemeriksa = !!pemeriksa_ihs;
 
-                  const isSSSuccess = (item) =>
-                    item?.status === "success";
+                  const isSSSuccess = (item) => item?.status === "success";
 
                   const isSSPending = (item) =>
                     ["queued", "processing"].includes(item?.status);
@@ -1790,13 +1708,15 @@ const MonitoringXRay = (
                   // ====================
 
                   // UPLOAD
-                  const canUpload =
-                    ["none", "ordered", "uploaded"].includes(status)
-                    //&& !is_final;
+                  const canUpload = ["none", "requested", "uploaded"].includes(
+                    status,
+                  );
+                  //&& !is_final;
 
                   // BACA
-                  const canBaca =
-                    ["uploaded", "ordered", "read"].includes(status);
+                  const canBaca = ["uploaded", "requested", "read"].includes(
+                    status,
+                  );
 
                   // REPORT
                   const canSendDiagnostic =
@@ -1807,31 +1727,24 @@ const MonitoringXRay = (
 
                   // OBSERVATION
                   const canSendObservation =
-                    status === "read" &&
-                    repSuccess &&
-                    !obsSuccess;
+                    status === "read" && repSuccess && !obsSuccess;
 
                   // SAVE LOCAL
-                  const canSimpan =
-                    status === "read";
+                  const canSimpan = status === "read";
 
                   const renderStatusBadge = (row) => {
                     if (row.is_lokal) {
                       return (
-                        <span className="badge bg-dark">
-                          Final Reborn
-                        </span>
+                        <span className="badge bg-dark">Final Reborn</span>
                       );
                     }
-                  
+
                     if (row.is_final) {
                       return (
-                        <span className="badge bg-purple">
-                          Final Avesina
-                        </span>
+                        <span className="badge bg-purple">Final Avesina</span>
                       );
                     }
-                  
+
                     switch (row.status) {
                       case "none":
                         return (
@@ -1839,42 +1752,34 @@ const MonitoringXRay = (
                             Belum Upload
                           </span>
                         );
-                  
-                      case "ordered":
+
+                      case "requested":
                         return (
                           <span className="badge bg-info text-dark">
                             Sudah Diminta
                           </span>
                         );
-                  
+
                       case "uploaded":
                         return (
                           <span className="badge bg-warning text-dark">
                             Sudah Upload
                           </span>
                         );
-                  
+
                       case "read":
                         return (
-                          <span className="badge bg-primary">
-                            Sudah Dibaca
-                          </span>
+                          <span className="badge bg-primary">Sudah Dibaca</span>
                         );
-                  
+
                       case "done":
                         return (
-                          <span className="badge bg-success">
-                            Selesai
-                          </span>
+                          <span className="badge bg-success">Selesai</span>
                         );
-                  
+
                       case "failed":
-                        return (
-                          <span className="badge bg-danger">
-                            Gagal
-                          </span>
-                        );
-                  
+                        return <span className="badge bg-danger">Gagal</span>;
+
                       default:
                         return (
                           <span className="badge bg-light text-dark border">
@@ -1906,9 +1811,7 @@ const MonitoringXRay = (
                               </span>
                             ))}
                           </div>
-                          <div>
-                            {renderStatusBadge(row)}
-                          </div>
+                          <div>{renderStatusBadge(row)}</div>
                         </td>
                       )}
 
@@ -2009,6 +1912,16 @@ const MonitoringXRay = (
 
                         {isMobile && <hr className="m-2" />}
 
+                        {/* === PHYSICIAN - REQUEST === */}
+                        {role === "physician" && (
+                          <button
+                            className="btn btn-sm btn-outline-success ms-1"
+                            onClick={() => openModalRequest(row)}
+                          >
+                            Buat Request
+                          </button>
+                        )}
+
                         {/* === RADIOGRAFER - UPLOAD === */}
                         {role === "radiografer" && (
                           <button
@@ -2016,8 +1929,8 @@ const MonitoringXRay = (
                             disabled={!canUpload}
                             onClick={() => openModalUpload(row)}
                             title={
-                              !hasValidTindakan 
-                                ? "Mapping SNOMED/LOINC belum lengkap → hanya lokal" 
+                              !hasValidTindakan
+                                ? "Mapping SNOMED/LOINC belum lengkap → hanya lokal"
                                 : ""
                             }
                           >
@@ -2039,7 +1952,6 @@ const MonitoringXRay = (
                         {isMobile && role === "radiolog" && (
                           <hr className="m-2" />
                         )}
-
                       </td>
                     </tr>
                   );

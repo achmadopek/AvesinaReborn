@@ -3,7 +3,7 @@ import API from "../axiosInstance";
 // ==================== API CALLS ====================
 export const fetchPaginatedDataXRay = async ({ tgl, role, employee_id }) => {
   const res = await API.get("/api/sirad/MonitoringXRay/data", {
-    params: { tgl, role, employee_id }
+    params: { tgl, role, employee_id },
   });
   return res.data;
 };
@@ -13,13 +13,20 @@ export const fetchDetailXRay = async (registry_id, x_ray_dtl_id) => {
   if (!registry_id || !x_ray_dtl_id) {
     throw new Error("registry_id dan x_ray_dtl_id diperlukan");
   }
-  const res = await API.get(`/api/sirad/MonitoringXRay/detail/${registry_id}/${x_ray_dtl_id}`);
+  const res = await API.get(
+    `/api/sirad/MonitoringXRay/detail/${registry_id}/${x_ray_dtl_id}`,
+  );
+  return res.data;
+};
+
+export const requestXRay = async (payload) => {
+  const res = await API.post("/api/sirad/MonitoringXRay/request", payload);
   return res.data;
 };
 
 export const uploadXRay = async (formData) => {
   const res = await API.post("/api/sirad/MonitoringXRay/upload", formData, {
-    headers: { "Content-Type": "multipart/form-data" }
+    headers: { "Content-Type": "multipart/form-data" },
   });
   return res.data;
 };

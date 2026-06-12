@@ -28,9 +28,7 @@ const buildMap = (rows, keyFn) => {
 // GET DATA MONITORING
 // ======================================================
 exports.getData = async (req, res) => {
-
   try {
-
     const { employee_id, role, tgl } = req.query;
 
     let expert_id = null;
@@ -41,9 +39,8 @@ exports.getData = async (req, res) => {
     // ==================================================
     // DATA UTAMA
     // ==================================================
-    const [utama] =
-      await dbUtama.promise().query(
-        `
+    const [utama] = await dbUtama.promise().query(
+      `
         SELECT
           r.registry_id,
 
@@ -100,11 +97,8 @@ exports.getData = async (req, res) => {
           xrh.measured_dt DESC,
           xrd.x_ray_dtl_id ASC
         `,
-        [
-          ...(tgl ? [tgl] : []),
-          ...(expert_id ? [expert_id] : []),
-        ]
-      );
+      [...(tgl ? [tgl] : []), ...(expert_id ? [expert_id] : [])],
+    );
 
     if (utama.length === 0) {
       return res.json({
@@ -116,49 +110,33 @@ exports.getData = async (req, res) => {
     // ==================================================
     // IDS
     // ==================================================
-    const registryIds = [
-      ...new Set(
-        utama.map(
-          (u) => u.registry_id
-        )
-      ),
-    ];
+    const registryIds = [...new Set(utama.map((u) => u.registry_id))];
 
-    const registryDtlIds =
-      utama.map((u) => [
-        u.registry_id,
-        u.x_ray_dtl_id,
-      ]);
+    const registryDtlIds = utama.map((u) => [u.registry_id, u.x_ray_dtl_id]);
 
     // ==================================================
     // DATA LOKAL
     // ==================================================
-    const [lokalRows] =
-      await dbLokal.promise().query(
-        `
+    const [lokalRows] = await dbLokal.promise().query(
+      `
         SELECT *
         FROM radar_xray
         WHERE (registry_id, x_ray_dtl_id) IN (?)
           AND is_active = 1
         `,
-        [registryDtlIds]
-      );
+      [registryDtlIds],
+    );
 
     const mapLokal = buildMap(
       lokalRows,
-      (r) =>
-        `${r.registry_id}-${r.x_ray_dtl_id}`
+      (r) => `${r.registry_id}-${r.x_ray_dtl_id}`,
     );
 
     // ==================================================
     // MAPPING TINDAKAN
     // ==================================================
     const tindakanList = [
-      ...new Set(
-        utama
-          .map((u) => u.tindakan)
-          .filter(Boolean)
-      ),
+      ...new Set(utama.map((u) => u.tindakan).filter(Boolean)),
     ];
 
     let mapTindakan = {};
@@ -167,19 +145,14 @@ exports.getData = async (req, res) => {
     // FINAL RESULT
     // ==================================================
     const result = utama.map((u) => {
+      const key = `${u.registry_id}-${u.x_ray_dtl_id}`;
 
-      const key =
-        `${u.registry_id}-${u.x_ray_dtl_id}`;
-
-      const lokal =
-        mapLokal.get(key);
+      const lokal = mapLokal.get(key);
 
       return {
-
         ...u,
 
-        status:
-          lokal?.status || "none",
+        status: lokal?.status || "none",
 
         is_final: !!String(u.photo_reading || "").trim(),
         is_lokal: !!String(lokal?.hasil_bacaan || "").trim(),
@@ -188,38 +161,24 @@ exports.getData = async (req, res) => {
           {
             nama: u.tindakan,
 
-            snomed_code:
-              mapTindakan[u.tindakan]
-                ?.snomed_code || null,
+            snomed_code: mapTindakan[u.tindakan]?.snomed_code || null,
 
-            snomed_display:
-              mapTindakan[u.tindakan]
-                ?.snomed_display || null,
+            snomed_display: mapTindakan[u.tindakan]?.snomed_display || null,
 
-            loinc_code:
-              mapTindakan[u.tindakan]
-                ?.loinc_code || null,
+            loinc_code: mapTindakan[u.tindakan]?.loinc_code || null,
 
-            loinc_display:
-              mapTindakan[u.tindakan]
-                ?.loinc_display || null,
+            loinc_display: mapTindakan[u.tindakan]?.loinc_display || null,
           },
         ],
       };
-
     });
 
     return res.json({
       success: true,
       data: result,
     });
-
   } catch (err) {
-
-    console.error(
-      "GET DATA ERROR:",
-      err
-    );
+    console.error("GET DATA ERROR:", err);
 
     return res.status(500).json({
       success: false,
@@ -231,115 +190,82 @@ exports.getData = async (req, res) => {
 // ======================================================
 // GET DETAIL
 // ======================================================
-exports.getDetail = async (
-  req,
-  res
-) => {
-
+exports.getDetail = async (req, res) => {
   try {
+    const { registry_id, x_ray_dtl_id } = req.params;
 
-    const {
-      registry_id,
-      x_ray_dtl_id,
-    } = req.params;
-
-    if (
-      !registry_id ||
-      !x_ray_dtl_id
-    ) {
+    if (!registry_id || !x_ray_dtl_id) {
       return res.status(400).json({
         success: false,
-        message:
-          "registry_id dan x_ray_dtl_id wajib diisi",
+        message: "registry_id dan x_ray_dtl_id wajib diisi",
       });
     }
 
     // ==================================================
     // DATA UTAMA
     // ==================================================
-    const [[utama]] =
-      await dbUtama.promise().query(
-        `
+    const [[utama]] = await dbUtama.promise().query(
+      `
         SELECT
           r.registry_id,
-
           xrh.x_ray_id,
           xrd.x_ray_dtl_id,
-
           p.patient_nm,
           p.mr_code,
-
           xrh.measured_dt,
-
           ms.medical_service_name AS tindakan,
-
           xrd.photo_reading,
-
           xrh.physician AS pengirim_id,
           xrh.expert AS pemeriksa_id,
-
           e.employee_nm AS pengirim,
           e2.employee_nm AS radiolog,
-
           e.satusehat_ihs_number AS pengirim_ihs,
           e2.satusehat_ihs_number AS pemeriksa_ihs,
-
-          a.anamnesa AS keluhan_anamnesa
-
+          (
+            SELECT a2.anamnesa
+            FROM unit_visit uv2
+            JOIN visite v2
+              ON v2.unit_visit_id = uv2.unit_visit_id
+            JOIN anamnesis a2
+              ON a2.visite_id = v2.visite_id
+            WHERE uv2.registry_id = r.registry_id
+              AND TRIM(COALESCE(a2.anamnesa,'')) <> ''
+            LIMIT 1
+          ) AS keluhan_anamnesa
         FROM registry r
-
         JOIN patient p
           ON p.mr_id = r.mr_id
-
         JOIN unit_visit uv
           ON uv.registry_id = r.registry_id
-
         JOIN x_ray_hdr xrh
           ON xrh.unit_visit_id = uv.unit_visit_id
-
         JOIN x_ray_dtl xrd
           ON xrd.x_ray_id = xrh.x_ray_id
-
         JOIN medical_service ms
           ON ms.medical_service_id = xrd.medical_service_id
-
-        LEFT JOIN visite v
-          ON v.unit_visit_id = uv.unit_visit_id
-
-        LEFT JOIN anamnesis a
-          ON a.visite_id = v.visite_id
-
         LEFT JOIN employee e
           ON e.employee_id = xrh.physician
-
         LEFT JOIN employee e2
           ON e2.employee_id = xrh.expert
-
         WHERE r.registry_id = ?
           AND xrd.x_ray_dtl_id = ?
-
         LIMIT 1
         `,
-        [
-          registry_id,
-          x_ray_dtl_id,
-        ]
-      );
+      [registry_id, x_ray_dtl_id],
+    );
 
     if (!utama) {
       return res.status(404).json({
         success: false,
-        message:
-          "Data X-Ray tidak ditemukan",
+        message: "Data X-Ray tidak ditemukan",
       });
     }
 
     // ==================================================
     // DATA LOKAL
     // ==================================================
-    const [[lokal]] =
-      await dbLokal.promise().query(
-        `
+    const [[lokal]] = await dbLokal.promise().query(
+      `
         SELECT *
         FROM radar_xray
         WHERE registry_id = ?
@@ -347,82 +273,180 @@ exports.getDetail = async (
           AND is_active = 1
         LIMIT 1
         `,
-        [
-          registry_id,
-          x_ray_dtl_id,
-        ]
-      );
+      [registry_id, x_ray_dtl_id],
+    );
 
     // ==================================================
     // RESPONSE
     // ==================================================
     return res.json({
-
       success: true,
 
       data: {
-
         ...utama,
 
-        dicom_path:
-          lokal?.dicom_path
-            ? `/uploads/xray/${lokal.dicom_path}`
-            : null,
+        dicom_path: lokal?.dicom_path
+          ? `/uploads/xray/${lokal.dicom_path}`
+          : null,
 
-        foto1:
-          lokal?.foto1
-            ? `/uploads/xray/${lokal.foto1}`
-            : null,
+        foto1: lokal?.foto1 ? `/uploads/xray/${lokal.foto1}` : null,
 
-        foto2:
-          lokal?.foto2
-            ? `/uploads/xray/${lokal.foto2}`
-            : null,
+        foto2: lokal?.foto2 ? `/uploads/xray/${lokal.foto2}` : null,
 
-        keluhan_anamnesa:
-          utama.keluhan_anamnesa || "-",
+        keluhan_anamnesa: utama.keluhan_anamnesa || "-",
 
-        catatan_radiografer:
-          lokal?.notes || null,
+        catatan_radiografer: lokal?.notes || null,
 
         // SALAH - syntax error, jadi ke-evaluate jadi true
-        hasil_bacaan: utama.photo_reading ? utama.photo_reading : (lokal?.hasil_bacaan || null),
+        hasil_bacaan: utama.photo_reading
+          ? utama.photo_reading
+          : lokal?.hasil_bacaan || null,
 
-        status:
-          !!String(utama.photo_reading || "").trim()
-            ? "done"
-            : (
-                lokal?.status ||
-                "none"
-              ),
+        status: !!String(utama.photo_reading || "").trim()
+          ? "done"
+          : lokal?.status || "none",
 
-        is_final:
-          !!String(utama.photo_reading || "").trim(),
+        is_final: !!String(utama.photo_reading || "").trim(),
 
-        is_lokal:
-          !!String(lokal?.hasil_bacaan || "").trim(),
+        is_lokal: !!String(lokal?.hasil_bacaan || "").trim(),
 
-        pengirim_ihs:
-          utama.pengirim_ihs,
+        pengirim_ihs: utama.pengirim_ihs,
 
-        pemeriksa_ihs:
-          utama.pemeriksa_ihs,
+        pemeriksa_ihs: utama.pemeriksa_ihs,
+
+        accession_number: lokal?.accession_number || null,
+
+        requested_at: lokal?.requested_at || null,
+
+        requested_by: lokal?.requested_by || null,
       },
     });
-
   } catch (err) {
-
-    console.error(
-      "GET DETAIL ERROR:",
-      err
-    );
+    console.error("GET DETAIL ERROR:", err);
 
     return res.status(500).json({
       success: false,
-      message:
-        err.message ||
-        "Terjadi kesalahan saat mengambil detail",
+      message: err.message || "Terjadi kesalahan saat mengambil detail",
     });
+  }
+};
+
+// ==================================
+// GENERATE ACCESSION NUMBER
+// ==================================
+const generateAccessionNumber = async (conn) => {
+  const [[row]] = await conn.query(
+    `
+    SELECT accession_number
+    FROM radar_xray
+    WHERE accession_number LIKE CONCAT(
+      'RAD',
+      DATE_FORMAT(NOW(), '%Y%m%d'),
+      '%'
+    )
+    ORDER BY accession_number DESC
+    LIMIT 1
+    `,
+  );
+
+  const tanggal = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+
+  let sequence = 1;
+
+  if (row?.accession_number) {
+    sequence = parseInt(row.accession_number.slice(-6), 10) + 1;
+  }
+
+  return `RAD${tanggal}${String(sequence).padStart(6, "0")}`;
+};
+
+// ==================================
+// REQUEST X-RAY + GENERATE ACCESSION NUMBER
+// ==================================
+exports.requestXRay = async (req, res) => {
+  const conn = await dbLokal.promise().getConnection();
+
+  try {
+    const { registry_id, x_ray_id, x_ray_dtl_id, requested_by, notes } =
+      req.body;
+
+    const [[existing]] = await conn.query(
+      `
+      SELECT id
+      FROM radar_xray
+      WHERE registry_id = ?
+        AND x_ray_dtl_id = ?
+        AND is_active = 1
+      LIMIT 1
+      `,
+      [registry_id, x_ray_dtl_id],
+    );
+
+    if (existing) {
+      throw new Error("Request sudah pernah dibuat");
+    }
+
+    const accession_number = await generateAccessionNumber(conn);
+
+    await conn.query(
+      `
+      INSERT INTO radar_xray
+      (
+        accession_number,
+
+        registry_id,
+        x_ray_id,
+        x_ray_dtl_id,
+
+        notes,
+
+        status,
+
+        requested_by,
+        requested_at,
+
+        created_at,
+        updated_at
+      )
+      VALUES
+      (
+        ?,
+        ?,
+        ?,
+        ?,
+        ?,
+        'requested',
+        ?,
+        NOW(),
+        NOW(),
+        NOW()
+      )
+      `,
+      [
+        accession_number,
+
+        registry_id,
+        x_ray_id,
+        x_ray_dtl_id,
+
+        notes || null,
+
+        requested_by,
+      ],
+    );
+
+    return res.json({
+      success: true,
+      accession_number,
+      message: "Request berhasil dibuat",
+    });
+  } catch (err) {
+    return res.status(400).json({
+      success: false,
+      message: err.message,
+    });
+  } finally {
+    conn.release();
   }
 };
 
@@ -435,13 +459,8 @@ exports.uploadXRay = async (req, res) => {
   let inTransaction = false;
 
   try {
-    const {
-      registry_id,
-      x_ray_id,
-      x_ray_dtl_id,
-      created_by,
-      upload_mode,
-    } = req.body;
+    const { registry_id, x_ray_id, x_ray_dtl_id, created_by, upload_mode } =
+      req.body;
 
     // FILES
     const dicom = req.files?.dicom?.[0];
@@ -469,7 +488,24 @@ exports.uploadXRay = async (req, res) => {
     if (upload_mode === "image" && !foto1 && !foto2) {
       throw new Error("Minimal upload 1 gambar");
     }
-  
+
+    // VALIDASI SUDAH REQUEST
+    const [[requestData]] = await connLokal.query(
+      `
+      SELECT *
+      FROM radar_xray
+      WHERE registry_id = ?
+        AND x_ray_dtl_id = ?
+        AND is_active = 1
+      LIMIT 1
+      `,
+      [registry_id, x_ray_dtl_id],
+    );
+
+    if (!requestData) {
+      throw new Error("Request radiologi belum dibuat");
+    }
+
     /* ======================================================
      * BEGIN TRANSACTION
      * ====================================================== */
@@ -492,11 +528,7 @@ exports.uploadXRay = async (req, res) => {
       // GENERATE THUMBNAIL
       const thumbName = `thumb_${Date.now()}.jpg`;
 
-      const thumbPath = path.join(
-        __dirname,
-        "../../uploads/xray",
-        thumbName
-      );
+      const thumbPath = path.join(__dirname, "../../uploads/xray", thumbName);
 
       const thumb = dicomToJpg(dicom.path, thumbPath);
 
@@ -519,7 +551,7 @@ exports.uploadXRay = async (req, res) => {
           created_by,
           registry_id,
           x_ray_dtl_id,
-        ]
+        ],
       );
 
       // SIMPAN UID
@@ -539,7 +571,7 @@ exports.uploadXRay = async (req, res) => {
           dicomMeta.sopUID,
           registry_id,
           x_ray_dtl_id,
-        ]
+        ],
       );
     }
 
@@ -565,7 +597,7 @@ exports.uploadXRay = async (req, res) => {
           created_by,
           registry_id,
           x_ray_dtl_id,
-        ]
+        ],
       );
     }
 
@@ -580,15 +612,14 @@ exports.uploadXRay = async (req, res) => {
      * ====================================================== */
     res.json({
       success: true,
-    
+
       message:
         upload_mode === "dicom"
           ? "Upload DICOM berhasil"
           : "Upload gambar berhasil",
-    
+
       upload_mode,
     });
-
   } catch (err) {
     if (inTransaction) {
       await connLokal.rollback().catch(() => {});
@@ -605,7 +636,6 @@ exports.uploadXRay = async (req, res) => {
   }
 };
 
-
 // =========================================================
 // SAVE HASIL BACAN (RADIOLOG)
 // =========================================================
@@ -614,9 +644,11 @@ exports.saveHasil = async (req, res) => {
   const connUtama = await dbUtama.promise().getConnection();
 
   try {
-    const { registry_id, x_ray_id, x_ray_dtl_id, hasil_bacaan, read_by } = req.body;
+    const { registry_id, x_ray_id, x_ray_dtl_id, hasil_bacaan, read_by } =
+      req.body;
 
-    if (!registry_id || !x_ray_dtl_id) throw new Error("registry_id dan x_ray_dtl_id wajib");
+    if (!registry_id || !x_ray_dtl_id)
+      throw new Error("registry_id dan x_ray_dtl_id wajib");
     if (!hasil_bacaan?.trim()) throw new Error("Hasil bacaan wajib diisi");
 
     await connLokal.beginTransaction();
@@ -628,37 +660,40 @@ exports.saveHasil = async (req, res) => {
        FROM radar_xray 
        WHERE registry_id = ? AND x_ray_dtl_id = ? AND is_active = 1 
        LIMIT 1`,
-      [registry_id, x_ray_dtl_id]
+      [registry_id, x_ray_dtl_id],
     );
 
     if (!lokalData) throw new Error("Data lokal tidak ditemukan");
     if (lokalData.status === "none") throw new Error("Foto belum diupload");
 
-    // === UPDATE DATABASE UTAMA & LOKAL (WAJIB) ===
+    // Update database utama
     await connUtama.query(
       `UPDATE x_ray_dtl 
        SET photo_reading = ? 
        WHERE x_ray_id = ? AND x_ray_dtl_id = ?`,
-      [hasil_bacaan, lokalData.x_ray_id, x_ray_dtl_id]
+      [hasil_bacaan, lokalData.x_ray_id, x_ray_dtl_id],
     );
 
+    // Update database lokal
     await connLokal.query(
-      `
-      UPDATE radar_xray
-      SET 
-        hasil_bacaan = ?,
-        status = 'read',
-        read_by = ?,
-        read_at = NOW(),
-        updated_at = NOW()
-      WHERE registry_id = ? AND x_ray_dtl_id = ?
-      `,
-      [hasil_bacaan, read_by, registry_id, x_ray_dtl_id]
+      `UPDATE radar_xray 
+       SET hasil_bacaan = ?, 
+           status = 'read', 
+           read_by = ?, 
+           read_at = NOW(), 
+           updated_at = NOW() 
+       WHERE registry_id = ? AND x_ray_dtl_id = ?`,
+      [hasil_bacaan, read_by, registry_id, x_ray_dtl_id],
     );
 
     await connLokal.commit();
     await connUtama.commit();
 
+    // === RESPONSE SUKSES (WAJIB) ===
+    return res.json({
+      success: true,
+      message: "Hasil bacaan berhasil disimpan",
+    });
   } catch (err) {
     await connLokal.rollback().catch(() => {});
     await connUtama.rollback().catch(() => {});
@@ -666,9 +701,8 @@ exports.saveHasil = async (req, res) => {
     console.error("SAVE HASIL ERROR:", err.message);
     return res.status(400).json({
       success: false,
-      message: err.message,
+      message: err.message || "Gagal menyimpan hasil bacaan",
     });
-
   } finally {
     connLokal.release();
     connUtama.release();
