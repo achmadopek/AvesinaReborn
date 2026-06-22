@@ -230,6 +230,10 @@ exports.getDetail = async (req, res) => {
               ON a2.visite_id = v2.visite_id
             WHERE uv2.registry_id = r.registry_id
               AND TRIM(COALESCE(a2.anamnesa,'')) <> ''
+            ORDER BY
+              CASE WHEN uv2.unit_id_to = 'RA001' THEN 0 ELSE 1 END,
+              uv2.unit_visit_id ASC,
+              v2.visite_id ASC
             LIMIT 1
           ) AS keluhan_anamnesa
         FROM registry r
@@ -293,7 +297,7 @@ exports.getDetail = async (req, res) => {
 
         foto2: lokal?.foto2 ? `/uploads/xray/${lokal.foto2}` : null,
 
-        keluhan_anamnesa: utama.keluhan_anamnesa || "-",
+        keluhan_anamnesa: utama.keluhan_anamnesa ?? null,
 
         catatan_radiografer: lokal?.notes || null,
 
@@ -321,6 +325,8 @@ exports.getDetail = async (req, res) => {
         requested_by: lokal?.requested_by || null,
       },
     });
+
+    console.log("GET DETAIL - UTAMA:", utama);
   } catch (err) {
     console.error("GET DETAIL ERROR:", err);
 

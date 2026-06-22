@@ -365,7 +365,7 @@ const RekapKepatuhanSPM = () => {
                 {getBulanRange(jenisWaktu, triwulan, semester).map((m) => (
                   <th key={m}>{bulanLabel[m - 1]}</th>
                 ))}
-                <th>Total</th>
+                <th>Jml Hari Pengisian</th>
               </tr>
             </thead>
 

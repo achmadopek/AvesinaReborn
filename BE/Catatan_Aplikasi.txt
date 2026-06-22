@@ -44,3 +44,6 @@ SPM : 8 Juni 2026
    No. Indikator Jan, Feb, Mar. dst.. Total
        Num      tot Poli A+Poli B, dst
        Denum    tot Poli A+Poli B, dst.
+
+SPM : 15 Juni 2026
+1. Indikator Ranap ketersediaan Layanan minimal diisi otomatis (readonly)

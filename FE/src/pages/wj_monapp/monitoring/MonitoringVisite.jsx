@@ -394,7 +394,7 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
                             cy="50%"
                             outerRadius={80}
                             label={({ name, percent }) =>
-                              `${name} ${(percent * 100).toFixed(1)}%`
+                              `${(percent * 100).toFixed(0)} %`
                             }
                           >
                             <Cell fill="#198754" />
@@ -432,7 +432,7 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
                             cy="50%"
                             outerRadius={80}
                             label={({ name, percent }) =>
-                              `${name} ${(percent * 100).toFixed(1)}%`
+                              `${(percent * 100).toFixed(0)} %`
                             }
                           >
                             <Cell fill="#0dcaf0" />
@@ -470,7 +470,7 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
                             cy="50%"
                             outerRadius={80}
                             label={({ name, percent }) =>
-                              `${name} ${(percent * 100).toFixed(1)}%`
+                              `${(percent * 100).toFixed(0)} %`
                             }
                           >
                             <Cell fill="#0d6efd" />

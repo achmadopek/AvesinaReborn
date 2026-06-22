@@ -10,16 +10,16 @@ import {
   Legend,
 } from "recharts";
 import { toast } from "react-toastify";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../../context/AuthContext";
 
-import { fetchRekapSPMIndikator } from "../../api/wj_spm/DashboardSPM";
+import { fetchRekapSPMIndikator } from "../../../api/wj_spm/DashboardSPM";
 
 // contoh API list (sesuaikan dengan punyamu)
 import {
   fetchRuangan,
   fetchInstalasi,
   fetchBidang,
-} from "../../api/wj_spm/EntriHarian";
+} from "../../../api/wj_spm/EntriHarian";
 
 const RekapitulasiSPM = () => {
   // ================= STATE =================
@@ -237,20 +237,10 @@ const RekapitulasiSPM = () => {
   // ================= RENDER =================
   return (
     <div className="container-fluid px-2">
-      {/* HEADER */}
-      <div className="card shadow-sm mb-3">
-        <div className="card-body">
-          <h5 className="mb-1">Dashboard SPM – {meta?.nama || "-"}</h5>
-          <small className="text-muted">
-            Periode: {start} s/d {end}
-          </small>
-        </div>
-      </div>
-
       {/* FILTER */}
       <div className="card shadow-sm mb-3">
         <div className="card-header">
-          <b>Filter Rekap Ringkas SPM</b>
+          <b>Filter Rekapitulasi SPM</b>
         </div>
         <div className="card-body row g-2 align-items-end">
           <div className="col-md-2">
@@ -318,7 +308,7 @@ const RekapitulasiSPM = () => {
       {/* TABLE */}
       <div className="card shadow-sm mb-3">
         <div className="card-header">
-          <b>Rekap Ringkas SPM</b>
+          <b>Rekapitulasi SPM</b>
         </div>
 
         <div className="card-body table-responsive">
@@ -362,67 +352,6 @@ const RekapitulasiSPM = () => {
           {!loading && rekap.length === 0 && (
             <div className="text-center text-muted">Tidak ada data</div>
           )}
-        </div>
-      </div>
-
-      {/* CHART */}
-      <div className="card shadow-sm mb-3">
-        <div className="card-header">
-          <b>Grafik Benchmark</b>
-        </div>
-        <div className="card-body row m-1">
-          {rekap.map((indikator) => {
-            const chartData =
-              meta?.periode?.bulan?.map((b) => ({
-                bulan: namaBulan[b],
-                nilai: indikator.bulan?.[b] ?? null,
-                target: indikator.target ?? null,
-              })) || [];
-
-            return (
-              <div
-                className="card shadow-sm mb-3 col-12 col-md-6"
-                key={indikator.indikator_id}
-              >
-                <div className="card-header">
-                  <b>{indikator.indikator}</b>
-                </div>
-
-                <div className="card-body" style={{ height: 280 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="bulan" />
-                      <YAxis domain={[0, 100]} />
-                      <Tooltip />
-                      <Legend />
-
-                      {/* nilai capaian */}
-                      <Line
-                        type="monotone"
-                        dataKey="nilai"
-                        stroke="#2563eb"
-                        strokeWidth={2}
-                        dot
-                        connectNulls
-                        name="Capaian"
-                      />
-
-                      {/* garis target */}
-                      <Line
-                        type="monotone"
-                        dataKey="target"
-                        stroke="#dc2626"
-                        strokeDasharray="5 5"
-                        dot={false}
-                        name="Target"
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            );
-          })}
         </div>
       </div>
     </div>
