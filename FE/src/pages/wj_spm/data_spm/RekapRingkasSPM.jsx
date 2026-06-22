@@ -9,7 +9,7 @@ import {
   fetchBidang,
 } from "../../../api/wj_spm/EntriHarian";
 
-const RekapRingkasSPM = () => {
+const RekapKepatuhanSPM = () => {
   const [mode, setMode] = useState("unit"); // unit | instalasi | bidang
   const [selectedId, setSelectedId] = useState("");
 
@@ -431,4 +431,4 @@ const RekapRingkasSPM = () => {
   );
 };
 
-export default RekapRingkasSPM;
+export default RekapKepatuhanSPM;

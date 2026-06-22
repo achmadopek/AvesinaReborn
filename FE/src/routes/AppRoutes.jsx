@@ -50,7 +50,8 @@ import RekapPembayaranBahanMedis from "../pages/wj_mobay/akuntansi/RekapPembayar
 import HomeSPM from "../components/layout/HomeSPM";
 import EntriSPMHarian from "../pages/wj_spm/spm_harian/EntriSPMHarian";
 import MonitoringSPM from "../pages/wj_spm/data_spm/MonitoringSPM";
-import RekapRingkasSPM from "../pages/wj_spm/data_spm/RekapRingkasSPM";
+import RekapKepatuhanSPM from "../pages/wj_spm/data_spm/RekapKepatuhanSPM";
+import RekapitulasiSPM from "../pages/wj_spm/data_spm/RekapitulasiSPM";
 
 // === INM ===
 import HomeINM from "../components/layout/HomeINM";
@@ -360,9 +361,15 @@ const AppRoutes = ({ setRightContent }) => {
                 </ProtectedRoute>
             } />
 
-            <Route path="/spm/RekapRingkasSPM" element={
+            <Route path="/spm/RekapKepatuhanSPM" element={
                 <ProtectedRoute allowedRoles={["admin", "user_spm"]}>
-                    <RekapRingkasSPM setRightContent={setRightContent} />
+                    <RekapKepatuhanSPM setRightContent={setRightContent} />
+                </ProtectedRoute>
+            } />
+
+            <Route path="/spm/RekapitulasiSPM" element={
+                <ProtectedRoute allowedRoles={["admin", "user_spm"]}>
+                    <RekapitulasiSPM setRightContent={setRightContent} />
                 </ProtectedRoute>
             } />
 
