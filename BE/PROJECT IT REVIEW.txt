@@ -1,0 +1,98 @@
+CREATE DATABASE project_it
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_unicode_ci;
+
+CREATE TABLE project (
+    project_id VARCHAR(30) NOT NULL,
+    nama_project VARCHAR(255) NOT NULL,
+    deskripsi TEXT,
+    catatan TEXT,
+
+    prioritas ENUM(
+        'LOW',
+        'MEDIUM',
+        'HIGH',
+        'CRITICAL'
+    ) DEFAULT 'MEDIUM',
+
+    status ENUM(
+        'OPEN',
+        'PROGRESS',
+        'TRIAL',
+        'FIXING',
+        'DONE',
+        'CANCEL'
+    ) DEFAULT 'OPEN',
+
+    progress DECIMAL(5,2) DEFAULT 0,
+
+    pic VARCHAR(100),
+
+    tanggal_mulai DATE,
+    target_selesai DATE,
+    tanggal_selesai DATE,
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NULL,
+
+    is_active TINYINT(1) DEFAULT 1,
+
+    PRIMARY KEY(project_id)
+
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE project_task (
+    project_task_id VARCHAR(30) NOT NULL,
+    project_id VARCHAR(30) NOT NULL,
+
+    nama_task VARCHAR(255) NOT NULL,
+    deskripsi TEXT,
+
+    bobot DECIMAL(5,2) DEFAULT 0,
+    progress DECIMAL(5,2) DEFAULT 0,
+
+    status ENUM(
+        'OPEN',
+        'PROGRESS',
+        'TRIAL',
+        'FIXING',
+        'DONE',
+        'CANCEL'
+    ) DEFAULT 'OPEN',
+
+    pic VARCHAR(100),
+
+    tanggal_mulai DATE,
+    target_selesai DATE,
+    tanggal_selesai DATE,
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NULL,
+
+    is_active TINYINT(1) DEFAULT 1,
+
+    PRIMARY KEY(project_task_id),
+
+    KEY idx_project(project_id),
+
+    CONSTRAINT fk_project_task
+        FOREIGN KEY(project_id)
+        REFERENCES project(project_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE app_setting (
+    setting_key VARCHAR(50) PRIMARY KEY,
+    setting_value VARCHAR(255)
+);
+
+INSERT INTO app_setting (
+    setting_key,
+    setting_value
+)
+VALUES (
+    'APP_PIN',
+    '5561'
+);

@@ -1,0 +1,249 @@
+use rswj_app;
+-- =====================================================
+-- MASTER SUPERVISI
+-- =====================================================
+
+CREATE TABLE supervisi (
+    supervisi_id VARCHAR(22) NOT NULL,
+    tanggal_supervisi DATE NOT NULL,
+    periode_awal DATETIME NOT NULL,
+    periode_akhir DATETIME NOT NULL,
+    status ENUM('OPEN','REVIEW','FINAL')
+        NOT NULL DEFAULT 'OPEN',
+    created_by VARCHAR(50),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by VARCHAR(50),
+    updated_at DATETIME NULL,
+    is_active TINYINT(1) DEFAULT 1,
+    PRIMARY KEY (supervisi_id),
+    UNIQUE KEY uk_supervisi_tanggal (
+        tanggal_supervisi
+    )
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+-- =====================================================
+-- HD
+-- =====================================================
+
+CREATE TABLE supervisi_hd (
+    supervisi_hd_id VARCHAR(22) NOT NULL,
+    supervisi_id VARCHAR(22) NOT NULL,
+    jumlah_pasien INT DEFAULT 0,
+    pasien_reguler INT DEFAULT 0,
+    pasien_isolasi INT DEFAULT 0,
+    capd INT DEFAULT 0,
+    pembiayaan_bpjs INT DEFAULT 0,
+    jumlah_tindakan INT DEFAULT 0,
+    catatan TEXT,
+    created_by VARCHAR(50),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by VARCHAR(50),
+    updated_at DATETIME NULL,
+    is_active TINYINT(1) DEFAULT 1,
+    PRIMARY KEY (supervisi_hd_id),
+    UNIQUE KEY uk_supervisi_hd (
+        supervisi_id
+    ),
+    CONSTRAINT fk_supervisi_hd
+        FOREIGN KEY (supervisi_id)
+        REFERENCES supervisi(supervisi_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+-- =====================================================
+-- IBS
+-- =====================================================
+
+CREATE TABLE supervisi_ibs (
+    supervisi_ibs_id VARCHAR(22) NOT NULL,
+    supervisi_id VARCHAR(22) NOT NULL,
+    operasi_khusus INT DEFAULT 0,
+    operasi_besar INT DEFAULT 0,
+    operasi_sedang INT DEFAULT 0,
+    operasi_kecil INT DEFAULT 0,
+    emergency INT DEFAULT 0,
+    urgency INT DEFAULT 0,
+    elektif INT DEFAULT 0,
+    kategori_besar INT DEFAULT 0,
+    kategori_sedang INT DEFAULT 0,
+    kategori_kecil INT DEFAULT 0,
+    operasi_batal_tunda TEXT,
+    catatan TEXT,
+    created_by VARCHAR(50),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by VARCHAR(50),
+    updated_at DATETIME NULL,
+    is_active TINYINT(1) DEFAULT 1,
+    PRIMARY KEY (supervisi_ibs_id),
+    UNIQUE KEY uk_supervisi_ibs (
+        supervisi_id
+    ),
+    CONSTRAINT fk_supervisi_ibs
+        FOREIGN KEY (supervisi_id)
+        REFERENCES supervisi(supervisi_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+-- =====================================================
+-- RINGKASAN EKSEKUTIF
+-- =====================================================
+
+CREATE TABLE supervisi_eksekutif (
+    supervisi_eksekutif_id VARCHAR(22) NOT NULL,
+    supervisi_id VARCHAR(22) NOT NULL,
+    ringkasan_eksekutif TEXT,
+    created_by VARCHAR(50),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by VARCHAR(50),
+    updated_at DATETIME NULL,
+    is_active TINYINT(1) DEFAULT 1,
+    PRIMARY KEY (supervisi_eksekutif_id),
+    UNIQUE KEY uk_supervisi_eksekutif (
+        supervisi_id
+    ),
+    CONSTRAINT fk_supervisi_eksekutif
+        FOREIGN KEY (supervisi_id)
+        REFERENCES supervisi(supervisi_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+-- =====================================================
+-- DATA MUTU & KESELAMATAN PASIEN
+-- =====================================================
+
+CREATE TABLE supervisi_mutu (
+    supervisi_mutu_id VARCHAR(22) NOT NULL,
+    supervisi_id VARCHAR(22) NOT NULL,
+    keluhan_pasien TEXT,
+    insiden_keselamatan INT DEFAULT 0,
+    kejadian_sentinel INT DEFAULT 0,
+    infeksi_nosokomial INT DEFAULT 0,
+    mutu_mortalitas_igd_6_jam INT DEFAULT 0,
+    mutu_mortalitas_ranap_gt_24_jam INT DEFAULT 0,
+    created_by VARCHAR(50),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by VARCHAR(50),
+    updated_at DATETIME NULL,
+    is_active TINYINT(1) DEFAULT 1,
+    PRIMARY KEY (supervisi_mutu_id),
+    UNIQUE KEY uk_supervisi_mutu (
+        supervisi_id
+    ),
+    CONSTRAINT fk_supervisi_mutu
+        FOREIGN KEY (supervisi_id)
+        REFERENCES supervisi(supervisi_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+-- =====================================================
+-- KEBUTUHAN & KENDALA
+-- =====================================================
+
+CREATE TABLE supervisi_kendala (
+    supervisi_kendala_id VARCHAR(22) NOT NULL,
+    supervisi_id VARCHAR(22) NOT NULL,
+    kebutuhan_utama TEXT,
+    kendala_utama TEXT,
+    created_by VARCHAR(50),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by VARCHAR(50),
+    updated_at DATETIME NULL,
+    is_active TINYINT(1) DEFAULT 1,
+    PRIMARY KEY (supervisi_kendala_id),
+    UNIQUE KEY uk_supervisi_kendala (
+        supervisi_id
+    ),
+    CONSTRAINT fk_supervisi_kendala
+        FOREIGN KEY (supervisi_id)
+        REFERENCES supervisi(supervisi_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+-- =====================================================
+-- FOKUS PERHATIAN DIREKSI
+-- =====================================================
+
+CREATE TABLE direksi_issue (
+    direksi_issue_id VARCHAR(22) NOT NULL,
+    judul VARCHAR(255) NOT NULL,
+    deskripsi TEXT,
+    prioritas ENUM(
+        'RENDAH',
+        'SEDANG',
+        'TINGGI',
+        'KRITIS'
+    ) DEFAULT 'SEDANG',
+    status ENUM(
+        'OPEN',
+        'PROGRESS',
+        'DONE',
+        'CANCEL'
+    ) DEFAULT 'OPEN',
+    is_fokus_hari_ini TINYINT(1) DEFAULT 0,
+    pic VARCHAR(100),
+    tanggal_mulai DATE,
+    target_selesai DATE,
+    tanggal_selesai DATE NULL,
+    created_by VARCHAR(50),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by VARCHAR(50),
+    updated_at DATETIME NULL,
+    is_active TINYINT(1) DEFAULT 1,
+    PRIMARY KEY (direksi_issue_id),
+    KEY idx_status (status),
+    KEY idx_fokus (is_fokus_hari_ini)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+-- =====================================================
+-- RENCANA AKSI CEPAT
+-- =====================================================
+
+CREATE TABLE direksi_plan (
+    direksi_plan_id VARCHAR(22) NOT NULL,
+    direksi_issue_id VARCHAR(22) NOT NULL,
+    uraian_tindakan TEXT NOT NULL,
+    pic VARCHAR(100),
+    status ENUM(
+        'OPEN',
+        'PROGRESS',
+        'DONE',
+        'CANCEL'
+    ) DEFAULT 'OPEN',
+    target_selesai DATE,
+    tanggal_selesai DATE NULL,
+    created_by VARCHAR(50),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by VARCHAR(50),
+    updated_at DATETIME NULL,
+    is_active TINYINT(1) DEFAULT 1,
+    PRIMARY KEY (direksi_plan_id),
+    KEY idx_direksi_plan_issue (
+        direksi_issue_id
+    ),
+    CONSTRAINT fk_direksi_plan
+        FOREIGN KEY (direksi_issue_id)
+        REFERENCES direksi_issue(direksi_issue_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE supervisi_igd (
+    supervisi_igd_id VARCHAR(22),
+    supervisi_id VARCHAR(22),
+    pasien_total INT,
+    pasien_igd_lama INT DEFAULT 0,
+    pasien_igd_baru INT DEFAULT 0,
+    pasien_keluar_igd INT DEFAULT 0,
+    pasien_rawat_inap INT DEFAULT 0,
+    pasien_igd_sisa INT DEFAULT 0,
+    kematian_igd_6_jam INT DEFAULT 0,
+    kematian_ranap_lt_24_jam INT DEFAULT 0,
+    kematian_ranap_gt_24_jam INT DEFAULT 0,
+    catatan TEXT,
+    created_by VARCHAR(50),
+    created_at DATETIME,
+    updated_by VARCHAR(50),
+    updated_at DATETIME,
+    is_active TINYINT(1) DEFAULT 1,
+    PRIMARY KEY(supervisi_igd_id)
+);

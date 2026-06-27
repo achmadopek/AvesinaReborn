@@ -53,11 +53,23 @@ const buildActivityFilter = ({
 };
 
 const buildActivityQueries = (visiteFilter, treatmentFilter) => {
+  const effectiveDpjpExpr = `COALESCE(
+      NULLIF(TRIM(r.employee_respon), ''),
+      (
+        SELECT dm.employee_id
+        FROM doctor_mutation dm
+        WHERE dm.unit_visit_id = uv.unit_visit_id
+        ORDER BY dm.mutation_dt DESC, dm.doctor_mutation_id DESC
+        LIMIT 1
+      )
+    )`;
+
   const visiteSql = `
     SELECT
       'VISITE' AS sumber,
       r.registry_id,
       r.employee_respon,
+      ${effectiveDpjpExpr} AS effective_dpjp_id,
       v.visite_id AS row_id,
       v.visite_dt,
       e.employee_id,
@@ -72,7 +84,7 @@ const buildActivityQueries = (visiteFilter, treatmentFilter) => {
     JOIN registry r ON r.registry_id = uv.registry_id
     JOIN patient p ON p.mr_id = r.mr_id
     JOIN employee e ON e.employee_id = v.employee_id
-    LEFT JOIN employee edpjp ON edpjp.employee_id = r.employee_respon
+    LEFT JOIN employee edpjp ON edpjp.employee_id = ${effectiveDpjpExpr}
     JOIN service_unit su ON su.srvc_unit_id = uv.unit_id_to
     JOIN medical_service ms ON ms.medical_service_id = v.medical_service_id
     ${visiteFilter.filter}
@@ -83,6 +95,7 @@ const buildActivityQueries = (visiteFilter, treatmentFilter) => {
       'TREATMENT' AS sumber,
       r.registry_id,
       r.employee_respon,
+      ${effectiveDpjpExpr} AS effective_dpjp_id,
       t.treatment_id AS row_id,
       t.treatment_dt AS visite_dt,
       e.employee_id,
@@ -97,7 +110,7 @@ const buildActivityQueries = (visiteFilter, treatmentFilter) => {
     JOIN registry r ON r.registry_id = uv.registry_id
     JOIN patient p ON p.mr_id = r.mr_id
     JOIN employee e ON e.employee_id = t.employee_id
-    LEFT JOIN employee edpjp ON edpjp.employee_id = r.employee_respon
+    LEFT JOIN employee edpjp ON edpjp.employee_id = ${effectiveDpjpExpr}
     JOIN service_unit su ON su.srvc_unit_id = uv.unit_id_to
     JOIN medical_service ms ON ms.medical_service_id = t.medical_service_id
     ${treatmentFilter.filter}
@@ -111,8 +124,11 @@ const normalize = (value) =>
     .trim()
     .toUpperCase();
 
+const getEffectiveDpjpId = (row) =>
+  row.effective_dpjp_id || row.employee_respon || null;
+
 const isDPJPActivity = (row) =>
-  normalize(row.employee_id) === normalize(row.employee_respon);
+  normalize(row.employee_id) === normalize(getEffectiveDpjpId(row));
 
 const isSPMCompliant = (visiteDt) => {
   const dt = new Date(visiteDt);
@@ -192,8 +208,9 @@ const getRawatInapSummary = (activities) => {
   const pasienMap = new Map();
 
   activities.forEach((item) => {
+    const effectiveDpjpId = item.effective_dpjp_id || item.employee_respon;
     if (!pasienMap.has(item.registry_id)) {
-      pasienMap.set(item.registry_id, Boolean(item.employee_respon));
+      pasienMap.set(item.registry_id, Boolean(effectiveDpjpId));
     }
   });
 
@@ -216,24 +233,44 @@ const getRawatInapSummary = (activities) => {
 const getAllCurrentInpatientSummary = async (startDate, endDate) => {
   const sDate = startDate || new Date().toISOString().split("T")[0];
   const eDate = endDate || sDate;
+  const startBoundary = `${sDate} 00:00:00`;
+  const endBoundary = `${eDate} 23:59:59`;
 
   const sql = `
     SELECT
         COUNT(DISTINCT r.registry_id) AS totalPasienRawatInap,
-        SUM(CASE WHEN r.employee_respon IS NOT NULL THEN 1 ELSE 0 END) AS pasienDPJP,
-        SUM(CASE WHEN r.employee_respon IS NULL THEN 1 ELSE 0 END) AS pasienBelumDPJP
+        SUM(CASE WHEN COALESCE(
+          NULLIF(TRIM(r.employee_respon), ''),
+          (
+            SELECT dm.employee_id
+            FROM doctor_mutation dm
+            WHERE dm.unit_visit_id = uv.unit_visit_id
+            ORDER BY dm.mutation_dt DESC, dm.doctor_mutation_id DESC
+            LIMIT 1
+          )
+        ) IS NOT NULL THEN 1 ELSE 0 END) AS pasienDPJP,
+        SUM(CASE WHEN COALESCE(
+          NULLIF(TRIM(r.employee_respon), ''),
+          (
+            SELECT dm.employee_id
+            FROM doctor_mutation dm
+            WHERE dm.unit_visit_id = uv.unit_visit_id
+            ORDER BY dm.mutation_dt DESC, dm.doctor_mutation_id DESC
+            LIMIT 1
+          )
+        ) IS NULL THEN 1 ELSE 0 END) AS pasienBelumDPJP
     FROM registry r
     JOIN unit_visit uv ON uv.registry_id = r.registry_id
     JOIN service_unit su ON su.srvc_unit_id = uv.unit_id_to
     JOIN unit_group ug ON ug.unit_group_id = su.unit_group_id
-    WHERE r.out_dt IS NULL
-      AND r.registry_dt <= ?                     -- Sudah masuk
+    WHERE r.registry_dt <= ?                     -- Sudah masuk sampai batas akhir filter
+      AND (r.out_dt IS NULL OR r.out_dt >= ?)    -- Belum keluar sebelum batas awal filter
       AND ug.unit_group_id = '7'                  -- Rawat Inap
       AND (r.registry_sts IS NULL OR r.registry_sts != 'C')
       AND (r.in_out_sts = 'I')
     `;
 
-  const params = [`${eDate} 23:59:59`];
+  const params = [endBoundary, startBoundary];
 
   try {
     const [rows] = await db.promise().query(sql, params);

@@ -217,7 +217,7 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
               <label className="form-label small mb-1">Tanggal Dari</label>
               <input
                 type="date"
-                className="form-control form-control-sm"
+                className="form-control form-control-lg"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
               />
@@ -226,7 +226,7 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
               <label className="form-label small mb-1">Tanggal Hingga</label>
               <input
                 type="date"
-                className="form-control form-control-sm"
+                className="form-control form-control-lg"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
               />
@@ -248,7 +248,7 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
               <label className="form-label small mb-1">Pencarian</label>
               <input
                 type="text"
-                className="form-control form-control-sm"
+                className="form-control form-control-lg"
                 placeholder="Nama dokter / pasien / NRM..."
                 value={search}
                 onChange={(e) => {
@@ -261,7 +261,7 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
             <div className="col-md-2 col-6">
               <button
                 type="button"
-                className="btn btn-sm btn-secondary w-100"
+                className="btn btn-lg btn-secondary w-100"
                 onClick={resetFilter}
               >
                 Reset Filter
@@ -320,10 +320,12 @@ const MonitoringVisite = ({ isMobile, limit = 10 }) => {
         <div className="col-md-6">
           <div className="card-theme p-2 h-100">
             <div className="card-header py-2 px-3">
-              <h6 className="mb-0">Pasien Rawat Inap Aktif</h6>
-              <small className="text-muted">
-                (Berdasarkan status saat ini)
-              </small>
+              <h6 className="mb-0">
+                Pasien Rawat Inap Aktif &nbsp;
+                <small className="text-muted">
+                  (Berdasarkan status aktif pada rentang filter)
+                </small>
+              </h6>
             </div>
             <div className="card-body">
               <div className="row g-2 text-center">

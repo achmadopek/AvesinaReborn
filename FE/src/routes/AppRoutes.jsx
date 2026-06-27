@@ -80,6 +80,15 @@ import EntriBugarr from "../pages/wj_bugarr/EntriBugarr";
 // === SIRAD ===
 import MonitoringXRay from "../pages/wj_sirad/MonitoringXRay";
 import MonitoringCTScan from "../pages/wj_sirad/MonitoringCTScan";
+import TrackingPenunjang from "../pages/wj_terjang/TrackingPenunjang";
+
+// === SUPERVISI ===
+import MonitoringSupervisi from "../pages/wj_supervisi/MonitoringSupervisi";
+import FormSupervisi from "../pages/wj_supervisi/FormSupervisi";
+import DetailSupervisi from "../pages/wj_supervisi/DetailSupervisi";
+import MonitoringDireksiIssue from "../pages/wj_supervisi/MonitoringDireksiIssue";
+import FormDireksiIssue from "../pages/wj_supervisi/FormDireksiIssue";
+import DetailDireksiIssue from "../pages/wj_supervisi/DetailDireksiIssue";
 
 const AppRoutes = ({ setRightContent }) => {
   const { dashboard } = useAuth();
@@ -650,6 +659,112 @@ const AppRoutes = ({ setRightContent }) => {
         element={
           <ProtectedRoute allowedRoles={["admin", "radiografer", "radiolog"]}>
             <MonitoringCTScan setRightContent={setRightContent} />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* =============================== */}
+      {/*          MINI APP: TERJANG       */}
+      {/* =============================== */}
+      <Route
+        path="/terjang"
+        element={<Navigate to="/terjang/TrackingPenunjang" replace />}
+      />
+
+      <Route
+        path="/terjang/TrackingPenunjang"
+        element={
+          <ProtectedRoute
+            allowedRoles={[
+              "admin",
+              "dokter",
+              "perawat",
+              "penunjang",
+              "radiolog",
+              "radiografer",
+            ]}
+          >
+            <TrackingPenunjang setRightContent={setRightContent} />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* =============================== */}
+      {/*          MINI APP: SUPERVISI       */}
+      {/* =============================== */}
+      <Route
+        path="/supervisi"
+        element={<Navigate to="/supervisi/MonitoringSupervisi" replace />}
+      />
+
+      <Route
+        path="/supervisi/MonitoringSupervisi"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <MonitoringSupervisi setRightContent={setRightContent} />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/supervisi/MonitoringSupervisi/Form"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <FormSupervisi setRightContent={setRightContent} />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/supervisi/MonitoringSupervisi/Form/:supervisi_id"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <FormSupervisi setRightContent={setRightContent} />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/supervisi/MonitoringSupervisi/Detail/:supervisi_id"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <DetailSupervisi setRightContent={setRightContent} />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/supervisi/MonitoringDireksiIssue"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <MonitoringDireksiIssue setRightContent={setRightContent} />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/supervisi/MonitoringDireksiIssue/Form"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <FormDireksiIssue setRightContent={setRightContent} />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/supervisi/MonitoringDireksiIssue/Form/:direksi_issue_id"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <FormDireksiIssue setRightContent={setRightContent} />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/supervisi/MonitoringDireksiIssue/Detail/:direksi_issue_id"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <DetailDireksiIssue setRightContent={setRightContent} />
           </ProtectedRoute>
         }
       />

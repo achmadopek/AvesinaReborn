@@ -11,6 +11,7 @@ import { Poli } from "../menu/Poli";
 import { Akuntansi } from "../menu/Akuntansi";
 import { Bugarr } from "../menu/Bugarr";
 import { Sirad } from "../menu/Sirad";
+import { Terjang } from "../menu/Terjang";
 import { Penunjang } from "../menu/Penunjang";
 import { HumanResources } from "../menu/HumanResources";
 import { Master } from "../menu/Master";
@@ -52,7 +53,7 @@ import { Kasir } from "../menu/Kasir";
 const allMenus = [
   { name: "Beranda", component: <Beranda /> },
   { name: "Wava", component: <Wava /> },
-  { name: 'Poli', component: <Poli /> },
+  { name: "Poli", component: <Poli /> },
   { name: "Master", component: <Master /> },
   { name: "MasterAdmin", component: <MasterAdmin /> },
   { name: "HumanResources", component: <HumanResources /> },
@@ -66,6 +67,7 @@ const allMenus = [
   { name: "RenBang", component: <RenBang /> },
   { name: "Bugarr", component: <Bugarr /> },
   { name: "Sirad", component: <Sirad /> },
+  { name: "Terjang", component: <Terjang /> },
   { name: "Laporan", component: <Laporan /> },
   { name: "LaporanMobay", component: <LaporanMobay /> },
   { name: "LaporanMutu", component: <LaporanMutu /> },

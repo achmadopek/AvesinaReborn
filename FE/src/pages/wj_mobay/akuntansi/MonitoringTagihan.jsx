@@ -4,7 +4,7 @@ import { formatNumber, formatCurrency } from "../../../utils/FormatNumber";
 
 import {
   fetchPaginatedMonitoringData,
-  cetakMonitoringPDF
+  cetakMonitoringPDF,
 } from "../../../api/wj_mobay/MonitoringTagihan";
 
 import { toast } from "react-toastify";
@@ -19,7 +19,6 @@ import Swal from "sweetalert2";
  */
 
 const MonitoringTagihan = () => {
-
   // -----------------------
   // STATE
   // -----------------------
@@ -124,7 +123,6 @@ const MonitoringTagihan = () => {
   // -----------------------
   const filteredData = useMemo(() => {
     return groupData.filter((surat) => {
-
       const matchProvider =
         !provider ||
         surat.prvdr_str?.toLowerCase().includes(provider.toLowerCase());
@@ -132,19 +130,18 @@ const MonitoringTagihan = () => {
       const matchInvoice =
         !invoice ||
         surat.invoices?.some((inv) =>
-          inv.invoice_no?.toLowerCase().includes(invoice.toLowerCase())
+          inv.invoice_no?.toLowerCase().includes(invoice.toLowerCase()),
         );
 
       const matchDrug =
         !drug ||
         surat.invoices?.some((inv) =>
           inv.items?.some((it) =>
-            it.drug_nm?.toLowerCase().includes(drug.toLowerCase())
-          )
+            it.drug_nm?.toLowerCase().includes(drug.toLowerCase()),
+          ),
         );
 
       return matchProvider && matchInvoice && matchDrug;
-
     });
   }, [groupData, provider, invoice, drug]);
 
@@ -162,21 +159,13 @@ const MonitoringTagihan = () => {
   const CellDateAmount = ({ date, amount }) => {
     // kalau belum ada tanggal → anggap belum proses
     if (!date) {
-      return (
-        <div className="text-center text-muted">
-          -
-        </div>
-      );
+      return <div className="text-center text-muted">-</div>;
     }
 
     return (
       <div className="text-center">
-        <div className="small text-muted">
-          {formatSortDateTime(date)}
-        </div>
-        <div className="fw-semibold">
-          {formatCurrency(amount || 0)}
-        </div>
+        <div className="small text-muted">{formatSortDateTime(date)}</div>
+        <div className="fw-semibold">{formatCurrency(amount || 0)}</div>
       </div>
     );
   };
@@ -184,12 +173,9 @@ const MonitoringTagihan = () => {
   const handleCetak = async (surat) => {
     try {
       const response = await cetakMonitoringPDF(surat);
-      const blob = new Blob(
-        [response.data],
-        {
-          type: "application/pdf"
-        }
-      );
+      const blob = new Blob([response.data], {
+        type: "application/pdf",
+      });
       const url = window.URL.createObjectURL(blob);
       window.open(url, "_blank");
     } catch (err) {
@@ -203,14 +189,14 @@ const MonitoringTagihan = () => {
       toast.warn("Tidak ada data untuk dicetak");
       return;
     }
-  
+
     try {
       const response = await cetakMonitoringPDF({
         is_rekap_invoice: true,
         data: filteredData,
-        periode: { start: startDate, end: endDate }
+        periode: { start: startDate, end: endDate },
       });
-  
+
       const blob = new Blob([response.data], { type: "application/pdf" });
       const url = window.URL.createObjectURL(blob);
       window.open(url, "_blank");
@@ -225,14 +211,14 @@ const MonitoringTagihan = () => {
       toast.warn("Tidak ada data untuk dicetak");
       return;
     }
-  
+
     try {
       const response = await cetakMonitoringPDF({
         is_rekap_global: true,
-        data: filteredData,           // kirim semua data
-        periode: { start: startDate, end: endDate, type: filterDateType }
+        data: filteredData, // kirim semua data
+        periode: { start: startDate, end: endDate, type: filterDateType },
       });
-  
+
       const blob = new Blob([response.data], { type: "application/pdf" });
       const url = window.URL.createObjectURL(blob);
       window.open(url, "_blank");
@@ -387,10 +373,10 @@ const MonitoringTagihan = () => {
                       {/* ================= ROW SURAT ================= */}
                       <tr>
                         <td>{i + 1}</td>
-                        <td style={{width: "300px"}}>
-                            <strong>{surat.prvdr_str}</strong>
-                            <br/>
-                            <span className="small">{surat.prvdr_address}</span>
+                        <td style={{ width: "300px" }}>
+                          <strong>{surat.prvdr_str}</strong>
+                          <br />
+                          <span className="small">{surat.prvdr_address}</span>
                         </td>
 
                         <td className="text-center">
@@ -409,9 +395,9 @@ const MonitoringTagihan = () => {
                             });
 
                             // cari status terbanyak
-                            const sortedStatus = Object.entries(statusCount).sort(
-                              (a, b) => b[1] - a[1]
-                            );
+                            const sortedStatus = Object.entries(
+                              statusCount,
+                            ).sort((a, b) => b[1] - a[1]);
 
                             const mainStatus = sortedStatus[0];
 
@@ -428,14 +414,16 @@ const MonitoringTagihan = () => {
                                 )}
 
                                 <div className="small mt-1 d-flex flex-wrap gap-1 justify-content-center">
-                                  {sortedStatus.slice(1).map(([status, total]) => (
-                                    <span
-                                      key={status}
-                                      className={`badge ${getStatusBadgeClass(status)}`}
-                                    >
-                                      {total} : {status}
-                                    </span>
-                                  ))}
+                                  {sortedStatus
+                                    .slice(1)
+                                    .map(([status, total]) => (
+                                      <span
+                                        key={status}
+                                        className={`badge ${getStatusBadgeClass(status)}`}
+                                      >
+                                        {total} : {status}
+                                      </span>
+                                    ))}
                                 </div>
                               </>
                             );
@@ -491,18 +479,18 @@ const MonitoringTagihan = () => {
                               setExpandedSurat(
                                 expandedSurat === surat.pengajuan_id
                                   ? null
-                                  : surat.pengajuan_id
+                                  : surat.pengajuan_id,
                               )
                             }
-                            style={{margin: "1px"}}
+                            style={{ margin: "1px" }}
                           >
                             Detail
                           </button>
-                          
+
                           <button
                             className="btn btn-sm btn-success"
                             onClick={() => handleCetak(surat)}
-                            style={{margin: "1px"}}
+                            style={{ margin: "1px" }}
                           >
                             Cetak
                           </button>
@@ -516,8 +504,7 @@ const MonitoringTagihan = () => {
                           <td>&nbsp;</td>
                           <td colSpan="8">
                             <div className="p-2 bg-light">
-
-                             {/* ===== DETAIL INVOICE TABLE ===== */}
+                              {/* ===== DETAIL INVOICE TABLE ===== */}
                               <table className="table table-sm table-bordered mb-0">
                                 <thead>
                                   <tr>
@@ -530,23 +517,34 @@ const MonitoringTagihan = () => {
                                 </thead>
                                 <tbody>
                                   {surat.invoices?.map((inv, j) => {
-                                    const isOpen = expandedInvoice === inv.po_acce_id;
+                                    const isOpen =
+                                      expandedInvoice === inv.po_acce_id;
 
                                     return (
                                       <React.Fragment key={inv.po_acce_id}>
                                         <tr>
                                           <td>{j + 1}</td>
                                           <td>{inv.invoice_no}</td>
-                                          <td className="text-end">{formatCurrency(inv.total_diajukan)}</td>
                                           <td className="text-end">
-                                            <span className={`badge ${getStatusBadgeClass(inv.status_pengolahan)}`}>
+                                            {formatCurrency(inv.total_diajukan)}
+                                          </td>
+                                          <td className="text-end">
+                                            <span
+                                              className={`badge ${getStatusBadgeClass(inv.status_pengolahan)}`}
+                                            >
                                               {inv.status_pengolahan}
                                             </span>
                                           </td>
                                           <td className="text-center">
                                             <button
                                               className="btn btn-sm btn-secondary"
-                                              onClick={() => setExpandedInvoice(isOpen ? null : inv.po_acce_id)}
+                                              onClick={() =>
+                                                setExpandedInvoice(
+                                                  isOpen
+                                                    ? null
+                                                    : inv.po_acce_id,
+                                                )
+                                              }
                                             >
                                               Detail Item
                                             </button>
@@ -576,7 +574,9 @@ const MonitoringTagihan = () => {
                                                         {formatNumber(it.qty)}
                                                       </td>
                                                       <td className="text-end">
-                                                        {formatCurrency(it.subtotal)}
+                                                        {formatCurrency(
+                                                          it.subtotal,
+                                                        )}
                                                       </td>
                                                     </tr>
                                                   ))}
@@ -588,10 +588,8 @@ const MonitoringTagihan = () => {
                                       </React.Fragment>
                                     );
                                   })}
-
-                                 </tbody>
+                                </tbody>
                               </table>
-
                             </div>
                           </td>
                         </tr>
