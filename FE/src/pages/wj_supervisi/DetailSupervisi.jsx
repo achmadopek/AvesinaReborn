@@ -149,19 +149,10 @@ const DetailSupervisi = () => {
           catatan: dataSource.igd?.catatan ?? "",
         }));
         break;
-      case "HD":
-        setForm((prev) => ({
-          ...prev,
-          pasien_reguler: dataSource.hd?.pasien_reguler ?? "",
-          pasien_isolasi: dataSource.hd?.pasien_isolasi ?? "",
-          capd: dataSource.hd?.capd ?? "",
-          pembiayaan_bpjs: dataSource.hd?.pembiayaan_bpjs ?? "",
-          catatan_hd: dataSource.hd?.catatan ?? "",
-        }));
-        break;
       case "IBS":
         setForm((prev) => ({
           ...prev,
+          pasien_ibs_total: dataSource.ibs?.pasien_ibs_total ?? "",
           operasi_khusus: dataSource.ibs?.operasi_khusus ?? "",
           emergency: dataSource.ibs?.emergency ?? "",
           urgency: dataSource.ibs?.urgency ?? "",
@@ -171,6 +162,17 @@ const DetailSupervisi = () => {
           operasi_kecil: dataSource.ibs?.operasi_kecil ?? "",
           operasi_batal_tunda: dataSource.ibs?.operasi_batal_tunda ?? "",
           catatan_ibs: dataSource.ibs?.catatan ?? "",
+        }));
+        break;
+      case "HD":
+        setForm((prev) => ({
+          ...prev,
+          pasien_hd_total: dataSource.hd?.pasien_hd_total ?? "",
+          pasien_reguler: dataSource.hd?.pasien_reguler ?? "",
+          pasien_isolasi: dataSource.hd?.pasien_isolasi ?? "",
+          capd: dataSource.hd?.capd ?? "",
+          pembiayaan_bpjs: dataSource.hd?.pembiayaan_bpjs ?? "",
+          catatan_hd: dataSource.hd?.catatan ?? "",
         }));
         break;
       case "MUTU":
@@ -436,6 +438,7 @@ const DetailSupervisi = () => {
         case "HD":
           res = await saveSupervisiHd({
             ...payload,
+            pasien_hd_total: form.pasien_hd_total,
             pasien_reguler: form.pasien_reguler,
             pasien_isolasi: form.pasien_isolasi,
             capd: form.capd,
@@ -446,6 +449,7 @@ const DetailSupervisi = () => {
         case "IBS":
           res = await saveSupervisiIbs({
             ...payload,
+            pasien_ibs_total: form.pasien_ibs_total,
             operasi_khusus: form.operasi_khusus,
             emergency: form.emergency,
             urgency: form.urgency,
@@ -623,7 +627,7 @@ const DetailSupervisi = () => {
       </div>
 
       <ul className="nav nav-tabs mt-3">
-        {["IGD", "HD", "IBS", "MUTU", "KENDALA", "EKSEKUTIF"].map((tab) => (
+        {["IGD", "IBS", "HD", "MUTU", "KENDALA", "EKSEKUTIF"].map((tab) => (
           <li className="nav-item" key={tab}>
             <button
               className={`nav-link ${activeTab === tab ? "active" : ""}`}
@@ -761,82 +765,6 @@ const DetailSupervisi = () => {
             </>
           )}
 
-          {activeTab === "HD" && (
-            <>
-              <Row>
-                <Col md={4}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Pasien Total</Form.Label>
-                    <Form.Control
-                      type="number"
-                      name="pasien_hd_total"
-                      value={form.pasien_hd_total}
-                      onChange={handleChange}
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={4}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Pasien Reguler</Form.Label>
-                    <Form.Control
-                      type="number"
-                      name="pasien_reguler"
-                      value={form.pasien_reguler}
-                      onChange={handleChange}
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={4}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Pasien Isolasi</Form.Label>
-                    <Form.Control
-                      type="number"
-                      name="pasien_isolasi"
-                      value={form.pasien_isolasi}
-                      onChange={handleChange}
-                    />
-                  </Form.Group>
-                </Col>
-              </Row>
-
-              <Row>
-                <Col md={6}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>CAPD</Form.Label>
-                    <Form.Control
-                      type="number"
-                      name="capd"
-                      value={form.capd}
-                      onChange={handleChange}
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={6}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Pembiayaan BPJS</Form.Label>
-                    <Form.Control
-                      type="number"
-                      name="pembiayaan_bpjs"
-                      value={form.pembiayaan_bpjs}
-                      onChange={handleChange}
-                    />
-                  </Form.Group>
-                </Col>
-              </Row>
-
-              <Form.Group className="mb-3">
-                <Form.Label>Catatan</Form.Label>
-                <Form.Control
-                  as="textarea"
-                  rows={4}
-                  name="catatan_hd"
-                  value={form.catatan_hd}
-                  onChange={handleChange}
-                />
-              </Form.Group>
-            </>
-          )}
-
           {activeTab === "IBS" && (
             <>
               <Row>
@@ -954,6 +882,82 @@ const DetailSupervisi = () => {
                   rows={4}
                   name="catatan_ibs"
                   value={form.catatan_ibs}
+                  onChange={handleChange}
+                />
+              </Form.Group>
+            </>
+          )}
+
+          {activeTab === "HD" && (
+            <>
+              <Row>
+                <Col md={4}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Pasien Total</Form.Label>
+                    <Form.Control
+                      type="number"
+                      name="pasien_hd_total"
+                      value={form.pasien_hd_total}
+                      onChange={handleChange}
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={4}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Pasien Reguler</Form.Label>
+                    <Form.Control
+                      type="number"
+                      name="pasien_reguler"
+                      value={form.pasien_reguler}
+                      onChange={handleChange}
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={4}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Pasien Isolasi</Form.Label>
+                    <Form.Control
+                      type="number"
+                      name="pasien_isolasi"
+                      value={form.pasien_isolasi}
+                      onChange={handleChange}
+                    />
+                  </Form.Group>
+                </Col>
+              </Row>
+
+              <Row>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>CAPD</Form.Label>
+                    <Form.Control
+                      type="number"
+                      name="capd"
+                      value={form.capd}
+                      onChange={handleChange}
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Pembiayaan BPJS</Form.Label>
+                    <Form.Control
+                      type="number"
+                      name="pembiayaan_bpjs"
+                      value={form.pembiayaan_bpjs}
+                      onChange={handleChange}
+                    />
+                  </Form.Group>
+                </Col>
+              </Row>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Catatan</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={4}
+                  name="catatan_hd"
+                  value={form.catatan_hd}
                   onChange={handleChange}
                 />
               </Form.Group>

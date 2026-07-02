@@ -133,6 +133,45 @@ exports.getHomeDashboard = async (req, res) => {
     `);
 
     // =====================================================
+    // DETAIL KEBUTUHAN, KENDALA, EKSEKUTIF
+    // =====================================================
+    const [kebutuhanDetailRows, kendalaDetailRows, eksekutifDetailRows] =
+      await Promise.all([
+        db2.promise().query(
+          `
+        SELECT uraian
+          FROM supervisi_kebutuhan_detail
+          WHERE supervisi_id = ?
+            AND is_active = 1
+          ORDER BY urut
+      `,
+          [supervisiId],
+        ),
+
+        db2.promise().query(
+          `
+          SELECT uraian
+            FROM supervisi_kendala_detail
+            WHERE supervisi_id = ?
+              AND is_active = 1
+            ORDER BY urut
+        `,
+          [supervisiId],
+        ),
+
+        db2.promise().query(
+          `
+          SELECT uraian
+            FROM supervisi_eksekutif_detail
+            WHERE supervisi_id = ?
+              AND is_active = 1
+            ORDER BY urut
+        `,
+          [supervisiId],
+        ),
+      ]);
+
+    // =====================================================
     // RENCANA AKSI CEPAT
     // =====================================================
 
@@ -221,6 +260,10 @@ exports.getHomeDashboard = async (req, res) => {
       inapKRS: 0,
     };
 
+    const kebutuhanDetail = kebutuhanDetailRows[0] || [];
+    const kendalaDetail = kendalaDetailRows[0] || [];
+    const eksekutifDetail = eksekutifDetailRows[0] || [];
+
     // =====================================================
     // RESPONSE
     // =====================================================
@@ -234,8 +277,14 @@ exports.getHomeDashboard = async (req, res) => {
         hd: hdRows[0][0] || null,
         ibs: ibsRows[0][0] || null,
         mutu: mutuRows[0][0] || null,
-        kendala: kendalaRows[0][0] || null,
-        eksekutif: eksekutifRows[0][0] || null,
+        kendala: {
+          kebutuhan_detail: kebutuhanDetail,
+          kendala_detail: kendalaDetail,
+        },
+
+        eksekutif: {
+          detail: eksekutifDetail,
+        },
 
         applicareSummary,
         applicareList: applicareRows || [],

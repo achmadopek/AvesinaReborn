@@ -19,7 +19,7 @@ const HomeSupervisi = () => {
 
       console.log("DATA", res);
 
-      setDashboard(res.data.data);
+      setDashboard(res.data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -119,13 +119,13 @@ const HomeSupervisi = () => {
       {/* ========================================= */}
 
       <Card
-        className="mb-3 text-center border-0 shadow-sm"
+        className="mb-3 text-center border-0"
         style={{
           fontFamily: '"Arial Narrow", Arial, sans-serif',
           backgroundColor: "#fdfbf7",
         }}
       >
-        <Card.Header className="bg-transparent border-0 pt-0 pb-1">
+        <Card.Body className="border-0 pt-0 pb-1">
           <div className="container-fluid">
             <div className="row align-items-center">
               {/* 1. KIRI: LOGO PEMKAB & LOGO RS BERDAMPINGAN */}
@@ -229,13 +229,13 @@ const HomeSupervisi = () => {
                   className="text-center"
                   style={{
                     position: "absolute",
-                    top: "-16px",
+                    top: "0px",
                     bottom: "0px",
                     padding: "0px",
                     margin: "0px",
                     right: "10px",
                     width: "auto",
-                    height: "340px",
+                    height: "330px",
                     border: "3px solid #fff",
                     zIndex: 2,
                   }}
@@ -266,7 +266,7 @@ const HomeSupervisi = () => {
               </div>
             </div>
           </div>
-        </Card.Header>
+        </Card.Body>
       </Card>
 
       {/* ========================================= */}
@@ -376,11 +376,19 @@ const HomeSupervisi = () => {
         <Card.Header>Ringkasan Eksekutif</Card.Header>
 
         <Card.Body>
-          <div
-            dangerouslySetInnerHTML={{
-              __html: eksekutif?.ringkasan_eksekutif || "-",
-            }}
-          />
+          {eksekutif?.detail?.length > 0 ? (
+            eksekutif.detail.map((item, idx) => (
+              <div
+                key={idx}
+                className="mb-2"
+                style={{ whiteSpace: "pre-line" }}
+              >
+                {item.uraian}
+              </div>
+            ))
+          ) : (
+            <span className="text-muted">Belum ada ringkasan eksekutif</span>
+          )}
         </Card.Body>
       </Card>
 
@@ -489,34 +497,40 @@ const HomeSupervisi = () => {
                     <thead>
                       <tr>
                         <th>Total Pasien IGD</th>
-                        <th>{igd?.pasien_total}</th>
+                        <th width="50" className="text-center">
+                          {igd?.pasien_total}
+                        </th>
                       </tr>
                     </thead>
 
                     <tbody>
                       <tr>
                         <td>Pasien Lama</td>
-                        <td>{igd?.pasien_igd_lama}</td>
+                        <td className="text-center">{igd?.pasien_igd_lama}</td>
                       </tr>
 
                       <tr>
                         <td>Pasien Baru</td>
-                        <td>{igd?.pasien_igd_baru}</td>
+                        <td className="text-center">{igd?.pasien_igd_baru}</td>
                       </tr>
 
                       <tr>
                         <td>Pasien Masuk Ranap</td>
-                        <td>{igd?.pasien_rawat_inap}</td>
+                        <td className="text-center">
+                          {igd?.pasien_rawat_inap}
+                        </td>
                       </tr>
 
                       <tr>
                         <td>Sisa Pasien IGD</td>
-                        <td>{igd?.pasien_igd_sisa}</td>
+                        <td className="text-center">{igd?.pasien_igd_sisa}</td>
                       </tr>
 
                       <tr>
                         <td>Kematian IGD &lt; 6 Jam</td>
-                        <td>{igd?.kematian_igd_6_jam}</td>
+                        <td className="text-center">
+                          {igd?.kematian_igd_6_jam}
+                        </td>
                       </tr>
                     </tbody>
                   </Table>
@@ -535,39 +549,41 @@ const HomeSupervisi = () => {
                     <thead>
                       <tr>
                         <th>Total Pasien IBS</th>
-                        <th>{ibs?.pasien_ibs_total}</th>
+                        <th width="50" className="text-center">
+                          {ibs?.pasien_ibs_total}
+                        </th>
                       </tr>
                     </thead>
 
                     <tbody>
                       <tr>
                         <td>Emergency</td>
-                        <td>{ibs?.emergency}</td>
+                        <td className="text-center">{ibs?.emergency}</td>
                       </tr>
 
                       <tr>
                         <td>Urgency</td>
-                        <td>{ibs?.urgency}</td>
+                        <td className="text-center">{ibs?.urgency}</td>
                       </tr>
 
                       <tr>
                         <td>Elektif</td>
-                        <td>{ibs?.elektif}</td>
+                        <td className="text-center">{ibs?.elektif}</td>
                       </tr>
 
                       <tr>
                         <td>Operasi Besar</td>
-                        <td>{ibs?.operasi_besar}</td>
+                        <td className="text-center">{ibs?.operasi_besar}</td>
                       </tr>
 
                       <tr>
                         <td>Operasi Sedang</td>
-                        <td>{ibs?.operasi_sedang}</td>
+                        <td className="text-center">{ibs?.operasi_sedang}</td>
                       </tr>
 
                       <tr>
                         <td>Operasi Khusus</td>
-                        <td>{ibs?.operasi_khusus}</td>
+                        <td className="text-center">{ibs?.operasi_khusus}</td>
                       </tr>
                     </tbody>
                   </Table>
@@ -586,24 +602,26 @@ const HomeSupervisi = () => {
                     <thead>
                       <tr>
                         <th>Total Pasien HD</th>
-                        <th>{hd?.pasien_hd_total}</th>
+                        <th width="50" className="text-center">
+                          {hd?.pasien_hd_total}
+                        </th>
                       </tr>
                     </thead>
 
                     <tbody>
                       <tr>
                         <td>Pasien Reguler</td>
-                        <td>{hd?.pasien_reguler}</td>
+                        <td className="text-center">{hd?.pasien_reguler}</td>
                       </tr>
 
                       <tr>
                         <td>Pasien Isolasi</td>
-                        <td>{hd?.pasien_isolasi}</td>
+                        <td className="text-center">{hd?.pasien_isolasi}</td>
                       </tr>
 
                       <tr>
                         <td>CAPD</td>
-                        <td>{hd?.capd}</td>
+                        <td className="text-center">{hd?.capd}</td>
                       </tr>
                     </tbody>
                   </Table>
@@ -622,22 +640,30 @@ const HomeSupervisi = () => {
                     <tbody>
                       <tr>
                         <td>Keluhan Pasien</td>
-                        <td>{mutu?.keluhan_pasien}</td>
+                        <td width="50" className="text-center">
+                          {mutu?.keluhan_pasien}
+                        </td>
                       </tr>
 
                       <tr>
                         <td>Insiden Keselamatan</td>
-                        <td>{mutu?.insiden_keselamatan}</td>
+                        <td className="text-center">
+                          {mutu?.insiden_keselamatan}
+                        </td>
                       </tr>
 
                       <tr>
                         <td>Kejadian Sentinel</td>
-                        <td>{mutu?.kejadian_sentinel}</td>
+                        <td className="text-center">
+                          {mutu?.kejadian_sentinel}
+                        </td>
                       </tr>
 
                       <tr>
                         <td>Infeksi Nosokomial</td>
-                        <td>{mutu?.infeksi_nosokomial}</td>
+                        <td className="text-center">
+                          {mutu?.infeksi_nosokomial}
+                        </td>
                       </tr>
                     </tbody>
                   </Table>
@@ -658,21 +684,33 @@ const HomeSupervisi = () => {
             <Card.Body>
               <h6>Kebutuhan</h6>
 
-              <div
-                dangerouslySetInnerHTML={{
-                  __html: kendala?.kebutuhan_utama || "-",
-                }}
-              />
+              {kendala?.kebutuhan_detail?.length > 0 ? (
+                <ul className="mb-0 ps-3">
+                  {kendala.kebutuhan_detail.map((item, idx) => (
+                    <li key={idx} style={{ whiteSpace: "pre-line" }}>
+                      {item.uraian}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <span className="text-muted">Belum ada kebutuhan</span>
+              )}
 
               <hr />
 
               <h6>Kendala</h6>
 
-              <div
-                dangerouslySetInnerHTML={{
-                  __html: kendala?.kendala_utama || "-",
-                }}
-              />
+              {kendala?.kendala_detail?.length > 0 ? (
+                <ul className="mb-0 ps-3">
+                  {kendala.kendala_detail.map((item, idx) => (
+                    <li key={idx} style={{ whiteSpace: "pre-line" }}>
+                      {item.uraian}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <span className="text-muted">Belum ada kendala</span>
+              )}
             </Card.Body>
           </Card>
         </div>
@@ -684,13 +722,28 @@ const HomeSupervisi = () => {
             <Card.Header>Fokus Perhatian Direksi Hari Ini</Card.Header>
 
             <Card.Body>
-              {fokusDireksi?.map((item, idx) => (
-                <div key={idx} className="mb-2">
-                  <Badge bg="danger">{item.prioritas}</Badge>
+              {fokusDireksi?.length > 0 ? (
+                fokusDireksi.map((item, idx) => (
+                  <div key={idx} className="mb-2">
+                    <Badge bg="danger">{item.prioritas}</Badge>
 
-                  <span className="ms-2 fw-bold">{item.judul}</span>
-                </div>
-              ))}
+                    <span className="ms-2 fw-bold">{item.judul}</span>
+
+                    {item.uraian && (
+                      <div
+                        className="small text-muted mt-1"
+                        style={{ whiteSpace: "pre-line" }}
+                      >
+                        {item.uraian}
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <span className="text-muted">
+                  Tidak ada fokus direksi hari ini
+                </span>
+              )}
             </Card.Body>
           </Card>
         </div>
@@ -713,14 +766,22 @@ const HomeSupervisi = () => {
                 </thead>
 
                 <tbody>
-                  {rencanaAksi?.map((item) => (
-                    <tr key={item.direksi_plan_id}>
-                      <td>{item.issue_judul}</td>
-                      <td>{item.uraian_tindakan}</td>
-                      <td>{item.pic}</td>
-                      <td>{item.status}</td>
+                  {rencanaAksi?.length > 0 ? (
+                    rencanaAksi.map((item) => (
+                      <tr key={item.direksi_plan_id}>
+                        <td>{item.issue_judul}</td>
+                        <td>{item.uraian_tindakan}</td>
+                        <td>{item.pic}</td>
+                        <td>{item.status}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="4" className="text-center text-muted">
+                        Belum ada rencana aksi
+                      </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </Table>
             </Card.Body>

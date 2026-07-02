@@ -91,7 +91,7 @@ const MonitoringDireksiIssue = () => {
       <div className="card-body">
         <button
           className="btn btn-primary mb-3"
-          onClick={() => navigate("/supervisi/MonitoringSupervisi/Form")}
+          onClick={() => navigate("/supervisi/MonitoringDireksiIssue/Form")}
         >
           + Tambah Issue
         </button>

@@ -23,6 +23,7 @@ import {
 } from "../../api/wj_supervisi/DireksiPlan";
 
 import { useAuth } from "../../context/AuthContext";
+import { formatSortDate } from "../../utils/FormatDate";
 
 const DetailDireksiIssue = () => {
   const navigate = useNavigate();
@@ -183,7 +184,7 @@ const DetailDireksiIssue = () => {
             <Col md={3}>
               <strong>Target</strong>
               <br />
-              {issue?.target_selesai}
+              {formatSortDate(issue?.target_selesai)}
             </Col>
           </Row>
         </Card.Body>
@@ -226,7 +227,7 @@ const DetailDireksiIssue = () => {
 
                     <td>{plan.status}</td>
 
-                    <td>{plan.target_selesai}</td>
+                    <td>{formatSortDate(plan.target_selesai)}</td>
 
                     <td>
                       <div className="d-flex gap-1">
