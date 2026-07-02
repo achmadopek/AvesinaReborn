@@ -20,7 +20,7 @@ function hitungCapaian(num, den, measurement) {
     case "%":
       return (num / den) * 100;
     default:
-      return (num / den);
+      return num / den;
   }
 }
 
@@ -162,7 +162,6 @@ exports.getIndikatorByUnit = (req, res) => {
 ====================================================== */
 exports.simpanHarianBulk = async (req, res) => {
   try {
-
     const clientIP = getClientIP(req);
     const userAgent = req.headers["user-agent"];
 
@@ -173,13 +172,13 @@ exports.simpanHarianBulk = async (req, res) => {
       hostname,
       username,
       unitName,
-      details
+      details,
     } = req.body;
 
     if (!unit_id || !tgl_input || !details?.length) {
       return res.status(400).json({
         success: false,
-        message: "Data tidak lengkap"
+        message: "Data tidak lengkap",
       });
     }
 
@@ -195,10 +194,9 @@ exports.simpanHarianBulk = async (req, res) => {
         id = LAST_INSERT_ID(id)
     `;
 
-    const [result] = await db_lokal.promise().query(
-      sqlHarian,
-      [unit_id, tgl_input, created_by]
-    );
+    const [result] = await db_lokal
+      .promise()
+      .query(sqlHarian, [unit_id, tgl_input, created_by]);
 
     const harian_id = result.insertId;
 
@@ -206,22 +204,26 @@ exports.simpanHarianBulk = async (req, res) => {
        AMBIL MASTER INDIKATOR
     =============================== */
 
-    const indikatorIds = details.map(d => d.indikator_id);
+    const indikatorIds = details.map((d) => d.indikator_id);
 
     const sqlIndikator = `
-      SELECT id, measurement, operator, standart
+      SELECT
+          id,
+          measurement,
+          operator,
+          standart,
+          conversion_factor
       FROM spm_indikator
       WHERE id IN (?)
-    `;
+      `;
 
-    const [indikatorRows] = await db_lokal.promise().query(
-      sqlIndikator,
-      [indikatorIds]
-    );
+    const [indikatorRows] = await db_lokal
+      .promise()
+      .query(sqlIndikator, [indikatorIds]);
 
     const indikatorMap = {};
 
-    indikatorRows.forEach(i => {
+    indikatorRows.forEach((i) => {
       indikatorMap[i.id] = i;
     });
 
@@ -230,22 +232,22 @@ exports.simpanHarianBulk = async (req, res) => {
     =============================== */
 
     const values = details.map((d) => {
-
       const indikator = indikatorMap[d.indikator_id];
 
       const num = Number(d.numerator_value) || 0;
       const den = Number(d.denominator_value) || 0;
 
-      const nilai = hitungCapaian(
-        num,
-        den,
-        indikator?.measurement
-      );
+      let nilai = hitungCapaian(num, den, indikator?.measurement);
+
+      nilai =
+        nilai === null
+          ? null
+          : nilai * Number(indikator?.conversion_factor || 1);
 
       const memenuhi = cekStandar(
         nilai,
         indikator?.operator,
-        indikator?.standart
+        indikator?.standart,
       );
 
       return [
@@ -300,17 +302,19 @@ exports.simpanHarianBulk = async (req, res) => {
       username,
       clientIP,
       hostname,
-      userAgent
+      userAgent,
     );
 
     /* ===============================
        UPDATE PATH PDF
     =============================== */
 
-    await db_lokal.promise().query(
-      "UPDATE spm_harian SET pdf_path=? WHERE id=?",
-      [pdfFile, harian_id]
-    );
+    await db_lokal
+      .promise()
+      .query("UPDATE spm_harian SET pdf_path=? WHERE id=?", [
+        pdfFile,
+        harian_id,
+      ]);
 
     /* ===============================
        RESPONSE KE FRONTEND
@@ -318,19 +322,16 @@ exports.simpanHarianBulk = async (req, res) => {
 
     res.json({
       success: true,
-      harian_id
+      harian_id,
     });
-
   } catch (err) {
-
     console.error("SPM ERROR:", err);
 
     res.status(500).json({
       success: false,
       message: "Gagal menyimpan SPM",
-      error: err.message
+      error: err.message,
     });
-
   }
 };
 
@@ -360,7 +361,7 @@ exports.downloadSPM = async (req, res) => {
     const filePath = path.join(
       __dirname,
       "../../uploads/spm",
-      rows[0].pdf_path
+      rows[0].pdf_path,
     );
 
     if (!fs.existsSync(filePath)) {
@@ -368,7 +369,6 @@ exports.downloadSPM = async (req, res) => {
     }
 
     res.download(filePath, `SPM_Harian_${id}.pdf`);
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Gagal download file" });

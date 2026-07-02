@@ -8,5 +8,6 @@ monitoringSatuSehatController = require("../../controllers/wj_mibers/monitoringS
 // ============================
 
 router.get("/", monitoringSatuSehatController.getData); // tampilkan data sumber + mirror
+router.get("/summary", monitoringSatuSehatController.getSummary);
 
 module.exports = router;

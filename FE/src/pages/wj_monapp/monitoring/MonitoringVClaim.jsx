@@ -1,37 +1,38 @@
-import { useAuth } from "../../../context/AuthContext";
-import { useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { fetchPaginatedData } from "../../../api/wj_monapp/MasterAnjungan"; // ganti sesuai API kamu
+import { fetchPaginatedMonitoringData } from "../../../api/wj_mobay/MonitoringTagihan";
 
 const MonitoringVClaim = ({ isMobile, limit = 10 }) => {
-  const { role } = useAuth();
-  const [searchParams] = useSearchParams();
-  const kodePoli = searchParams.get("kode");
-
   const [data, setData] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Ambil data dari backend setiap kali page/kode poli berubah
+  // Ambil data dari backend setiap kali page berubah
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetchPaginatedData({
+        const today = new Date().toISOString().slice(0, 10);
+        const res = await fetchPaginatedMonitoringData({
           page: currentPage,
           limit,
-          kode_poli: kodePoli, // filter poli langsung dari query
+          start: today,
+          end: today,
+          typeTglFilter: "tgl_po",
         });
 
         setData(res.data || []);
-        setTotalPages(res.totalPages || 1);
+        setTotalPages(
+          res.totalGroup && limit > 0
+            ? Math.max(1, Math.ceil(res.totalGroup / limit))
+            : 1,
+        );
       } catch (err) {
-        console.error("Gagal ambil data:", err);
+        console.error("Gagal ambil data Mobay:", err);
         setData([]);
       }
     };
 
     fetchData();
-  }, [currentPage, limit, kodePoli]);
+  }, [currentPage, limit]);
 
   // === Pagination helper ===
   const renderPageNumbers = () => {
@@ -54,7 +55,7 @@ const MonitoringVClaim = ({ isMobile, limit = 10 }) => {
     const endPages = range(Math.max(totalPages - 1, 3), totalPages);
     const middlePages = range(
       Math.max(currentPage - delta, 3),
-      Math.min(currentPage + delta, totalPages - 2)
+      Math.min(currentPage + delta, totalPages - 2),
     );
 
     const pages = withDots([...startPages, ...middlePages, ...endPages]);
@@ -76,17 +77,14 @@ const MonitoringVClaim = ({ isMobile, limit = 10 }) => {
         >
           {page}
         </button>
-      )
+      ),
     );
   };
 
   return (
     <div className="card shadow-sm card-theme mt-3">
       <div className="card-header py-2 px-3">
-        <h6 className="mb-0">
-          Daftar Antrian Pasien{" "}
-          {kodePoli ? `(POLI ${kodePoli})` : "(Semua Poli)"}
-        </h6>
+        <h6 className="mb-0">Daftar Tagihan Mobay</h6>
       </div>
       <div className="card-body px-3 py-2">
         <div className="table-responsive">
@@ -94,34 +92,34 @@ const MonitoringVClaim = ({ isMobile, limit = 10 }) => {
             <thead>
               <tr>
                 <th style={{ paddingLeft: "10px" }}>No</th>
-                <th>Kode Booking</th>
-                <th>NRM</th>
-                <th>Nama Pasien</th>
-                {!isMobile && <th>Alamat</th>}
-                {!isMobile && <th>Poli</th>}
-                {!isMobile && <th>No Antrian</th>}
-                <th>Action</th>
+                <th>Pengajuan</th>
+                <th>Invoice</th>
+                <th>Provider</th>
+                {!isMobile && <th>Status</th>}
+                {!isMobile && <th>Total Diajukan</th>}
+                <th>Tanggal PO</th>
               </tr>
             </thead>
             <tbody>
               {Array.isArray(data) && data.length > 0 ? (
                 data.map((item, index) => (
-                  <tr key={item.nik || index}>
+                  <tr key={item.pengajuan_id || item.po_acce_id || index}>
                     <td>{(currentPage - 1) * limit + index + 1}</td>
-                    <td>{item.kode_booking}</td>
-                    <td>{item.no_rm}</td>
-                    <td>{item.patient_nm}</td>
-                    {!isMobile && <td>{item.address}</td>}
-                    {!isMobile && <td>POLI KLINIK {item.nama_poli}</td>}
-                    <td className="text-center">
-                      {item.kode_poli}-{item.angka_antrian_num}
-                    </td>
+                    <td>{item.pengajuan_id || "-"}</td>
+                    <td>{item.invoice_no || "-"}</td>
+                    <td>{item.prvdr_str || "-"}</td>
+                    {!isMobile && <td>{item.status_pengolahan || "-"}</td>}
+                    {!isMobile && (
+                      <td>
+                        {Number(item.total_diajukan || 0).toLocaleString(
+                          "id-ID",
+                        )}
+                      </td>
+                    )}
                     <td>
-                      {item.verified_by ? (
-                        <span className="btn btn-lg btn-warning">CHECK-IN</span>
-                      ) : (
-                        <span className="btn btn-lg btn-success">PRINT</span>
-                      )}
+                      {item.tgl_po
+                        ? new Date(item.tgl_po).toLocaleDateString("id-ID")
+                        : "-"}
                     </td>
                   </tr>
                 ))

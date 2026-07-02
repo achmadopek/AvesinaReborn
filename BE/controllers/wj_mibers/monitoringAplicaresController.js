@@ -54,12 +54,59 @@ exports.getDataBPJS = async (req, res) => {
   }
 };
 
+exports.getSummary = async (req, res) => {
+  try {
+    const consID = process.env._CONS_ID;
+    const secretKey = process.env._SECRET_KEY;
+    const hospitalCode = process.env._HOSPITAL_CODE;
 
-const db2 = require('../../db/connection-avesina'); // Koneksi ke DB Avesina
+    const urlProduction = "https://new-api.bpjs-kesehatan.go.id";
+    const timeStamp = Math.floor(Date.now() / 1000).toString();
+    const rawData = consID + "&" + timeStamp;
+    const hmacSha256 = crypto
+      .createHmac("sha256", secretKey)
+      .update(rawData)
+      .digest("base64");
+
+    const url = `${urlProduction}/aplicaresws/rest/bed/read/${hospitalCode}/1/100`;
+    const headers = {
+      "X-cons-id": consID,
+      "X-timestamp": timeStamp,
+      "X-signature": hmacSha256,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    };
+
+    const response = await fetch(url, { method: "GET", headers });
+    const bpjsData = await response.json();
+
+    const list = bpjsData?.response?.list || [];
+    const totalAvailable = list.reduce(
+      (sum, item) => sum + Number(item.tersedia || 0),
+      0,
+    );
+    const totalCapacity = list.reduce(
+      (sum, item) => sum + Number(item.kapasitas || 0),
+      0,
+    );
+    const totalRooms = list.length;
+
+    res.json({
+      totalRooms,
+      totalCapacity,
+      totalAvailable,
+    });
+  } catch (error) {
+    console.error("ERROR getMonitoringAplicaresSummary:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const db2 = require("../../db/connection-avesina"); // Koneksi ke DB Avesina
 
 exports.getData = (req, res) => {
   try {
-      const sql = `
+    const sql = `
       SELECT *
       FROM applicare
     `;

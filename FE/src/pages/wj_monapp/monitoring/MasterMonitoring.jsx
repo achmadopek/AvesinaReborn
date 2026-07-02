@@ -5,12 +5,16 @@ import {
 } from "../../../api/wj_monapp/MasterAnjungan";
 import {
   fetchDashboardMonitoringIcare,
-  //fetchPaginatedDataMonitoringAntrian,
-  //fetchPaginatedDataMonitoringTHP,
+  fetchPaginatedDataMonitoringAntrian,
+  fetchPaginatedDataMonitoringTHP,
   fetchMonitoringDisplaySummary,
   fetchMonitoringVisiteSummary,
   fetchMonitoringVisiteActivity,
+  fetchMonitoringSatuSehatSummary,
+  fetchMonitoringAplicaresSummary,
 } from "../../../api/wj_monapp/MasterMonitoring";
+import { fetchMobayMonitoringSummary } from "../../../api/wj_mobay/MonitoringTagihan";
+import { fetchDashboardSupervisi } from "../../../api/wj_supervisi/DashboardSupervisi";
 import { AuthContext } from "../../../context/AuthContext";
 import { useNotification } from "../../../context/NotificationContext";
 
@@ -25,6 +29,7 @@ import MonitoringTHP from "./MonitoringTHP";
 import MonitoringWSRekamMedis from "./MonitoringWSRekamMedis";
 import MonitoringSatuSehat from "./MonitoringSatuSehat";
 import MonitoringVisite from "./MonitoringVisite";
+import MonitoringSupervisi from "./MonitoringSupervisi";
 
 // Initial form state
 const initialFormState = {
@@ -50,7 +55,9 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
 
   const [selectedMenu, setSelectedMenu] = useState(""); // menu yang dipilih
 
-  const sukses = 0, gagal = 0, total = 0; //dummy
+  const sukses = 0,
+    gagal = 0,
+    total = 0; //dummy
   const startOfYear = new Date(new Date().getFullYear(), 0, 1)
     .toISOString()
     .slice(0, 10);
@@ -103,21 +110,21 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
   });
 
   const [aplicaresStats, setAplicaresStats] = useState({
-    totalSuccess: 0,
-    totalError: 0,
-    totalAplicares: 0,
+    totalRooms: 0,
+    totalCapacity: 0,
+    totalAvailable: 0,
   });
 
   const [mobayStats, setMobayStats] = useState({
-    totalSuccess: 0,
-    totalError: 0,
-    totalMobay: 0,
+    totalDiajukan: 0,
+    totalLunas: 0,
+    totalHutang: 0,
   });
 
-  const [pcareStats, setPCareStats] = useState({
+  const [supervisiStats, setSupervisiStats] = useState({
     totalSuccess: 0,
     totalError: 0,
-    totalPCare: 0,
+    totalSupervisi: 0,
   });
 
   const [wsRekamMedisStats, setWSRekamMedisStats] = useState({
@@ -129,25 +136,16 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
   const today = new Date().toLocaleDateString("sv-SE");
 
   useEffect(() => {
-
     const loadVisiteStats = async () => {
-
       try {
+        const today = new Date().toISOString().slice(0, 10);
 
-        const today =
-          new Date()
-            .toISOString()
-            .slice(0, 10);
+        const res = await fetchMonitoringVisiteSummary({
+          startDate: today,
+          endDate: today,
+        });
 
-        const res =
-          await fetchMonitoringVisiteSummary({
-
-            startDate: today,
-            endDate: today
-          });
-
-        const summary =
-          res.summary || {};
+        const summary = res.summary || {};
 
         const spmTotal =
           Number(summary.spmStandar || 0) +
@@ -158,57 +156,35 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
           Number(summary.inmTidakStandar || 0);
 
         const spmPercent =
-          spmTotal === 0
-            ? 0
-            : (
-                (summary.spmStandar / spmTotal) *
-                100
-              );
+          spmTotal === 0 ? 0 : (summary.spmStandar / spmTotal) * 100;
 
         const inmPercent =
-          inmTotal === 0
-            ? 0
-            : (
-                (summary.inmStandar / inmTotal) *
-                100
-              );
+          inmTotal === 0 ? 0 : (summary.inmStandar / inmTotal) * 100;
 
         setVisiteStats({
+          totalVisite: summary.totalAktivitas || 0,
 
-          totalVisite:
-            summary.totalAktivitas || 0,
+          spmStandar: summary.spmStandar || 0,
 
-          spmStandar:
-            summary.spmStandar || 0,
+          spmTidakStandar: summary.spmTidakStandar || 0,
 
-          spmTidakStandar:
-            summary.spmTidakStandar || 0,
+          inmStandar: summary.inmStandar || 0,
 
-          inmStandar:
-            summary.inmStandar || 0,
-
-          inmTidakStandar:
-            summary.inmTidakStandar || 0,
+          inmTidakStandar: summary.inmTidakStandar || 0,
 
           spmPercent,
 
-          inmPercent
+          inmPercent,
         });
-
       } catch (error) {
-
-        console.error(
-          "Gagal ambil statistik visite:",
-          error
-        );
+        console.error("Gagal ambil statistik visite:", error);
       }
     };
 
     loadVisiteStats();
-
   }, []);
 
-  /*useEffect(() => {
+  useEffect(() => {
     const loadAntrianStats = async () => {
       try {
         const res = await fetchPaginatedDataMonitoringAntrian({
@@ -231,9 +207,9 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
     };
 
     loadAntrianStats();
-  }, []);*/
+  }, []);
 
-  /*useEffect(() => {
+  useEffect(() => {
     const loadTHPStats = async () => {
       try {
         const res = await fetchPaginatedDataMonitoringTHP({
@@ -256,55 +232,129 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
     };
 
     loadTHPStats();
-  }, []);*/
+  }, []);
 
   useEffect(() => {
+    const loadSupervisiStats = async () => {
+      try {
+        const res = await fetchDashboardSupervisi();
+        const dashboard = res.data || res;
 
-  const loadDashboard = async () => {
+        const focusCount = Array.isArray(dashboard.fokusDireksi)
+          ? dashboard.fokusDireksi.length
+          : 0;
+        const actionCount = Array.isArray(dashboard.rencanaAksi)
+          ? dashboard.rencanaAksi.length
+          : 0;
 
-    try {
+        setSupervisiStats({
+          totalSuccess: focusCount,
+          totalError: actionCount,
+          totalSupervisi: focusCount + actionCount,
+        });
+      } catch (error) {
+        console.error("Gagal ambil statistik Supervisi:", error);
+      }
+    };
 
-      const today =
-        new Date()
-          .toISOString()
-          .slice(0, 10);
+    loadSupervisiStats();
+  }, []);
 
-      const res =
-        await fetchDashboardMonitoringIcare({
+  useEffect(() => {
+    const loadAplicaresStats = async () => {
+      try {
+        const res = await fetchMonitoringAplicaresSummary();
+
+        setAplicaresStats({
+          totalRooms: res.totalRooms || 0,
+          totalCapacity: res.totalCapacity || 0,
+          totalAvailable: res.totalAvailable || 0,
+        });
+      } catch (err) {
+        console.error("Gagal ambil statistik Aplicares:", err);
+      }
+    };
+
+    loadAplicaresStats();
+  }, []);
+
+  useEffect(() => {
+    const loadSatuSehatStats = async () => {
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const res = await fetchMonitoringSatuSehatSummary({
           startDate: today,
-          endDate: today
+          endDate: today,
         });
 
-      setIcareStats({
-        totalSuccess: Number(res.totalSuccess || 0),
-        totalError: Number(res.totalError || 0),
-        totalIcare: Number(res.totalIcare || 0)
-      });
+        setSatuSehatStats({
+          totalSuccess: Number(res.totalSuccess || 0),
+          totalError: Number(res.totalError || 0),
+          totalSatuSehat: Number(res.totalSatuSehat || 0),
+        });
+      } catch (error) {
+        console.error("Gagal ambil statistik SatuSehat:", error);
+      }
+    };
 
-    } catch (err) {
+    loadSatuSehatStats();
+  }, []);
 
-      console.error(
-        "Gagal load dashboard iCare:",
-        err
-      );
-    }
-  };
+  useEffect(() => {
+    const loadMobayStats = async () => {
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const res = await fetchMobayMonitoringSummary({
+          start: today,
+          end: today,
+          typeTglFilter: "tgl_po",
+        });
 
-  loadDashboard();
+        setMobayStats({
+          totalDiajukan: Number(res.totalDiajukan || 0),
+          totalLunas: Number(res.totalLunas || 0),
+          totalHutang: Number(res.totalHutang || 0),
+        });
+      } catch (error) {
+        console.error("Gagal ambil statistik Mobay:", error);
+      }
+    };
 
-  const interval =
-    setInterval(loadDashboard, 30000);
+    loadMobayStats();
+  }, []);
 
-  return () =>
-    clearInterval(interval);
+  useEffect(() => {
+    const loadDashboard = async () => {
+      try {
+        const today = new Date().toISOString().slice(0, 10);
 
-}, []);
+        const res = await fetchDashboardMonitoringIcare({
+          startDate: today,
+          endDate: today,
+        });
+
+        setIcareStats({
+          totalSuccess: Number(res.totalSuccess || 0),
+          totalError: Number(res.totalError || 0),
+          totalIcare: Number(res.totalIcare || 0),
+        });
+      } catch (err) {
+        console.error("Gagal load dashboard iCare:", err);
+      }
+    };
+
+    loadDashboard();
+
+    const interval = setInterval(loadDashboard, 30000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const loadDisplayStats = async () => {
       try {
         const res = await fetchMonitoringDisplaySummary({
-          date: today,          // backend pakai date
+          date: today, // backend pakai date
           offlineThreshold: 20, // samakan dengan BE
         });
 
@@ -340,85 +390,78 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
         {
           key: "online",
           label: "Online",
-          value: antrianStats.online
+          value: antrianStats.online,
         },
         {
           key: "onsite",
           label: "Onsite",
-          value: antrianStats.onsite
+          value: antrianStats.onsite,
         },
         {
           key: "total",
           label: "Total",
-          value: antrianStats.total
-        }
+          value: antrianStats.total,
+        },
       ],
-      disabled: true,
+      disabled: false,
       component: (props) => <MonitoringAntreanRS {...props} />,
     },
 
     {
-      id: "ICare",
-      label: "Monitoring i-Care",
-      wslist: ["FKRTL"],
+      id: "Supervisi",
+      label: "Monitoring Supervisi",
+      wslist: ["Supervisi Harian"],
       stats: [
-        { label: "Sukses", value: icareStats.totalSuccess },
-        { label: "Gagal", value: icareStats.totalError },
-        { label: "Total", value: icareStats.totalIcare }
+        { label: "Sukses", value: supervisiStats.totalSuccess },
+        { label: "Gagal", value: supervisiStats.totalError },
+        { label: "Total", value: supervisiStats.totalSupervisi },
       ],
       disabled: false,
-      component: (props) => <MonitoringICare {...props} />,
+      component: (props) => <MonitoringSupervisi {...props} />,
     },
 
     {
-      id: "SatuSehat",
-      label: "Bridging SatuSehat",
-      wslist: ["WS Satu Sehat"],
-      stats: [
-        { label: "Sukses", value: satuSehatStats.totalSuccess },
-        { label: "Gagal", value: satuSehatStats.totalError },
-        { label: "Total", value: satuSehatStats.totalSatuSehat }
+      id: "Visite",
+      label: "Monitoring Visite Dokter",
+
+      wslist: [
+        "Visite Harian",
+        "Rapor Mingguan Dokter",
+        "Kepatuhan Jam Visite",
       ],
-      disabled: true,
-      component: (props) => <MonitoringSatuSehat {...props} />,
-    },
 
-    {
-      id: "thp",
-      label: "Monitoring Gaji Pegawai",
-      wslist: ["THP Tertinggi", "THP Terendah"],
-      stats: [
-        { label: "Pegawai < UMR", value: summary.below_umr },
-        { label: "Pegawai ≥ UMR", value: summary.above_umr },
-        { label: "Jumlah Pegawai", value: summary.total_pegawai },
-      ],
-      disabled: true,
-      component: (props) => <MonitoringTHP {...props} />,
-    },
-
-    {
-      id: "display",
-      label: "Monitoring Display",
-      wslist: ["Status Display Antrian"],
       stats: [
         {
-          key: "online",
-          label: "Online",
-          value: displayStats.online
-        },
-        {
-          key: "offline",
-          label: "Offline",
-          value: displayStats.offline
-        },
-        {
-          key: "total",
           label: "Total",
-          value: displayStats.total
-        }
+          value: visiteStats.totalVisite,
+        },
+
+        {
+          label: "SPM",
+
+          value: (
+            <>
+              {(visiteStats.spmPercent || 0).toFixed(0)}
+              <span className="fs-6">%</span>
+            </>
+          ),
+        },
+
+        {
+          label: "INM",
+
+          value: (
+            <>
+              {(visiteStats.inmPercent || 0).toFixed(0)}
+              <span className="fs-6">%</span>
+            </>
+          ),
+        },
       ],
+
       disabled: false,
-      component: (props) => <MonitoringDisplay {...props} />,
+
+      component: (props) => <MonitoringVisite {...props} />,
     },
 
     {
@@ -432,145 +475,89 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
         "Hapus Ruangan",
       ],
       stats: [
-        { label: "Sukses", value: aplicaresStats.totalSuccess },
-        { label: "Gagal", value: aplicaresStats.totalError },
-        { label: "Total", value: aplicaresStats.totalAplicares }
+        { label: "Ruang", value: aplicaresStats.totalRooms },
+        { label: "Kapasitas", value: aplicaresStats.totalCapacity },
+        { label: "Tersedia", value: aplicaresStats.totalAvailable },
       ],
-      disabled: true,
+      disabled: false,
       component: (props) => <MonitoringAplicares {...props} />,
     },
+
+    {
+      id: "ICare",
+      label: "Monitoring i-Care",
+      wslist: ["FKRTL"],
+      stats: [
+        { label: "Sukses", value: icareStats.totalSuccess },
+        { label: "Gagal", value: icareStats.totalError },
+        { label: "Total", value: icareStats.totalIcare },
+      ],
+      disabled: false,
+      component: (props) => <MonitoringICare {...props} />,
+    },
+
+    {
+      id: "SatuSehat",
+      label: "Bridging SatuSehat",
+      wslist: ["WS Satu Sehat"],
+      stats: [
+        { label: "Sukses", value: satuSehatStats.totalSuccess },
+        { label: "Gagal", value: satuSehatStats.totalError },
+        { label: "Total", value: satuSehatStats.totalSatuSehat },
+      ],
+      disabled: false,
+      component: (props) => <MonitoringSatuSehat {...props} />,
+    },
+
+    {
+      id: "thp",
+      label: "Monitoring Gaji Pegawai",
+      wslist: ["THP Tertinggi", "THP Terendah"],
+      stats: [
+        { label: "Pegawai < UMR", value: summary.below_umr },
+        { label: "Pegawai ≥ UMR", value: summary.above_umr },
+        { label: "Jumlah Pegawai", value: summary.total_pegawai },
+      ],
+      disabled: false,
+      component: (props) => <MonitoringTHP {...props} />,
+    },
+
+    {
+      id: "display",
+      label: "Monitoring Display",
+      wslist: ["Status Display Antrian"],
+      stats: [
+        {
+          key: "online",
+          label: "Online",
+          value: displayStats.online,
+        },
+        {
+          key: "offline",
+          label: "Offline",
+          value: displayStats.offline,
+        },
+        {
+          key: "total",
+          label: "Total",
+          value: displayStats.total,
+        },
+      ],
+      disabled: false,
+      component: (props) => <MonitoringDisplay {...props} />,
+    },
+
     {
       id: "Mobay",
       label: "Monitoring Utang/Piutang",
-      wslist: [
-        "Belum Diajukan",
-        "Belum Dibayar",
-        "Lunas",
-        "Hutang",
-      ],
+      wslist: ["Belum Diajukan", "Belum Dibayar", "Lunas", "Hutang"],
       stats: [
         { label: "Hutang", value: mobayStats.totalHutang },
         { label: "Lunas", value: mobayStats.totalLunas },
-        { label: "Total", value: mobayStats.totalMobay }
+        { label: "Diajukan", value: mobayStats.totalDiajukan },
       ],
-      disabled: true,
-      component: (props) => <MonitoringVClaim {...props} />,
-    },
-
-    {
-      id: "Visite",
-      label: "Monitoring Visite Dokter",
-
-      wslist: [
-        "Visite Harian",
-        "Rapor Mingguan Dokter",
-        "Kepatuhan Jam Visite"
-      ],
-
-      stats: [
-        {
-          label: "Total",
-          value: visiteStats.totalVisite
-        },
-
-        {
-          label: "SPM",
-
-          value: (
-            <>
-              {(visiteStats.spmPercent || 0).toFixed(0)}
-              <span className="fs-6">%</span>
-            </>
-          )
-        },
-
-        {
-          label: "INM",
-
-          value: (
-            <>
-              {(visiteStats.inmPercent || 0).toFixed(0)}
-              <span className="fs-6">%</span>
-            </>
-          )
-        }
-      ],
-
       disabled: false,
-
-      component: (props) => <MonitoringVisite {...props} />,
-    },
-
-    {
-      id: "PCare",
-      label: "Monitoring PCare",
-      wslist: [
-        "Get Diagnosa",
-        "Get Dokter",
-        "Get Club Prolanis",
-        "Get Kesadaran",
-        "Get Rujukan",
-        "Get Riwayat Kunjungan",
-        "Get MCU",
-        "Get DPHO",
-        "Get Obat by Kunjungan",
-        "Get Pendaftaran by Nomor Urut",
-        "Get Pendaftaran Provider",
-        "Get Peserta",
-        "Get Poli FKTP",
-        "Get Provider Rayonisasi",
-        "Get Referensi Spesialis",
-        "Get Status Pulang",
-        "Get Referensi Tindakan",
-        "Get Tindakan by Kunjungan",
-        "Get Alergi",
-        "Get Prognosa",
-      ],
-      stats: [
-        { label: "Sukses", value: pcareStats.totalSuccess },
-        { label: "Gagal", value: pcareStats.totalError },
-        { label: "Total", value: pcareStats.totalPCare }
-      ],
-      disabled: true,
-      component: (props) => <MonitoringPCare {...props} />,
-    },
-
-    {
-      id: "WSRekamMedis",
-      label: "Monitoring WS Rekam Medis",
-      wslist: ["Insert Medical Record"],
-      stats: [
-        { label: "Sukses", value: wsRekamMedisStats.totalSuccess },
-        { label: "Gagal", value: wsRekamMedisStats.totalError },
-        { label: "Total", value: wsRekamMedisStats.totalWSRekamMedis }
-      ],
-      disabled: true,
-      component: (props) => <MonitoringWSRekamMedis {...props} />,
-    },
-    // bisa tambah menu lain
-    // dummy
-
-    {
-      id: "dummy4",
-      label: "Monitoring Dummy Empat",
-      wslist: ["WS List 1"],
-      stats: [
-        { label: "Sukses", value: sukses },
-        { label: "Gagal", value: gagal },
-        { label: "Total", value: total }
-      ],
-      disabled: true,
-    },
-    {
-      id: "dummy5",
-      label: "Monitoring Dummy Lima",
-      wslist: ["WS List 1"],
-      stats: [
-        { label: "Sukses", value: sukses },
-        { label: "Gagal", value: gagal },
-        { label: "Total", value: total }
-      ],
-      disabled: true,
+      component: (props) => <MonitoringVClaim {...props} />,
     },
   ];
 
@@ -613,7 +600,7 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
         console.error("Gagal fetch data antrian:", err);
       }
     },
-    [limit]
+    [limit],
   );
 
   // ---- Debounce Search ----
@@ -665,7 +652,7 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
         <div className="card-header py-2 px-3">
           <h6 className="mb-0 d-flex align-items-center gap-2">
             {selectedMenu === "" ? (
-              <span>Monitoring Aplikasi</span>
+              <span>Dashboard & Monitoring</span>
             ) : (
               <>
                 <button
@@ -675,8 +662,6 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
                 >
                   ← Kembali ke Menu
                 </button>
-
-                <span>Monitoring Aplikasi</span>
               </>
             )}
           </h6>
@@ -692,7 +677,7 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
                   style={{
                     cursor: menu.disabled ? "not-allowed" : "pointer",
                     opacity: menu.disabled ? 0.5 : 1, // <-- visual cue
-                    height: "140px",
+                    height: "170px",
                   }}
                 >
                   <div

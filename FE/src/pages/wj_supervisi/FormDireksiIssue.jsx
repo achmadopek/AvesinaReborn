@@ -39,6 +39,9 @@ const FormDireksiIssue = () => {
     setForm((prev) => ({
       ...prev,
       [name]: value,
+      ...(name === "status" && value === "DONE" && !prev.tanggal_selesai
+        ? { tanggal_selesai: new Date().toISOString().slice(0, 10) }
+        : {}),
     }));
   };
 
@@ -79,7 +82,7 @@ const FormDireksiIssue = () => {
 
       Swal.fire("Berhasil", "Issue berhasil disimpan", "success");
 
-      navigate("/supervisi/DireksiIssue");
+      navigate("/supervisi/MonitoringDireksiIssue");
     } catch (err) {
       console.error(err);
 
@@ -243,7 +246,7 @@ const FormDireksiIssue = () => {
           <div className="d-flex justify-content-end gap-2">
             <Button
               variant="secondary"
-              onClick={() => navigate("/supervisi/DireksiIssue")}
+              onClick={() => navigate("/supervisi/MonitoringDireksiIssue")}
             >
               Kembali
             </Button>

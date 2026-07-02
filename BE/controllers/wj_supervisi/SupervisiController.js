@@ -1,4 +1,7 @@
 const db2 = require("../../db/connection-aset");
+const IgdService = require("../../services/supervisi/IgdService");
+const HemodialisaService = require("../../services/supervisi/HemodialisaService");
+const BedahService = require("../../services/supervisi/BedahService");
 const { generateId } = require("../../utility/generateId");
 
 // ==============================
@@ -99,6 +102,39 @@ exports.getDetail = async (req, res) => {
       [supervisi_id],
     );
 
+    const [kebutuhanDetailRows] = await db2.promise().query(
+      `
+      SELECT *
+      FROM supervisi_kebutuhan_detail
+      WHERE supervisi_id = ?
+        AND is_active = 1
+      ORDER BY urut
+    `,
+      [supervisi_id],
+    );
+
+    const [kendalaDetailRows] = await db2.promise().query(
+      `
+      SELECT *
+      FROM supervisi_kendala_detail
+      WHERE supervisi_id = ?
+        AND is_active = 1
+      ORDER BY urut
+    `,
+      [supervisi_id],
+    );
+
+    const [eksekutifDetailRows] = await db2.promise().query(
+      `
+      SELECT *
+      FROM supervisi_eksekutif_detail
+      WHERE supervisi_id = ?
+        AND is_active = 1
+      ORDER BY urut
+    `,
+      [supervisi_id],
+    );
+
     const [eksekutifRows] = await db2.promise().query(
       `
       SELECT *
@@ -111,16 +147,43 @@ exports.getDetail = async (req, res) => {
 
     const supervisi = supervisiRows[0] || null;
 
+    let igd = igdRows[0] || null;
+    let hd = hdRows[0] || null;
+    let ibs = ibsRows[0] || null;
+
+    if (!igd && supervisi) {
+      igd = await IgdService.generate(
+        supervisi.periode_awal,
+        supervisi.periode_akhir,
+      );
+    }
+
+    if (!hd && supervisi) {
+      hd = await HemodialisaService.generate();
+    }
+
+    if (!ibs && supervisi) {
+      ibs = await BedahService.generate();
+    }
+
     res.json({
       success: true,
       data: {
         ...(supervisi || {}),
-        igd: igdRows[0] || null,
-        hd: hdRows[0] || null,
-        ibs: ibsRows[0] || null,
+        igd,
+        hd,
+        ibs,
         mutu: mutuRows[0] || null,
-        kendala: kendalaRows[0] || null,
-        eksekutif: eksekutifRows[0] || null,
+        kendala: {
+          ...(kendalaRows[0] || {}),
+          kebutuhan_detail: kebutuhanDetailRows,
+          kendala_detail: kendalaDetailRows,
+        },
+
+        eksekutif: {
+          ...(eksekutifRows[0] || {}),
+          detail: eksekutifDetailRows,
+        },
       },
     });
   } catch (err) {
@@ -627,6 +690,7 @@ const saveHd = async (conn, payload, user_id) => {
     capd: payload.capd || 0,
     pembiayaan_bpjs: payload.pembiayaan_bpjs || 0,
     catatan: makeText(payload.catatan),
+    pasien_hd_total: payload.pasien_hd_total || 0,
   };
 
   await saveGenericTextRecord(
@@ -652,6 +716,7 @@ const saveIbs = async (conn, payload, user_id) => {
     elektif: payload.elektif || 0,
     operasi_batal_tunda: makeText(payload.operasi_batal_tunda),
     catatan: makeText(payload.catatan),
+    pasien_ibs_total: payload.pasien_ibs_total || 0,
   };
 
   await saveGenericTextRecord(
@@ -691,8 +756,8 @@ const saveMutu = async (conn, payload, user_id) => {
 
 const saveKendala = async (conn, payload, user_id) => {
   const values = {
-    kebutuhan_utama: makeText(payload.kebutuhan_utama),
-    kendala_utama: makeText(payload.kendala_utama),
+    kebutuhan_utama: "",
+    kendala_utama: "",
   };
 
   await saveGenericTextRecord(
@@ -705,11 +770,20 @@ const saveKendala = async (conn, payload, user_id) => {
     values,
     user_id,
   );
+
+  await saveDetailItems(
+    conn,
+    "supervisi_kebutuhan_detail",
+    "supervisi_kebutuhan_detail_id",
+    "KBT",
+    payload.supervisi_id,
+    payload.kebutuhan_detail,
+  );
 };
 
 const saveEksekutif = async (conn, payload, user_id) => {
   const values = {
-    ringkasan_eksekutif: makeText(payload.ringkasan_eksekutif),
+    ringkasan_eksekutif: "",
   };
 
   await saveGenericTextRecord(
@@ -722,6 +796,341 @@ const saveEksekutif = async (conn, payload, user_id) => {
     values,
     user_id,
   );
+};
+
+// ==============================
+// SAVE KEBUTUHAN DETAIL
+// ==============================
+exports.saveKebutuhanDetail = async (req, res) => {
+  const conn = await db2.promise().getConnection();
+
+  try {
+    const { supervisi_kebutuhan_detail_id, supervisi_id, uraian, user_id } =
+      req.body;
+
+    if (!supervisi_id || !uraian?.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "supervisi_id dan uraian wajib diisi",
+      });
+    }
+
+    await conn.beginTransaction();
+
+    let resultData;
+
+    if (supervisi_kebutuhan_detail_id) {
+      // UPDATE
+      await conn.query(
+        `
+        UPDATE supervisi_kebutuhan_detail
+        SET
+          uraian = ?,
+          updated_by = ?,
+          updated_at = NOW()
+        WHERE supervisi_kebutuhan_detail_id = ?
+          AND is_active = 1
+        `,
+        [uraian.trim(), user_id, supervisi_kebutuhan_detail_id],
+      );
+
+      resultData = {
+        supervisi_kebutuhan_detail_id,
+        supervisi_id,
+        uraian: uraian.trim(),
+      };
+    } else {
+      // INSERT
+      const [[last]] = await conn.query(
+        `
+        SELECT IFNULL(MAX(urut), 0) + 1 as urut
+        FROM supervisi_kebutuhan_detail
+        WHERE supervisi_id = ?
+        `,
+        [supervisi_id],
+      );
+
+      const newId = generateId("KBD");
+
+      await conn.query(
+        `
+        INSERT INTO supervisi_kebutuhan_detail (
+          supervisi_kebutuhan_detail_id,
+          supervisi_id,
+          urut,
+          uraian,
+          created_by,
+          created_at,
+          is_active
+        )
+        VALUES (?, ?, ?, ?, ?, NOW(), 1)
+        `,
+        [newId, supervisi_id, last.urut, uraian.trim(), user_id],
+      );
+
+      resultData = {
+        supervisi_kebutuhan_detail_id: newId,
+        supervisi_id,
+        uraian: uraian.trim(),
+        urut: last.urut,
+      };
+    }
+
+    await conn.commit();
+
+    res.json({
+      success: true,
+      message: "Detail kebutuhan berhasil disimpan",
+      data: resultData, // Kembalikan data yang baru disimpan
+    });
+  } catch (err) {
+    await conn.rollback();
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      message: "Gagal menyimpan detail kebutuhan",
+    });
+  } finally {
+    conn.release();
+  }
+};
+
+// ==============================
+// SAVE KENDALA DETAIL (untuk satu item)
+// ==============================
+exports.saveKendalaDetail = async (req, res) => {
+  const conn = await db2.promise().getConnection();
+
+  try {
+    const { supervisi_kendala_detail_id, supervisi_id, uraian, user_id } =
+      req.body;
+
+    if (!supervisi_id || !uraian?.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "supervisi_id dan uraian wajib diisi",
+      });
+    }
+
+    await conn.beginTransaction();
+
+    let resultData;
+
+    if (supervisi_kendala_detail_id) {
+      // UPDATE
+      await conn.query(
+        `
+        UPDATE supervisi_kendala_detail
+        SET
+          uraian = ?,
+          updated_by = ?,
+          updated_at = NOW()
+        WHERE supervisi_kendala_detail_id = ?
+          AND is_active = 1
+        `,
+        [uraian.trim(), user_id, supervisi_kendala_detail_id],
+      );
+
+      resultData = {
+        supervisi_kendala_detail_id,
+        supervisi_id,
+        uraian: uraian.trim(),
+      };
+    } else {
+      // INSERT
+      const [[last]] = await conn.query(
+        `
+        SELECT IFNULL(MAX(urut), 0) + 1 as urut
+        FROM supervisi_kendala_detail
+        WHERE supervisi_id = ?
+        `,
+        [supervisi_id],
+      );
+
+      const newId = generateId("KDL");
+
+      await conn.query(
+        `
+        INSERT INTO supervisi_kendala_detail (
+          supervisi_kendala_detail_id,
+          supervisi_id,
+          urut,
+          uraian,
+          created_by,
+          created_at,
+          is_active
+        )
+        VALUES (?, ?, ?, ?, ?, NOW(), 1)
+        `,
+        [newId, supervisi_id, last.urut, uraian.trim(), user_id],
+      );
+
+      resultData = {
+        supervisi_kendala_detail_id: newId,
+        supervisi_id,
+        uraian: uraian.trim(),
+        urut: last.urut,
+      };
+    }
+
+    await conn.commit();
+
+    res.json({
+      success: true,
+      message: "Detail kendala berhasil disimpan",
+      data: resultData,
+    });
+  } catch (err) {
+    await conn.rollback();
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      message: "Gagal menyimpan detail kendala",
+    });
+  } finally {
+    conn.release();
+  }
+};
+
+// ==============================
+// SAVE EKSEKUTIF DETAIL (untuk satu item)
+// ==============================
+exports.saveEksekutifDetail = async (req, res) => {
+  const conn = await db2.promise().getConnection();
+
+  try {
+    const { supervisi_eksekutif_detail_id, supervisi_id, uraian, user_id } =
+      req.body;
+
+    if (!supervisi_id || !uraian?.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "supervisi_id dan uraian wajib diisi",
+      });
+    }
+
+    await conn.beginTransaction();
+
+    let resultData;
+
+    if (supervisi_eksekutif_detail_id) {
+      // UPDATE
+      await conn.query(
+        `
+        UPDATE supervisi_eksekutif_detail
+        SET
+          uraian = ?,
+          updated_by = ?,
+          updated_at = NOW()
+        WHERE supervisi_eksekutif_detail_id = ?
+          AND is_active = 1
+        `,
+        [uraian.trim(), user_id, supervisi_eksekutif_detail_id],
+      );
+
+      resultData = {
+        supervisi_eksekutif_detail_id,
+        supervisi_id,
+        uraian: uraian.trim(),
+      };
+    } else {
+      // INSERT
+      const [[last]] = await conn.query(
+        `
+        SELECT IFNULL(MAX(urut), 0) + 1 as urut
+        FROM supervisi_eksekutif_detail
+        WHERE supervisi_id = ?
+        `,
+        [supervisi_id],
+      );
+
+      const newId = generateId("EKD");
+
+      await conn.query(
+        `
+        INSERT INTO supervisi_eksekutif_detail (
+          supervisi_eksekutif_detail_id,
+          supervisi_id,
+          urut,
+          uraian,
+          created_by,
+          created_at,
+          is_active
+        )
+        VALUES (?, ?, ?, ?, ?, NOW(), 1)
+        `,
+        [newId, supervisi_id, last.urut, uraian.trim(), user_id],
+      );
+
+      resultData = {
+        supervisi_eksekutif_detail_id: newId,
+        supervisi_id,
+        uraian: uraian.trim(),
+        urut: last.urut,
+      };
+    }
+
+    await conn.commit();
+
+    res.json({
+      success: true,
+      message: "Detail eksekutif berhasil disimpan",
+      data: resultData,
+    });
+  } catch (err) {
+    await conn.rollback();
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      message: "Gagal menyimpan detail eksekutif",
+    });
+  } finally {
+    conn.release();
+  }
+};
+
+const saveDetailItems = async (
+  conn,
+  table,
+  idField,
+  idPrefix,
+  supervisi_id,
+  items = [],
+) => {
+  await conn.query(
+    `
+      UPDATE ${table}
+      SET
+        is_active = 0
+      WHERE supervisi_id = ?
+    `,
+    [supervisi_id],
+  );
+
+  if (!Array.isArray(items)) return;
+
+  for (let i = 0; i < items.length; i++) {
+    const uraian =
+      typeof items[i] === "string" ? items[i] : items[i]?.uraian || "";
+
+    if (!uraian?.trim()) continue;
+
+    await conn.query(
+      `
+      INSERT INTO ${table} (
+        ${idField},
+        supervisi_id,
+        urut,
+        uraian,
+        is_active
+      )
+      VALUES (
+        ?, ?, ?, ?, 1
+      )
+      `,
+      [generateId(idPrefix), supervisi_id, i + 1, uraian.trim()],
+    );
+  }
 };
 
 exports.saveHd = async (req, res) => {
@@ -901,5 +1310,101 @@ exports.saveEksekutif = async (req, res) => {
     });
   } finally {
     conn.release();
+  }
+};
+
+// ==============================
+// DELETE KEBUTUHAN DETAIL
+// ==============================
+exports.deleteKebutuhanDetail = async (req, res) => {
+  try {
+    const { detail_id } = req.params;
+
+    await db2.promise().query(
+      `
+      UPDATE supervisi_kebutuhan_detail
+      SET
+        is_active = 0,
+        updated_at = NOW()
+      WHERE supervisi_kebutuhan_detail_id = ?
+      `,
+      [detail_id],
+    );
+
+    res.json({
+      success: true,
+      message: "Detail kebutuhan berhasil dihapus",
+    });
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      success: false,
+      message: "Gagal menghapus detail kebutuhan",
+    });
+  }
+};
+
+// ==============================
+// DELETE KENDALA DETAIL
+// ==============================
+exports.deleteKendalaDetail = async (req, res) => {
+  try {
+    const { detail_id } = req.params;
+
+    await db2.promise().query(
+      `
+      UPDATE supervisi_kendala_detail
+      SET
+        is_active = 0,
+        updated_at = NOW()
+      WHERE supervisi_kendala_detail_id = ?
+      `,
+      [detail_id],
+    );
+
+    res.json({
+      success: true,
+      message: "Detail kendala berhasil dihapus",
+    });
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      success: false,
+      message: "Gagal menghapus detail kendala",
+    });
+  }
+};
+
+// ==============================
+// DELETE EKSEKUTIF DETAIL
+// ==============================
+exports.deleteEksekutifDetail = async (req, res) => {
+  try {
+    const { detail_id } = req.params;
+
+    await db2.promise().query(
+      `
+      UPDATE supervisi_eksekutif_detail
+      SET
+        is_active = 0,
+        updated_at = NOW()
+      WHERE supervisi_eksekutif_detail_id = ?
+      `,
+      [detail_id],
+    );
+
+    res.json({
+      success: true,
+      message: "Detail eksekutif berhasil dihapus",
+    });
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      success: false,
+      message: "Gagal menghapus detail eksekutif",
+    });
   }
 };

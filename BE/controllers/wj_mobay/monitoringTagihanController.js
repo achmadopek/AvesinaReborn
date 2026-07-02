@@ -14,12 +14,11 @@ exports.getData = async (req, res) => {
       });
     }
 
-    const data =
-      await mirrorService.getMonitoringBySuratPengantar(
-        start,
-        end,
-        typeTglFilter
-      );
+    const data = await mirrorService.getMonitoringBySuratPengantar(
+      start,
+      end,
+      typeTglFilter,
+    );
 
     res.json({
       periode: { start, end },
@@ -34,17 +33,62 @@ exports.getData = async (req, res) => {
   }
 };
 
+exports.getSummary = async (req, res) => {
+  try {
+    const { start, end, typeTglFilter } = req.query;
+
+    if (!start || !end) {
+      return res.status(400).json({
+        message: "Parameter start dan end wajib diisi",
+      });
+    }
+
+    const data = await mirrorService.getMonitoringBySuratPengantar(
+      start,
+      end,
+      typeTglFilter,
+    );
+
+    const summary = data.reduce(
+      (acc, surat) => {
+        const totalDiajukan = Number(surat.total_diajukan || 0);
+        const totalBayar = Number(surat.total_bayar || 0);
+        const totalHutang = Math.max(totalDiajukan - totalBayar, 0);
+
+        acc.totalDiajukan += totalDiajukan;
+        acc.totalLunas += totalBayar;
+        acc.totalHutang += totalHutang;
+        acc.totalSurat += 1;
+        return acc;
+      },
+      {
+        totalDiajukan: 0,
+        totalLunas: 0,
+        totalHutang: 0,
+        totalSurat: 0,
+      },
+    );
+
+    res.json(summary);
+  } catch (err) {
+    console.error("Error monitoring pengajuan summary", err);
+    res.status(500).json({
+      message: "Gagal memuat summary monitoring pengajuan",
+    });
+  }
+};
+
 const PDFDocument = require("pdfkit");
 
 exports.cetakMonitoringPDF = async (req, res) => {
   try {
     const {
-      is_rekap = false,           // Rekap 1 Surat Pengajuan (tanpa item)
-      is_rekap_global = false,    // Rekap Global (per Surat Pengajuan)
-      is_rekap_invoice = false,   // Rekap Semua Invoice
-      data,                       // Untuk global & rekap invoice
+      is_rekap = false, // Rekap 1 Surat Pengajuan (tanpa item)
+      is_rekap_global = false, // Rekap Global (per Surat Pengajuan)
+      is_rekap_invoice = false, // Rekap Semua Invoice
+      data, // Untuk global & rekap invoice
       periode,
-      ...surat                    // Data single surat
+      ...surat // Data single surat
     } = req.body;
 
     const doc = new PDFDocument({
@@ -60,52 +104,61 @@ exports.cetakMonitoringPDF = async (req, res) => {
 
     if (is_rekap_global) {
       title = "REKAP GLOBAL MONITORING TAGIHAN";
-      filename = `Rekap_Global_${periode?.start || ''}_sd_${periode?.end || ''}.pdf`;
+      filename = `Rekap_Global_${periode?.start || ""}_sd_${periode?.end || ""}.pdf`;
     } else if (is_rekap_invoice) {
       title = "REKAP INVOICE MONITORING TAGIHAN";
-      filename = `Rekap_Invoice_${periode?.start || ''}_sd_${periode?.end || ''}.pdf`;
+      filename = `Rekap_Invoice_${periode?.start || ""}_sd_${periode?.end || ""}.pdf`;
     } else if (is_rekap) {
       title = "REKAP MONITORING TAGIHAN";
-      filename = `Rekap_${surat.pengajuan_id || 'surat'}.pdf`;
+      filename = `Rekap_${surat.pengajuan_id || "surat"}.pdf`;
     } else {
-      filename = `Monitoring_${surat.pengajuan_id || 'surat'}.pdf`;
+      filename = `Monitoring_${surat.pengajuan_id || "surat"}.pdf`;
     }
 
     res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
     doc.pipe(res);
 
     const formatRupiah = (n) => "Rp " + Number(n || 0).toLocaleString("id-ID");
-    const formatDate = (d) => (!d ? "-" : new Date(d).toLocaleDateString("id-ID", {
-      day: "2-digit", month: "2-digit", year: "numeric"
-    }));
+    const formatDate = (d) =>
+      !d
+        ? "-"
+        : new Date(d).toLocaleDateString("id-ID", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+          });
 
     let y = 50;
 
     // Header Umum
-    doc.fontSize(14).font("Helvetica-Bold").text("UOBK RSUD WALUYO JATI", 40, y, { align: "center" });
+    doc
+      .fontSize(14)
+      .font("Helvetica-Bold")
+      .text("UOBK RSUD WALUYO JATI", 40, y, { align: "center" });
     y += 25;
     doc.fontSize(13).text(title, 40, y, { align: "center" });
     y += 25;
 
     if ((is_rekap_global || is_rekap_invoice) && periode) {
-      doc.fontSize(10).font("Helvetica")
-         .text(`Periode: ${periode.start} s/d ${periode.end}`, 40, y, { align: "center" });
+      doc
+        .fontSize(10)
+        .font("Helvetica")
+        .text(`Periode: ${periode.start} s/d ${periode.end}`, 40, y, {
+          align: "center",
+        });
       y += 35;
     }
 
     // ==================== ROUTING MODE ====================
     if (is_rekap_global && Array.isArray(data)) {
       generateRekapGlobal(doc, data, formatRupiah, y);
-    } 
-    else if (is_rekap_invoice && Array.isArray(data)) {
+    } else if (is_rekap_invoice && Array.isArray(data)) {
       generateRekapInvoice(doc, data, formatRupiah, y);
-    } 
-    else {
+    } else {
       generateSingleSurat(doc, surat, is_rekap, formatRupiah, formatDate, y);
     }
 
     doc.end();
-
   } catch (err) {
     console.error("Error cetakMonitoringPDF:", err);
     if (!res.headersSent) {
@@ -136,7 +189,10 @@ function generateRekapGlobal(doc, data, formatRupiah, startY) {
   let grandTotal = 0;
 
   data.forEach((surat, i) => {
-    if (y > 730) { doc.addPage(); y = 50; }
+    if (y > 730) {
+      doc.addPage();
+      y = 50;
+    }
 
     const total = Number(surat.total_diajukan || 0);
 
@@ -153,9 +209,11 @@ function generateRekapGlobal(doc, data, formatRupiah, startY) {
   y += 15;
   doc.moveTo(80, y).lineTo(550, y).stroke();
   y += 12;
-  doc.font("Helvetica-Bold").fontSize(11)
-     .text("GRAND TOTAL", 80, y)
-     .text(formatRupiah(grandTotal), 420, y, { width: 110, align: "right" });
+  doc
+    .font("Helvetica-Bold")
+    .fontSize(11)
+    .text("GRAND TOTAL", 80, y)
+    .text(formatRupiah(grandTotal), 420, y, { width: 110, align: "right" });
 }
 
 function generateRekapInvoice(doc, data, formatRupiah, startY) {
@@ -163,14 +221,14 @@ function generateRekapInvoice(doc, data, formatRupiah, startY) {
   let grandTotal = 0;
 
   data.forEach((surat, index) => {
-    if (y > 650) { 
-      doc.addPage(); 
-      y = 50; 
+    if (y > 650) {
+      doc.addPage();
+      y = 50;
     }
 
     // Header Surat Pengajuan
     doc.font("Helvetica-Bold").fontSize(10);
-    doc.text(`${index + 1}. ${surat.prvdr_str || '-'}`, 40, y);
+    doc.text(`${index + 1}. ${surat.prvdr_str || "-"}`, 40, y);
     y += 18;
 
     // Table Invoice per Surat
@@ -189,7 +247,10 @@ function generateRekapInvoice(doc, data, formatRupiah, startY) {
     let subTotal = 0;
 
     (surat.invoices || []).forEach((inv, i) => {
-      if (y > 730) { doc.addPage(); y = 50; }
+      if (y > 730) {
+        doc.addPage();
+        y = 50;
+      }
 
       const totalInv = Number(inv.total_diajukan || 0);
       subTotal += totalInv;
@@ -221,7 +282,14 @@ function generateRekapInvoice(doc, data, formatRupiah, startY) {
   doc.text(formatRupiah(grandTotal), 430, y, { width: 100, align: "right" });
 }
 
-function generateSingleSurat(doc, surat, isRekap, formatRupiah, formatDate, startY) {
+function generateSingleSurat(
+  doc,
+  surat,
+  isRekap,
+  formatRupiah,
+  formatDate,
+  startY,
+) {
   let y = startY + 10;
 
   // Info Provider
@@ -274,12 +342,18 @@ function generateSingleSurat(doc, surat, isRekap, formatRupiah, formatDate, star
   doc.font("Helvetica").fontSize(9);
 
   (surat.invoices || []).forEach((inv, i) => {
-    if (y > 730) { doc.addPage(); y = 50; }
+    if (y > 730) {
+      doc.addPage();
+      y = 50;
+    }
 
     doc.text(i + 1, 40, y);
     doc.text(inv.invoice_no || "-", 70, y, { width: 160 });
     doc.text(inv.status_pengolahan || "-", 250, y, { width: 140 });
-    doc.text(formatRupiah(inv.total_diajukan), 430, y, { width: 100, align: "right" });
+    doc.text(formatRupiah(inv.total_diajukan), 430, y, {
+      width: 100,
+      align: "right",
+    });
 
     y += 20;
 
@@ -287,10 +361,19 @@ function generateSingleSurat(doc, surat, isRekap, formatRupiah, formatDate, star
     if (!isRekap && inv.items?.length) {
       doc.fontSize(7.5);
       inv.items.forEach((item) => {
-        if (y > 730) { doc.addPage(); y = 50; }
+        if (y > 730) {
+          doc.addPage();
+          y = 50;
+        }
         doc.text(`• ${item.drug_nm || "-"}`, 80, y, { width: 240 });
-        doc.text(Number(item.qty || 0).toLocaleString("id-ID"), 340, y, { width: 50, align: "right" });
-        doc.text(formatRupiah(item.subtotal), 430, y, { width: 100, align: "right" });
+        doc.text(Number(item.qty || 0).toLocaleString("id-ID"), 340, y, {
+          width: 50,
+          align: "right",
+        });
+        doc.text(formatRupiah(item.subtotal), 430, y, {
+          width: 100,
+          align: "right",
+        });
         y += 15;
       });
       doc.fontSize(9);
@@ -304,5 +387,8 @@ function generateSingleSurat(doc, surat, isRekap, formatRupiah, formatDate, star
   y += 12;
   doc.font("Helvetica-Bold").fontSize(10);
   doc.text("TOTAL KESELURUHAN", 80, y);
-  doc.text(formatRupiah(surat.total_diajukan || 0), 430, y, { width: 100, align: "right" });
+  doc.text(formatRupiah(surat.total_diajukan || 0), 430, y, {
+    width: 100,
+    align: "right",
+  });
 }

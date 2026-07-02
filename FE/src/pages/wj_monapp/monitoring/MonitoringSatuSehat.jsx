@@ -21,10 +21,10 @@ const MonitoringSatuSehat = ({ isMobile, limit = 10 }) => {
   localTomorrow.setHours(23, 59, 59, 999); // Set time to 23:59:59 for endDate
 
   const [startDate, setStartDate] = useState(
-    localToday.toLocaleDateString("en-CA")
+    localToday.toLocaleDateString("en-CA"),
   );
   const [endDate, setEndDate] = useState(
-    localTomorrow.toLocaleDateString("en-CA")
+    localTomorrow.toLocaleDateString("en-CA"),
   );
 
   // WebSocket URL from environment variables
@@ -126,8 +126,8 @@ const MonitoringSatuSehat = ({ isMobile, limit = 10 }) => {
     addWithDots(
       range(
         Math.max(currentPage - delta, 3),
-        Math.min(currentPage + delta, totalPages - 2)
-      )
+        Math.min(currentPage + delta, totalPages - 2),
+      ),
     );
     addWithDots(range(Math.max(totalPages - 1, 3), totalPages));
 
@@ -138,12 +138,13 @@ const MonitoringSatuSehat = ({ isMobile, limit = 10 }) => {
         <button
           key={`page-${p}-${idx}`}
           onClick={() => setCurrentPage(p)}
-          className={`btn btn-sm mx-1 ${currentPage === p ? "btn-outline-primary" : "btn-outline-secondary"
-            }`}
+          className={`btn btn-sm mx-1 ${
+            currentPage === p ? "btn-outline-primary" : "btn-outline-secondary"
+          }`}
         >
           {p}
         </button>
-      )
+      ),
     );
   };
 
@@ -204,8 +205,9 @@ const MonitoringSatuSehat = ({ isMobile, limit = 10 }) => {
           <label className="form-label">Tanggal Hingga</label>
           <div className="d-flex gap-2" style={{ marginRight: "10px" }}>
             <button
-              className={`btn ${role === "admin" ? "btn-sm" : "btn-lg"
-                } btn-secondary flex-fill`}
+              className={`btn ${
+                role === "admin" ? "btn-sm" : "btn-lg"
+              } btn-secondary flex-fill`}
               onClick={() => {
                 setStartDate("");
                 setEndDate("");
@@ -246,9 +248,8 @@ const MonitoringSatuSehat = ({ isMobile, limit = 10 }) => {
                   <th colSpan={1}>OBSERVATION</th>
 
                   <th rowSpan={1}>STATUS</th>
-                  <th rowSpan={1}>ACTION</th>
+                  {/*<th rowSpan={1}>ACTION</th>*/}
                 </tr>
-
               </thead>
               <tbody>
                 {data.length > 0 ? (
@@ -290,12 +291,13 @@ const MonitoringSatuSehat = ({ isMobile, limit = 10 }) => {
                         {/* STATUS */}
                         <td>
                           <span
-                            className={`badge ${item.status_kirim === "success"
-                              ? "bg-success"
-                              : item.status_kirim === "partial"
-                                ? "bg-warning text-dark"
-                                : "bg-secondary"
-                              }`}
+                            className={`badge ${
+                              item.status_kirim === "success"
+                                ? "bg-success"
+                                : item.status_kirim === "partial"
+                                  ? "bg-warning text-dark"
+                                  : "bg-secondary"
+                            }`}
                           >
                             {item.status_kirim === "success"
                               ? "Selesai"
@@ -305,7 +307,7 @@ const MonitoringSatuSehat = ({ isMobile, limit = 10 }) => {
                           </span>
                         </td>
 
-                        {/* ACTION */}
+                        {/* ACTION 
                         <td className="text-center">
                           <button
                             onClick={() => handleSet(item)}
@@ -331,7 +333,7 @@ const MonitoringSatuSehat = ({ isMobile, limit = 10 }) => {
                           >
                             Kirim
                           </button>
-                        </td>
+                        </td>*/}
                       </>
                     </tr>
                   ))

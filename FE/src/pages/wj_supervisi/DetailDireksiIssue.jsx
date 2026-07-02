@@ -154,7 +154,7 @@ const DetailDireksiIssue = () => {
             </div>
             <Button
               variant="secondary"
-              onClick={() => navigate("/supervisi/DireksiIssue")}
+              onClick={() => navigate("/supervisi/MonitoringDireksiIssue")}
             >
               Kembali
             </Button>
@@ -277,9 +277,10 @@ const DetailDireksiIssue = () => {
           </Form.Group>
 
           <Row>
-            <Col md={4}>
+            <Col md={6}>
+              <Form.Label>PIC</Form.Label>
+
               <Form.Control
-                placeholder="PIC"
                 value={formPlan.pic}
                 onChange={(e) =>
                   setFormPlan({
@@ -290,15 +291,26 @@ const DetailDireksiIssue = () => {
               />
             </Col>
 
-            <Col md={4}>
+            <Col md={6}>
+              <Form.Label>Status</Form.Label>
+
               <Form.Select
                 value={formPlan.status}
-                onChange={(e) =>
-                  setFormPlan({
-                    ...formPlan,
-                    status: e.target.value,
-                  })
-                }
+                onChange={(e) => {
+                  const status = e.target.value;
+
+                  setFormPlan((prev) => ({
+                    ...prev,
+                    status,
+                    ...(status === "DONE" && !prev.tanggal_selesai
+                      ? {
+                          tanggal_selesai: new Date()
+                            .toISOString()
+                            .slice(0, 10),
+                        }
+                      : {}),
+                  }));
+                }}
               >
                 <option value="OPEN">OPEN</option>
 
@@ -310,7 +322,9 @@ const DetailDireksiIssue = () => {
               </Form.Select>
             </Col>
 
-            <Col md={4}>
+            <Col md={6} className="mt-3">
+              <Form.Label>Target Selesai</Form.Label>
+
               <Form.Control
                 type="date"
                 value={formPlan.target_selesai}
@@ -318,6 +332,21 @@ const DetailDireksiIssue = () => {
                   setFormPlan({
                     ...formPlan,
                     target_selesai: e.target.value,
+                  })
+                }
+              />
+            </Col>
+
+            <Col md={6} className="mt-3">
+              <Form.Label>Tanggal Selesai</Form.Label>
+
+              <Form.Control
+                type="date"
+                value={formPlan.tanggal_selesai}
+                onChange={(e) =>
+                  setFormPlan({
+                    ...formPlan,
+                    tanggal_selesai: e.target.value,
                   })
                 }
               />

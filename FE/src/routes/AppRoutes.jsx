@@ -83,6 +83,7 @@ import MonitoringCTScan from "../pages/wj_sirad/MonitoringCTScan";
 import TrackingPenunjang from "../pages/wj_terjang/TrackingPenunjang";
 
 // === SUPERVISI ===
+import HomeSupervisi from "../components/layout/HomeSupervisi";
 import MonitoringSupervisi from "../pages/wj_supervisi/MonitoringSupervisi";
 import FormSupervisi from "../pages/wj_supervisi/FormSupervisi";
 import DetailSupervisi from "../pages/wj_supervisi/DetailSupervisi";
@@ -690,11 +691,20 @@ const AppRoutes = ({ setRightContent }) => {
       />
 
       {/* =============================== */}
-      {/*          MINI APP: SUPERVISI       */}
+      {/*       MINI APP: SUPERVISI       */}
       {/* =============================== */}
       <Route
         path="/supervisi"
-        element={<Navigate to="/supervisi/MonitoringSupervisi" replace />}
+        element={<Navigate to="/supervisi/HomeSupervisi" replace />}
+      />
+
+      <Route
+        path="/supervisi/Home"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <HomeSupervisi setRightContent={setRightContent} />
+          </ProtectedRoute>
+        }
       />
 
       <Route

@@ -7,7 +7,8 @@ monitoringTagihanController = require("../../controllers/wj_mobay/monitoringTagi
 // ROUTE UNTUK DATA MONITORING
 // ============================
 
-router.get("/data", monitoringTagihanController.getData);             // tampilkan data sumber + status mirror
+router.get("/data", monitoringTagihanController.getData); // tampilkan data sumber + status mirror
+router.get("/summary", monitoringTagihanController.getSummary); // ringkasan utang/piutang
 router.post("/cetak", monitoringTagihanController.cetakMonitoringPDF);
 
 module.exports = router;

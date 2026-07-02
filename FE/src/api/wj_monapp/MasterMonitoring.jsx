@@ -149,6 +149,21 @@ export const fetchPaginatedDataMonitoringSatuSehat = async ({
   return res.data;
 };
 
+export const fetchMonitoringSatuSehatSummary = async ({
+  startDate = "",
+  endDate = "",
+}) => {
+  const res = await API.get("/api/mibers/MonitoringSatuSehat/summary", {
+    params: { startDate, endDate },
+  });
+  return res.data;
+};
+
+export const fetchMonitoringAplicaresSummary = async () => {
+  const res = await API.get("/api/mibers/MonitoringAplicares/summary");
+  return res.data;
+};
+
 // Kirim simulasi (server-side)
 export const kirimSpecimenSatuSehat = async (lab_srvc_id) => {
   const res = await API.post(`/api/mibers/MonitoringSatuSehat/${lab_srvc_id}`);

@@ -81,7 +81,22 @@ exports.save = async (req, res) => {
       user_id,
     } = req.body;
 
+    const normalizeDate = (value) => {
+      if (!value) return null;
+
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return null;
+
+      return parsed.toISOString().slice(0, 10);
+    };
+
     const planId = direksi_plan_id || generateId("PLAN");
+    const normalizedTargetSelesai = normalizeDate(target_selesai);
+    let normalizedTanggalSelesai = normalizeDate(tanggal_selesai);
+
+    if (status === "DONE" && !normalizedTanggalSelesai) {
+      normalizedTanggalSelesai = new Date().toISOString().slice(0, 10);
+    }
 
     await conn.beginTransaction();
 
@@ -112,8 +127,8 @@ exports.save = async (req, res) => {
           uraian_tindakan,
           pic,
           status,
-          target_selesai,
-          tanggal_selesai,
+          normalizedTargetSelesai,
+          normalizedTanggalSelesai,
           user_id,
           planId,
         ],
@@ -142,8 +157,8 @@ exports.save = async (req, res) => {
           uraian_tindakan,
           pic,
           status || "OPEN",
-          target_selesai,
-          tanggal_selesai,
+          normalizedTargetSelesai,
+          normalizedTanggalSelesai,
           user_id,
         ],
       );

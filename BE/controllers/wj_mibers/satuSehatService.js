@@ -69,7 +69,7 @@ async function getDetailWithMapping(labId) {
     WHERE ls.lab_srvc_id = ?
     LIMIT 1
     `,
-    [labId]
+    [labId],
   );
 
   if (!row) return null;
@@ -81,7 +81,7 @@ async function getDetailWithMapping(labId) {
     WHERE local_id = ?
     LIMIT 1
     `,
-    [labId]
+    [labId],
   );
 
   return {
@@ -110,7 +110,6 @@ async function sendToSatuSehat(mapping) {
     },
   };
 
-
   return { status: "simulasi success", payload };
 }
 
@@ -121,15 +120,12 @@ async function getSatusehatByRegistryIds(registryIds) {
     `
     SELECT 
       registry_id,
-      request_service_uuid,
-      speciment_uuid,
-      observation_uuid,
       performer_ihs_number,
       patient_ihs_number
     FROM satusehat
     WHERE registry_id IN (?)
     `,
-    [registryIds]
+    [registryIds],
   );
 
   const map = new Map();
@@ -145,5 +141,5 @@ module.exports = {
   getSatuSehatMapping,
   getDetailWithMapping,
   sendToSatuSehat,
-  getSatusehatByRegistryIds
+  getSatusehatByRegistryIds,
 };

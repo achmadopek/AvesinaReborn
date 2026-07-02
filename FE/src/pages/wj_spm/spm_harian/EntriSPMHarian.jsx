@@ -176,7 +176,13 @@ const EntriSPMHarian = () => {
           const den =
             field === "denominator_value" ? val : updated.denominator_value;
 
-          const nilai = hitungCapaian(num, den, item.measurement);
+          const nilaiRaw = hitungCapaian(num, den, item.measurement);
+
+          const nilai =
+            nilaiRaw === null
+              ? null
+              : nilaiRaw * Number(item.conversion_factor || 1);
+
           const memenuhi = cekStandar(nilai, item.operator, item.standart);
 
           return {

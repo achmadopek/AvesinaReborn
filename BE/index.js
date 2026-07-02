@@ -303,6 +303,10 @@ app.use(
   "/api/supervisi/DireksiPlan",
   require("./routes/wj_supervisi/DireksiPlanRoutes"),
 );
+app.use(
+  "/api/supervisi/HomeSupervisi",
+  require("./routes/wj_supervisi/HomeSupervisiRoutes"),
+);
 
 //app.use("/uploads", express.static("uploads"));
 app.use(

@@ -56,3 +56,49 @@ exports.getData = async (req, res) => {
     res.status(500).json({ message: "Failed" });
   }
 };
+
+exports.getSummary = async (req, res) => {
+  try {
+    const { startDate = "", endDate = "" } = req.query;
+
+    if (!startDate || !endDate) {
+      return res.json({
+        totalSuccess: 0,
+        totalError: 0,
+        totalSatuSehat: 0,
+      });
+    }
+
+    const rowsLab = await satuSehatService.getLabByDate(startDate, endDate);
+    const registryIds = [...new Set(rowsLab.map((r) => r.registry_id))];
+    const satusehatMap =
+      await satuSehatService.getSatusehatByRegistryIds(registryIds);
+
+    const summary = rowsLab.reduce(
+      (acc, row) => {
+        const satusehatData = satusehatMap.get(row.registry_id);
+        const status = satusehatData?.observation_uuid
+          ? "success"
+          : satusehatData?.request_service_uuid
+            ? "partial"
+            : "pending";
+
+        if (status === "success") acc.totalSuccess += 1;
+        else if (status === "partial") acc.totalError += 1;
+
+        acc.totalSatuSehat += 1;
+        return acc;
+      },
+      {
+        totalSuccess: 0,
+        totalError: 0,
+        totalSatuSehat: 0,
+      },
+    );
+
+    res.json(summary);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed" });
+  }
+};

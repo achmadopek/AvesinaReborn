@@ -83,112 +83,113 @@ const MonitoringDireksiIssue = () => {
   };
 
   return (
-    <Card>
-      <Card.Body>
-        <div className="d-flex justify-content-between align-items-center mb-3">
-          <div>
-            <h4 className="mb-0">Fokus Direksi</h4>
-            <small className="text-muted">
-              Monitoring issue prioritas manajemen
-            </small>
-          </div>
+    <div className="card shadow-sm">
+      <div className="card-header py-2 px-3">
+        <h6 className="mb-0">Monitoring Fokus Direksi</h6>
+      </div>
 
-          <Button onClick={() => navigate("/supervisi/DireksiIssue/Form")}>
-            <i className="bi bi-plus-circle me-2"></i>
-            Tambah Issue
-          </Button>
-        </div>
+      <div className="card-body">
+        <button
+          className="btn btn-primary mb-3"
+          onClick={() => navigate("/supervisi/MonitoringSupervisi/Form")}
+        >
+          + Tambah Issue
+        </button>
+
+        <br />
 
         {loading ? (
           <div className="text-center py-5">
             <Spinner />
           </div>
         ) : (
-          <Table striped bordered hover responsive>
-            <thead>
-              <tr>
-                <th>Judul</th>
-                <th>Prioritas</th>
-                <th>PIC</th>
-                <th>Status</th>
-                <th>Fokus</th>
-                <th>Plan</th>
-                <th width="180">Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="text-center">
-                    Belum ada data
-                  </td>
+          <div className="table-responsive">
+            <table className="table table-bordered table-hover align-middle">
+              <thead className="table-light">
+                <tr className="text-center">
+                  <th>Judul</th>
+                  <th>Prioritas</th>
+                  <th>PIC</th>
+                  <th>Status</th>
+                  <th>Fokus</th>
+                  <th>Plan</th>
+                  <th width="180">Aksi</th>
                 </tr>
-              ) : (
-                data.map((item) => (
-                  <tr key={item.direksi_issue_id}>
-                    <td>
-                      <strong>{item.judul}</strong>
-                    </td>
-                    <td>
-                      <Badge bg={getPriorityBadge(item.prioritas)}>
-                        {item.prioritas}
-                      </Badge>
-                    </td>
-                    <td>{item.pic}</td>
-                    <td>
-                      <Badge bg={getStatusBadge(item.status)}>
-                        {item.status}
-                      </Badge>
-                    </td>
-                    <td>
-                      {item.is_fokus_hari_ini === 1 ? (
-                        <Badge bg="danger">Fokus</Badge>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
-                    <td>{item.total_plan}</td>
-                    <td>
-                      <div className="d-flex gap-1">
-                        <Button
-                          size="sm"
-                          variant="info"
-                          onClick={() =>
-                            navigate(
-                              `/supervisi/DireksiIssue/Detail/${item.direksi_issue_id}`,
-                            )
-                          }
-                        >
-                          <i className="bi bi-eye"></i>
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="warning"
-                          onClick={() =>
-                            navigate(
-                              `/supervisi/DireksiIssue/Form/${item.direksi_issue_id}`,
-                            )
-                          }
-                        >
-                          <i className="bi bi-pencil"></i>
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          onClick={() => handleDelete(item.direksi_issue_id)}
-                        >
-                          <i className="bi bi-trash"></i>
-                        </Button>
-                      </div>
+              </thead>
+              <tbody>
+                {data.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="text-center">
+                      Belum ada data
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </Table>
+                ) : (
+                  data.map((item) => (
+                    <tr key={item.direksi_issue_id}>
+                      <td>
+                        <strong>{item.judul}</strong>
+                      </td>
+                      <td>
+                        <Badge bg={getPriorityBadge(item.prioritas)}>
+                          {item.prioritas}
+                        </Badge>
+                      </td>
+                      <td>{item.pic}</td>
+                      <td>
+                        <Badge bg={getStatusBadge(item.status)}>
+                          {item.status}
+                        </Badge>
+                      </td>
+                      <td>
+                        {item.is_fokus_hari_ini === 1 ? (
+                          <Badge bg="danger">Fokus</Badge>
+                        ) : (
+                          "-"
+                        )}
+                      </td>
+                      <td>{item.total_plan}</td>
+                      <td>
+                        <div className="d-flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="info"
+                            onClick={() =>
+                              navigate(
+                                `/supervisi/MonitoringDireksiIssue/Detail/${item.direksi_issue_id}`,
+                              )
+                            }
+                          >
+                            <i className="bi bi-eye"></i>
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="warning"
+                            onClick={() =>
+                              navigate(
+                                `/supervisi/MonitoringDireksiIssue/Form/${item.direksi_issue_id}`,
+                              )
+                            }
+                          >
+                            <i className="bi bi-pencil"></i>
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() => handleDelete(item.direksi_issue_id)}
+                          >
+                            <i className="bi bi-trash"></i>
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         )}
-      </Card.Body>
-    </Card>
+      </div>
+    </div>
   );
 };
 
