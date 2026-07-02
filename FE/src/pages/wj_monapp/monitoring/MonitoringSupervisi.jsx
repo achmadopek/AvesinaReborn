@@ -115,161 +115,6 @@ const HomeSupervisi = () => {
   return (
     <>
       {/* ========================================= */}
-      {/* HEADER */}
-      {/* ========================================= */}
-
-      <Card
-        className="mb-3 text-center border-0"
-        style={{
-          fontFamily: '"Arial Narrow", Arial, sans-serif',
-          backgroundColor: "#fdfbf7",
-        }}
-      >
-        <Card.Body className="border-0 pt-0 pb-1">
-          <div className="container-fluid">
-            <div className="row align-items-center">
-              {/* 1. KIRI: LOGO PEMKAB & LOGO RS BERDAMPINGAN */}
-              <div className="col-2 d-flex align-items-center justify-content-center gap-3">
-                {/* Logo Pemkab Probolinggo */}
-                <div className="text-center" style={{ minWidth: "85px" }}>
-                  <img
-                    src="../../../../public/logo-pemkab.png"
-                    alt="Logo Pemkab Probolinggo"
-                    style={{ maxHeight: "100px", width: "auto" }}
-                    className="img-fluid"
-                  />
-                  <div
-                    className="fw-bold mt-1 text-uppercase"
-                    style={{
-                      fontSize: "0.75rem",
-                      color: "#111",
-                      lineHeight: "1.2",
-                    }}
-                  >
-                    Pemerintah
-                    <br />
-                    Kabupaten Probolinggo
-                  </div>
-                </div>
-              </div>
-
-              {/* 2. TENGAH: TEKS JUDUL UTAMA */}
-              <div className="col-5 text-center">
-                {/* Baris 1: HOSPITAL LEADER'S... */}
-                <h3
-                  className="fw-bold mb-1"
-                  style={{
-                    fontSize: "1.9rem",
-                    letterSpacing: "0.5px",
-                    color: "#111",
-                    lineHeight: "0.9",
-                  }}
-                >
-                  HOSPITAL LEADER'S DAILY PLAYBOOK
-                </h3>
-
-                {/* Baris 2: RSUD WALUYO JATI */}
-                <h1
-                  className="fw-black mb-2"
-                  style={{
-                    fontSize: "3.6rem",
-                    fontWeight: "900",
-                    color: "#133825",
-                    transform: "scaleX(0.95)",
-                    letterSpacing: "-1px",
-                    lineHeight: "0.9",
-                  }}
-                >
-                  RSUD WALUYO JATI
-                </h1>
-
-                {/* Baris 3: WJ SMART BUGARR... */}
-                <h4
-                  className="fw-normal mb-3"
-                  style={{
-                    color: "#b86200",
-                    fontSize: "1.25rem",
-                    lineHeight: "0.9",
-                  }}
-                >
-                  WJ SMART BUGARR – Hospital Command Center
-                </h4>
-
-                {/* Baris 4: Satu Data... */}
-                <p
-                  className="fw-bold text-muted mb-0"
-                  style={{
-                    fontSize: "0.95rem",
-                    color: "#222",
-                    lineHeight: "1.4",
-                  }}
-                >
-                  Satu Data • Satu Dashboard • Satu Aksi untuk Pelayanan yang
-                  Lebih Baik
-                </p>
-              </div>
-
-              {/* 3. PALING KANAN: FOTO DIREKTUR */}
-              <div className="col-4 text-start ">
-                {/* Logo RSUD Waluyo Jati */}
-                <div className="text-start">
-                  <img
-                    src="../../../../public/logo-rsud.png"
-                    alt="Logo RSUD Waluyo Jati"
-                    style={{
-                      maxHeight: "120px",
-                      width: "auto",
-                      marginLeft: "40px",
-                    }}
-                    className="img-fluid"
-                  />
-                </div>
-
-                <div
-                  className="text-center"
-                  style={{
-                    position: "absolute",
-                    top: "0px",
-                    bottom: "0px",
-                    padding: "0px",
-                    margin: "0px",
-                    right: "10px",
-                    width: "auto",
-                    height: "330px",
-                    border: "3px solid #fff",
-                    zIndex: 2,
-                  }}
-                >
-                  <img
-                    src="../../../../public/yessy.png"
-                    alt="Foto Direktur"
-                    style={{
-                      maxHeight: "100%",
-                      width: "auto",
-                      objectFit: "cover",
-                    }}
-                  />
-                  <div
-                    className="fw-bold mt-1 text-center"
-                    style={{
-                      fontSize: "0.8rem",
-                      color: "#111",
-                      lineHeight: "1.2",
-                    }}
-                  >
-                    Direktur
-                    <br />
-                    Dr. dr. H. Yessy Rahmawati, Sp.OG(K), M.H., M.Kes., FISQua,
-                    FCHMC
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </Card.Body>
-      </Card>
-
-      {/* ========================================= */}
       {/* BEDGE RINGKASAN */}
       {/* ========================================= */}
 
@@ -298,7 +143,7 @@ const HomeSupervisi = () => {
           </Card>
         </Col>
 
-        <Col md={1}>
+        <Col md={2}>
           <Card className="h-100">
             <Card.Header className="text-center">KUNJUNGAN RAJAL</Card.Header>
             <Card.Body>
@@ -315,7 +160,7 @@ const HomeSupervisi = () => {
           </Card>
         </Col>
 
-        <Col md={1}>
+        <Col md={2}>
           <Card className="h-100">
             <Card.Header className="text-center">KUNJUNGAN IGD</Card.Header>
             <Card.Body>
@@ -332,7 +177,7 @@ const HomeSupervisi = () => {
           </Card>
         </Col>
 
-        <Col md={1}>
+        <Col md={2}>
           <Card className="h-100">
             <Card.Header className="text-center">PASIEN RAWAT INAP</Card.Header>
             <Card.Body>
