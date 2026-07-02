@@ -132,6 +132,7 @@ exports.getIndikatorByUnit = (req, res) => {
       ind.contoh_den,
       ind.numerator,
       ind.denominator,
+      ind.conversion_factor,
 
       ind.group_pelayanan_id,
 

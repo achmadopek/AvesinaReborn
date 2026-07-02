@@ -183,6 +183,13 @@ const EntriSPMHarian = () => {
               ? null
               : nilaiRaw * Number(item.conversion_factor || 1);
 
+          console.log(
+            it.judul_indikator,
+            it.conversion_factor,
+            nilaiRaw,
+            nilai,
+          );
+
           const memenuhi = cekStandar(nilai, item.operator, item.standart);
 
           return {
