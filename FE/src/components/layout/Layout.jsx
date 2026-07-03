@@ -13,23 +13,20 @@ const Layout = ({ children }) => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [showSidebar, setShowSidebar] = useState(window.innerWidth >= 768);
   const [showRightContent, setShowRightContent] = useState(
-    window.innerWidth >= 768
+    window.innerWidth >= 768,
   );
 
-  const { logout, role, applicationName } = useAuth();
+  const { logout, role, applicationId } = useAuth();
 
   // === Handle Responsiveness (resize) ===
   useEffect(() => {
     const handleResize = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
-      setShowSidebar(
-        !mobile && applicationName !== "WJ-SIGMA" && role !== "pegawai"
-      );
+      setShowSidebar(!mobile && applicationId !== 3 && role !== "pegawai");
       setShowRightContent(
-        !mobile &&
-        applicationName !== "WJ-SIGMA"// &&
-        //applicationName !== "WJ-MOBAY"
+        !mobile && applicationId !== 3, // &&
+        //applicationId !== "WJ-MOBAY"
       );
     };
     handleResize(); // initial call
@@ -39,17 +36,17 @@ const Layout = ({ children }) => {
 
   // === Force hide sidebar/rightbar untuk role tertentu ===
   useEffect(() => {
-    if (applicationName === "WJ-SIGMA") {
+    if (applicationId === 3) {
       setShowSidebar(false);
       setShowRightContent(false);
-    //} else if (applicationName === "WJ-MOBAY") {
+      //} else if (applicationId === "WJ-MOBAY") {
       //setShowRightContent(false);
     }
   }, [role]);
 
   // === Toggle Sidebar ===
   const handleToggleSidebar = () => {
-    if (applicationName === "WJ-SIGMA") return;
+    if (applicationId === 3) return;
     setShowSidebar((prev) => {
       if (isMobile && !prev) setShowRightContent(false);
       return !prev;
@@ -58,9 +55,10 @@ const Layout = ({ children }) => {
 
   // === Toggle Rightbar ===
   const handleToggleRightContent = () => {
-    if (applicationName === "WJ-SIGMA" 
-      //|| applicationName === "WJ-MOBAY"
-      )
+    if (
+      applicationId === 3
+      //|| applicationId === "WJ-MOBAY"
+    )
       return;
     setShowRightContent((prev) => {
       if (isMobile && !prev) setShowSidebar(false);
@@ -74,7 +72,7 @@ const Layout = ({ children }) => {
   return (
     <div className="d-flex" style={{ minHeight: "100vh", overflow: "hidden" }}>
       {/* Sidebar */}
-      {applicationName !== "WJ-SIGMA" && showSidebar && (
+      {applicationId !== 3 && showSidebar && (
         <div
           className="border-end bg-sae-only custom-scroll"
           style={{

@@ -254,7 +254,20 @@ exports.getHomeDashboard = async (req, res) => {
       WHERE r.registry_dt BETWEEN CONCAT(CURDATE(), ' 00:00:00')
         AND CONCAT(CURDATE(), ' 23:59:59')
         AND r.in_out_sts = 'O'
-        AND uv.unit_id_to = 'RJ012'
+        AND uv.unit_id_to <> 'RJ001'
+
+        /*select count(b.registry_id) as pasien 
+        from patient a 
+        join registry b on a.mr_id=b.mr_id 
+        join unit_visit e on  b.registry_id=e.registry_id 
+        join service_unit f on f.srvc_unit_id=e.unit_id_to 
+        join unit_group k on f.unit_group_id=k.unit_group_id 
+        join village m on a.village_id=m.village_id 
+        join subdistrict n on a.subdistrict_id=n.subdistrict_id 
+        join district o on a.district_id=o.district_id 
+        where b.registry_dt between '2026-07-03 00:00:00' and '2026-07-03 23:59:59' 
+        and k.unit_group_id='8' 
+        order by b.registry_dt ASC*/
     `);
 
     const [igdRowsCount] = await dbAvesina.promise().query(`

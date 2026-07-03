@@ -135,6 +135,7 @@ const HomeSupervisi = () => {
                 bg={borStatus.variant}
                 text={borStatus.variant === "warning" ? "dark" : "light"}
               >
+                Total : {formatNumber(applicareSummary?.total_kapasitas || 0)} |
                 Status : {borStatus.label}
               </Badge>
             </Card.Footer>
@@ -177,7 +178,7 @@ const HomeSupervisi = () => {
 
         <Col md={2}>
           <Card className="h-100">
-            <Card.Header className="text-center">PASIEN RAWAT INAP</Card.Header>
+            <Card.Header className="text-center">PASIEN RANAP</Card.Header>
             <Card.Body>
               <div className="text-center">
                 <h1>{cardValue(pasienRawatInap)}</h1>
