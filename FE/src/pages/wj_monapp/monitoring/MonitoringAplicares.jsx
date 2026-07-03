@@ -52,7 +52,7 @@ const MonitoringAplicares = ({ isMobile, limit = 10 }) => {
     const endPages = range(Math.max(totalPages - 1, 3), totalPages);
     const middlePages = range(
       Math.max(currentPage - delta, 3),
-      Math.min(currentPage + delta, totalPages - 2)
+      Math.min(currentPage + delta, totalPages - 2),
     );
 
     const pages = withDots([...startPages, ...middlePages, ...endPages]);
@@ -74,7 +74,7 @@ const MonitoringAplicares = ({ isMobile, limit = 10 }) => {
         >
           {page}
         </button>
-      )
+      ),
     );
   };
 

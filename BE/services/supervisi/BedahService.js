@@ -1,4 +1,6 @@
 exports.generate = async () => ({
+  total_ibs_pasien: 0,
+  pasien_ibs_total: 0,
   operasi_khusus: 0,
   operasi_besar: 0,
   operasi_sedang: 0,

@@ -9,7 +9,7 @@ const monitoringAplicaresController = require("../../controllers/wj_mibers/monit
 // ROUTE UNTUK DATA MONITORINg
 // ============================
 
-router.get("/", monitoringAplicaresController.getDataBPJS);
+router.get("/", monitoringAplicaresController.getData);
 router.get("/summary", monitoringAplicaresController.getSummary);
 
 module.exports = router;

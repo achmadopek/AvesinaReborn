@@ -1,4 +1,13 @@
-import { useEffect, useState, useCallback, useRef, useContext } from "react";
+import {
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+  useContext,
+  useMemo,
+  lazy,
+  Suspense,
+} from "react";
 import {
   fetchPaginatedData,
   fetchDaftarPoli,
@@ -17,20 +26,20 @@ import { fetchMobayMonitoringSummary } from "../../../api/wj_mobay/MonitoringTag
 import { fetchDashboardSupervisi } from "../../../api/wj_supervisi/DashboardSupervisi";
 import { AuthContext } from "../../../context/AuthContext";
 import { useNotification } from "../../../context/NotificationContext";
-
-import MonitoringAplicares from "./MonitoringAplicares";
-import MonitoringVClaim from "./MonitoringVClaim";
-import MonitoringAntreanRS from "./MonitoringAntreanRS";
-import MonitoringDisplay from "./MonitoringDisplay";
-import MonitoringApotek from "./MonitoringApotek";
-import MonitoringPCare from "./MonitoringPCare";
-import MonitoringICare from "./MonitoringICare";
-import MonitoringTHP from "./MonitoringTHP";
-import MonitoringWSRekamMedis from "./MonitoringWSRekamMedis";
-import MonitoringSatuSehat from "./MonitoringSatuSehat";
-import MonitoringVisite from "./MonitoringVisite";
-import MonitoringSupervisi from "./MonitoringSupervisi";
 import { Button } from "react-bootstrap";
+
+const MonitoringAplicares = lazy(() => import("./MonitoringAplicares"));
+const MonitoringVClaim = lazy(() => import("./MonitoringVClaim"));
+const MonitoringAntreanRS = lazy(() => import("./MonitoringAntreanRS"));
+const MonitoringDisplay = lazy(() => import("./MonitoringDisplay"));
+const MonitoringApotek = lazy(() => import("./MonitoringApotek"));
+const MonitoringPCare = lazy(() => import("./MonitoringPCare"));
+const MonitoringICare = lazy(() => import("./MonitoringICare"));
+const MonitoringTHP = lazy(() => import("./MonitoringTHP"));
+const MonitoringWSRekamMedis = lazy(() => import("./MonitoringWSRekamMedis"));
+const MonitoringSatuSehat = lazy(() => import("./MonitoringSatuSehat"));
+const MonitoringVisite = lazy(() => import("./MonitoringVisite"));
+const MonitoringSupervisi = lazy(() => import("./MonitoringSupervisi"));
 
 // Initial form state
 const initialFormState = {
@@ -382,185 +391,190 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
   }, [today]);
 
   // daftar menu monitoring
-  const menuMonitoring = [
-    {
-      id: "AntreanRS",
-      label: "Monitoring Antrean RS",
-      wslist: ["WsListAntrianRS"],
-      stats: [
-        {
-          key: "online",
-          label: "Online",
-          value: antrianStats.online,
-        },
-        {
-          key: "onsite",
-          label: "Onsite",
-          value: antrianStats.onsite,
-        },
-        {
-          key: "total",
-          label: "Total",
-          value: antrianStats.total,
-        },
-      ],
-      disabled: false,
-      component: (props) => <MonitoringAntreanRS {...props} />,
-    },
+  const menuMonitoring = useMemo(
+    () => [
+      {
+        id: "AntreanRS",
+        label: "Monitoring Antrean RS",
+        wslist: ["WsListAntrianRS"],
+        stats: [
+          {
+            key: "online",
+            label: "Online",
+            value: antrianStats.online,
+          },
+          {
+            key: "onsite",
+            label: "Onsite",
+            value: antrianStats.onsite,
+          },
+          {
+            key: "total",
+            label: "Total",
+            value: antrianStats.total,
+          },
+        ],
+        disabled: false,
+        component: (props) => <MonitoringAntreanRS {...props} />,
+      },
 
-    {
-      id: "Supervisi",
-      label: "Monitoring Supervisi",
-      wslist: ["Supervisi Harian"],
-      stats: [
-        { label: "Sukses", value: supervisiStats.totalSuccess },
-        { label: "Gagal", value: supervisiStats.totalError },
-        { label: "Total", value: supervisiStats.totalSupervisi },
-      ],
-      disabled: false,
-      component: (props) => <MonitoringSupervisi {...props} />,
-    },
+      {
+        id: "Supervisi",
+        label: "Monitoring Supervisi",
+        wslist: ["Supervisi Harian"],
+        stats: [
+          { label: "Sukses", value: supervisiStats.totalSuccess },
+          { label: "Gagal", value: supervisiStats.totalError },
+          { label: "Total", value: supervisiStats.totalSupervisi },
+        ],
+        disabled: false,
+        component: (props) => <MonitoringSupervisi {...props} />,
+      },
 
-    {
-      id: "Visite",
-      label: "Monitoring Visite Dokter",
+      {
+        id: "Visite",
+        label: "Monitoring Visite Dokter",
+        wslist: [
+          "Visite Harian",
+          "Rapor Mingguan Dokter",
+          "Kepatuhan Jam Visite",
+        ],
+        stats: [
+          {
+            label: "Total",
+            value: visiteStats.totalVisite,
+          },
+          {
+            label: "SPM",
+            value: (
+              <>
+                {(visiteStats.spmPercent || 0).toFixed(0)}
+                <span className="fs-6">%</span>
+              </>
+            ),
+          },
+          {
+            label: "INM",
+            value: (
+              <>
+                {(visiteStats.inmPercent || 0).toFixed(0)}
+                <span className="fs-6">%</span>
+              </>
+            ),
+          },
+        ],
+        disabled: false,
+        component: (props) => <MonitoringVisite {...props} />,
+      },
 
-      wslist: [
-        "Visite Harian",
-        "Rapor Mingguan Dokter",
-        "Kepatuhan Jam Visite",
-      ],
+      {
+        id: "Aplicares",
+        label: "Monitoring Ketersediaan Kamar",
+        wslist: [
+          "Referensi Kamar",
+          "Update Ketersediaan Tempat Tidur",
+          "Ruangan Baru",
+          "Ketersediaan Kamar RS",
+          "Hapus Ruangan",
+        ],
+        stats: [
+          { label: "Ruang", value: aplicaresStats.totalRooms },
+          { label: "Kapasitas", value: aplicaresStats.totalCapacity },
+          { label: "Tersedia", value: aplicaresStats.totalAvailable },
+        ],
+        disabled: false,
+        component: (props) => <MonitoringAplicares {...props} />,
+      },
 
-      stats: [
-        {
-          label: "Total",
-          value: visiteStats.totalVisite,
-        },
+      {
+        id: "ICare",
+        label: "Monitoring i-Care",
+        wslist: ["FKRTL"],
+        stats: [
+          { label: "Sukses", value: icareStats.totalSuccess },
+          { label: "Gagal", value: icareStats.totalError },
+          { label: "Total", value: icareStats.totalIcare },
+        ],
+        disabled: false,
+        component: (props) => <MonitoringICare {...props} />,
+      },
 
-        {
-          label: "SPM",
+      {
+        id: "SatuSehat",
+        label: "Bridging SatuSehat",
+        wslist: ["WS Satu Sehat"],
+        stats: [
+          { label: "Sukses", value: satuSehatStats.totalSuccess },
+          { label: "Gagal", value: satuSehatStats.totalError },
+          { label: "Total", value: satuSehatStats.totalSatuSehat },
+        ],
+        disabled: false,
+        component: (props) => <MonitoringSatuSehat {...props} />,
+      },
 
-          value: (
-            <>
-              {(visiteStats.spmPercent || 0).toFixed(0)}
-              <span className="fs-6">%</span>
-            </>
-          ),
-        },
+      {
+        id: "thp",
+        label: "Monitoring Gaji Pegawai",
+        wslist: ["THP Tertinggi", "THP Terendah"],
+        stats: [
+          { label: "Pegawai < UMR", value: summary.below_umr },
+          { label: "Pegawai ≥ UMR", value: summary.above_umr },
+          { label: "Jumlah Pegawai", value: summary.total_pegawai },
+        ],
+        disabled: false,
+        component: (props) => <MonitoringTHP {...props} />,
+      },
 
-        {
-          label: "INM",
+      {
+        id: "display",
+        label: "Monitoring Display",
+        wslist: ["Status Display Antrian"],
+        stats: [
+          {
+            key: "online",
+            label: "Online",
+            value: displayStats.online,
+          },
+          {
+            key: "offline",
+            label: "Offline",
+            value: displayStats.offline,
+          },
+          {
+            key: "total",
+            label: "Total",
+            value: displayStats.total,
+          },
+        ],
+        disabled: false,
+        component: (props) => <MonitoringDisplay {...props} />,
+      },
 
-          value: (
-            <>
-              {(visiteStats.inmPercent || 0).toFixed(0)}
-              <span className="fs-6">%</span>
-            </>
-          ),
-        },
-      ],
-
-      disabled: false,
-
-      component: (props) => <MonitoringVisite {...props} />,
-    },
-
-    {
-      id: "Aplicares",
-      label: "Monitoring Ketersediaan Kamar",
-      wslist: [
-        "Referensi Kamar",
-        "Update Ketersediaan Tempat Tidur",
-        "Ruangan Baru",
-        "Ketersediaan Kamar RS",
-        "Hapus Ruangan",
-      ],
-      stats: [
-        { label: "Ruang", value: aplicaresStats.totalRooms },
-        { label: "Kapasitas", value: aplicaresStats.totalCapacity },
-        { label: "Tersedia", value: aplicaresStats.totalAvailable },
-      ],
-      disabled: false,
-      component: (props) => <MonitoringAplicares {...props} />,
-    },
-
-    {
-      id: "ICare",
-      label: "Monitoring i-Care",
-      wslist: ["FKRTL"],
-      stats: [
-        { label: "Sukses", value: icareStats.totalSuccess },
-        { label: "Gagal", value: icareStats.totalError },
-        { label: "Total", value: icareStats.totalIcare },
-      ],
-      disabled: false,
-      component: (props) => <MonitoringICare {...props} />,
-    },
-
-    {
-      id: "SatuSehat",
-      label: "Bridging SatuSehat",
-      wslist: ["WS Satu Sehat"],
-      stats: [
-        { label: "Sukses", value: satuSehatStats.totalSuccess },
-        { label: "Gagal", value: satuSehatStats.totalError },
-        { label: "Total", value: satuSehatStats.totalSatuSehat },
-      ],
-      disabled: false,
-      component: (props) => <MonitoringSatuSehat {...props} />,
-    },
-
-    {
-      id: "thp",
-      label: "Monitoring Gaji Pegawai",
-      wslist: ["THP Tertinggi", "THP Terendah"],
-      stats: [
-        { label: "Pegawai < UMR", value: summary.below_umr },
-        { label: "Pegawai ≥ UMR", value: summary.above_umr },
-        { label: "Jumlah Pegawai", value: summary.total_pegawai },
-      ],
-      disabled: false,
-      component: (props) => <MonitoringTHP {...props} />,
-    },
-
-    {
-      id: "display",
-      label: "Monitoring Display",
-      wslist: ["Status Display Antrian"],
-      stats: [
-        {
-          key: "online",
-          label: "Online",
-          value: displayStats.online,
-        },
-        {
-          key: "offline",
-          label: "Offline",
-          value: displayStats.offline,
-        },
-        {
-          key: "total",
-          label: "Total",
-          value: displayStats.total,
-        },
-      ],
-      disabled: false,
-      component: (props) => <MonitoringDisplay {...props} />,
-    },
-
-    {
-      id: "Mobay",
-      label: "Monitoring Utang/Piutang",
-      wslist: ["Belum Diajukan", "Belum Dibayar", "Lunas", "Hutang"],
-      stats: [
-        { label: "Hutang", value: mobayStats.totalHutang },
-        { label: "Lunas", value: mobayStats.totalLunas },
-        { label: "Diajukan", value: mobayStats.totalDiajukan },
-      ],
-      disabled: false,
-      component: (props) => <MonitoringVClaim {...props} />,
-    },
-  ];
+      {
+        id: "Mobay",
+        label: "Monitoring Utang/Piutang",
+        wslist: ["Belum Diajukan", "Belum Dibayar", "Lunas", "Hutang"],
+        stats: [
+          { label: "Hutang", value: mobayStats.totalHutang },
+          { label: "Lunas", value: mobayStats.totalLunas },
+          { label: "Diajukan", value: mobayStats.totalDiajukan },
+        ],
+        disabled: false,
+        component: (props) => <MonitoringVClaim {...props} />,
+      },
+    ],
+    [
+      antrianStats,
+      supervisiStats,
+      visiteStats,
+      aplicaresStats,
+      icareStats,
+      satuSehatStats,
+      summary,
+      displayStats,
+      mobayStats,
+    ],
+  );
 
   // ---- Pantau ukuran layar ----
   useEffect(() => {
@@ -653,23 +667,27 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
         {/* ========================================= */}
         {/* HEADER */}
         {/* ========================================= */}
-        <div className="card-header py-2 px-3">
-          Monitoring Aplikasi & Integrasi Sistem Informasi Rumah Sakit
-          <a
-            href="/monapp/MasterMonitoring"
-            className="btn btn-sm btn-outline-primary ms-2"
+        <div className="card-header py-2 px-3 d-flex align-items-center justify-content-between">
+          <div>
+            Monitoring Aplikasi & Integrasi Sistem Informasi Rumah Sakit
+          </div>
+          <Button
+            variant="outline-primary"
+            size="sm"
+            className="ms-2"
+            onClick={() => setSelectedMenu("")}
           >
             Kembali ke Dashboard
-          </a>
+          </Button>
         </div>
         <div className="container-fluid">
           <div className="row align-items-center">
             {/* 1. KIRI: LOGO PEMKAB & LOGO RS BERDAMPINGAN */}
-            <div className="col-2 d-flex align-items-center justify-content-center gap-3">
+            <div className="col-1 d-flex align-items-center justify-content-center gap-3">
               {/* Logo Pemkab Probolinggo */}
               <div className="text-center" style={{ minWidth: "85px" }}>
                 <img
-                  src="../../../../public/logo-pemkab.png"
+                  src="/logo-pemkab.png"
                   alt="Logo Pemkab Probolinggo"
                   style={{ maxHeight: "100px", width: "auto" }}
                   className="img-fluid"
@@ -690,7 +708,7 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
             </div>
 
             {/* 2. TENGAH: TEKS JUDUL UTAMA */}
-            <div className="col-5 text-center">
+            <div className="col-6 text-center">
               {/* Baris 1: HOSPITAL LEADER'S... */}
               <h3
                 className="fw-bold mb-1"
@@ -745,12 +763,12 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
               </p>
             </div>
 
-            {/* 3. PALING KANAN: FOTO DIREKTUR */}
-            <div className="col-4 text-start ">
+            {/* 3. PALING KANAN: LOGO WALUYO */}
+            <div className="col-1 text-start ">
               {/* Logo RSUD Waluyo Jati */}
               <div className="text-start">
                 <img
-                  src="../../../../public/logo-rsud.png"
+                  src="/logo-rsud.png"
                   alt="Logo RSUD Waluyo Jati"
                   style={{
                     maxHeight: "120px",
@@ -760,46 +778,19 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
                   className="img-fluid"
                 />
               </div>
+            </div>
 
-              <div
-                className="text-center"
+            {/* 4. FOTO DIREKTUR */}
+            <div className="col-4 text-end">
+              <img
+                src="/dr_yessy.png"
+                alt="Foto Direktur"
                 style={{
-                  position: "absolute",
-                  top: "0px",
-                  bottom: "0px",
-                  padding: "0px",
-                  margin: "0px",
-                  right: "10px",
                   width: "auto",
-                  height: "200px",
-                  zIndex: 2,
+                  height: "120px",
+                  objectFit: "cover",
                 }}
-              >
-                <img
-                  src="../../../../public/dr_yessy.png"
-                  alt="Foto Direktur"
-                  style={{
-                    maxHeight: "100%",
-                    width: "auto",
-                    objectFit: "cover",
-                  }}
-                />
-                <div
-                  className="fw-bold mt-1 text-center"
-                  style={{
-                    fontSize: "0.8rem",
-                    color: "#111",
-                    lineHeight: "1.2",
-                    float: "left",
-                  }}
-                >
-                  {/*<span style={{ marginTop: "100px" }}>
-                    Direktur
-                    <br />
-                    Dr. dr. H. Yessy Rahmawati, Sp.OG(K), M.H., M.Kes., FISQua, FCHMC.
-                </span>*/}
-                </div>
-              </div>
+              />
             </div>
           </div>
         </div>
@@ -854,19 +845,27 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
           ) : (
             <div className="row">
               <div className="col-12">
-                {menuMonitoring
-                  .find((m) => m.id === selectedMenu)
-                  ?.component({
-                    data,
-                    poliData,
-                    isMobile,
-                    limit,
-                    currentPage,
-                    totalPages,
-                    setCurrentPage,
-                    handleSelectPegawai,
-                    setForm,
-                  })}
+                <Suspense
+                  fallback={
+                    <div className="text-center py-5">
+                      Memuat modul monitoring...
+                    </div>
+                  }
+                >
+                  {menuMonitoring
+                    .find((m) => m.id === selectedMenu)
+                    ?.component({
+                      data,
+                      poliData,
+                      isMobile,
+                      limit,
+                      currentPage,
+                      totalPages,
+                      setCurrentPage,
+                      handleSelectPegawai,
+                      setForm,
+                    })}
+                </Suspense>
               </div>
             </div>
           )}

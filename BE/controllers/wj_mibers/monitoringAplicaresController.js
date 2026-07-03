@@ -4,7 +4,7 @@ require("dotenv").config();
 // ==========================
 // Ketersediaan Kamar RS | BPJS
 // ==========================
-exports.getDataBPJS = async (req, res) => {
+/*exports.getDataBPJS = async (req, res) => {
   try {
     const consID = process.env._CONS_ID;
     const secretKey = process.env._SECRET_KEY;
@@ -52,53 +52,46 @@ exports.getDataBPJS = async (req, res) => {
     console.error("ERROR getDataBPJS:", error);
     res.status(500).json({ error: error.message });
   }
-};
+};*/
 
-exports.getSummary = async (req, res) => {
+exports.getSummary = (req, res) => {
   try {
-    const consID = process.env._CONS_ID;
-    const secretKey = process.env._SECRET_KEY;
-    const hospitalCode = process.env._HOSPITAL_CODE;
+    const sql = `
+      SELECT
+        COUNT(*) AS totalRooms,
+        COALESCE(SUM(kapasitas),0) AS totalCapacity,
+        COALESCE(SUM(tersedia),0) AS totalAvailable,
+        COALESCE(SUM(kapasitas),0) - COALESCE(SUM(tersedia),0) AS occupied
+      FROM applicare
+    `;
 
-    const urlProduction = "https://new-api.bpjs-kesehatan.go.id";
-    const timeStamp = Math.floor(Date.now() / 1000).toString();
-    const rawData = consID + "&" + timeStamp;
-    const hmacSha256 = crypto
-      .createHmac("sha256", secretKey)
-      .update(rawData)
-      .digest("base64");
+    db2.query(sql, (err, result) => {
+      if (err) {
+        console.error("ERROR getMonitoringAplicaresSummary:", err);
 
-    const url = `${urlProduction}/aplicaresws/rest/bed/read/${hospitalCode}/1/100`;
-    const headers = {
-      "X-cons-id": consID,
-      "X-timestamp": timeStamp,
-      "X-signature": hmacSha256,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    };
+        return res.status(500).json({
+          success: false,
+          message: err.message,
+        });
+      }
 
-    const response = await fetch(url, { method: "GET", headers });
-    const bpjsData = await response.json();
+      const row = result[0] || {};
 
-    const list = bpjsData?.response?.list || [];
-    const totalAvailable = list.reduce(
-      (sum, item) => sum + Number(item.tersedia || 0),
-      0,
-    );
-    const totalCapacity = list.reduce(
-      (sum, item) => sum + Number(item.kapasitas || 0),
-      0,
-    );
-    const totalRooms = list.length;
-
-    res.json({
-      totalRooms,
-      totalCapacity,
-      totalAvailable,
+      res.json({
+        success: true,
+        totalRooms: Number(row.totalRooms || 0),
+        totalCapacity: Number(row.totalCapacity || 0),
+        totalAvailable: Number(row.totalAvailable || 0),
+        occupied: Number(row.occupied || 0),
+      });
     });
   } catch (error) {
     console.error("ERROR getMonitoringAplicaresSummary:", error);
-    res.status(500).json({ error: error.message });
+
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
@@ -109,12 +102,28 @@ exports.getData = (req, res) => {
     const sql = `
       SELECT *
       FROM applicare
+      ORDER BY namaruang
     `;
 
     db2.query(sql, (err, data) => {
-      res.json(data);
+      if (err) {
+        return res.status(500).json({
+          success: false,
+          message: err.message,
+        });
+      }
+
+      res.json({
+        success: true,
+        data,
+        totalPages: 1,
+        totalItems: data.length,
+      });
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };

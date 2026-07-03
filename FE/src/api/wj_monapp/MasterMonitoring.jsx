@@ -2,16 +2,14 @@ import API from "../axiosInstance";
 const BASE_URL = import.meta.env.VITE_API_URL;
 
 // Ambil Aplicares dengan pagination (server-side)
-export const fetchPaginatedDataMonitoringAplicares = async (
-  page = 1,
-  limit = 10,
-) => {
+export const fetchPaginatedDataMonitoringAplicares = async () => {
   const res = await API.get("/api/mibers/MonitoringAplicares", {
     params: {
-      page,
+      page: currentPage,
       limit,
     },
   });
+
   return res.data;
 };
 

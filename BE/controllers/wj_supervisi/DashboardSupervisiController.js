@@ -246,9 +246,33 @@ exports.getHomeDashboard = async (req, res) => {
       bor: 0,
     };
 
+    const [rawatJalanRows] = await dbAvesina.promise().query(`
+      SELECT
+        COUNT(DISTINCT r.registry_id) AS kunjunganRajal
+      FROM registry r
+      JOIN unit_visit uv ON uv.registry_id = r.registry_id
+      WHERE r.registry_dt BETWEEN CONCAT(CURDATE(), ' 00:00:00')
+        AND CONCAT(CURDATE(), ' 23:59:59')
+        AND r.in_out_sts = 'O'
+        AND uv.unit_id_to = 'RJ012'
+    `);
+
+    const [igdRowsCount] = await dbAvesina.promise().query(`
+      SELECT
+        COUNT(DISTINCT r.registry_id) AS kunjunganIGD
+      FROM registry r
+      JOIN unit_visit uv ON uv.registry_id = r.registry_id
+      WHERE r.registry_dt BETWEEN CONCAT(CURDATE(), ' 00:00:00')
+        AND CONCAT(CURDATE(), ' 23:59:59')
+        AND uv.unit_id_to = 'RJ001'
+    `);
+
+    const rawatJalanSummary = rawatJalanRows[0] || { kunjunganRajal: 0 };
+    const igdSummaryCount = igdRowsCount[0] || { kunjunganIGD: 0 };
+
     const dashboardSummary = {
-      kunjunganRajal: Number(applicareSummary.total_kapasitas || 0),
-      kunjunganIGD: Number(applicareSummary.total_kapasitas || 0),
+      kunjunganRajal: Number(rawatJalanSummary.kunjunganRajal || 0),
+      kunjunganIGD: Number(igdSummaryCount.kunjunganIGD || 0),
       pasienRawatInap: Number(applicareSummary.total_terisi || 0),
       ttTersedia: Number(applicareSummary.total_tersedia || 0),
       distribusiTT: Number(applicareSummary.total_unit || 0),

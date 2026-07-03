@@ -17,8 +17,6 @@ const HomeSupervisi = () => {
 
       const res = await fetchDashboardSupervisi();
 
-      console.log("DATA", res);
-
       setDashboard(res.data);
     } catch (err) {
       console.error(err);

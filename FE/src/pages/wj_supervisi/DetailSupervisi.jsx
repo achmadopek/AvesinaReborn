@@ -152,7 +152,10 @@ const DetailSupervisi = () => {
       case "IBS":
         setForm((prev) => ({
           ...prev,
-          pasien_ibs_total: dataSource.ibs?.pasien_ibs_total ?? "",
+          pasien_ibs_total:
+            dataSource.ibs?.pasien_ibs_total ??
+            dataSource.ibs?.total_ibs_pasien ??
+            "",
           operasi_khusus: dataSource.ibs?.operasi_khusus ?? "",
           emergency: dataSource.ibs?.emergency ?? "",
           urgency: dataSource.ibs?.urgency ?? "",
@@ -167,7 +170,10 @@ const DetailSupervisi = () => {
       case "HD":
         setForm((prev) => ({
           ...prev,
-          pasien_hd_total: dataSource.hd?.pasien_hd_total ?? "",
+          pasien_hd_total:
+            dataSource.hd?.pasien_hd_total ??
+            dataSource.hd?.total_hd_pasien ??
+            "",
           pasien_reguler: dataSource.hd?.pasien_reguler ?? "",
           pasien_isolasi: dataSource.hd?.pasien_isolasi ?? "",
           capd: dataSource.hd?.capd ?? "",

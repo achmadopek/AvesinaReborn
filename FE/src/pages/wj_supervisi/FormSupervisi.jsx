@@ -19,13 +19,41 @@ const FormSupervisi = () => {
 
   const [loading, setLoading] = useState(false);
 
-  const [form, setForm] = useState({
-    supervisi_id: "",
-    tanggal_supervisi: "",
-    periode_awal: "",
-    periode_akhir: "",
-    status: "OPEN",
-  });
+  const getDefaultForm = () => {
+    const now = new Date();
+
+    // tanggal supervisi = hari ini
+    const tanggalSupervisi = now.toISOString().split("T")[0];
+
+    // kemarin jam 07:00
+    const periodeAwalDate = new Date(now);
+    periodeAwalDate.setDate(periodeAwalDate.getDate() - 1);
+    periodeAwalDate.setHours(7, 0, 0, 0);
+
+    // hari ini jam 07:00
+    const periodeAkhirDate = new Date(now);
+    periodeAkhirDate.setHours(7, 0, 0, 0);
+
+    const formatDatetimeLocal = (date) => {
+      const pad = (n) => String(n).padStart(2, "0");
+
+      return (
+        `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+          date.getDate(),
+        )}` + `T${pad(date.getHours())}:${pad(date.getMinutes())}`
+      );
+    };
+
+    return {
+      supervisi_id: "",
+      tanggal_supervisi: tanggalSupervisi,
+      periode_awal: formatDatetimeLocal(periodeAwalDate),
+      periode_akhir: formatDatetimeLocal(periodeAkhirDate),
+      status: "OPEN",
+    };
+  };
+
+  const [form, setForm] = useState(getDefaultForm());
 
   // ==========================
   // LOAD DETAIL
