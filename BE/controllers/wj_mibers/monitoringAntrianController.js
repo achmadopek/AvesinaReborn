@@ -1,6 +1,6 @@
 require("dotenv").config();
 const ExcelJS = require("exceljs");
-const db = require("../../db/connection-avesina");   // DB1
+const db = require("../../db/connection-avesina"); // DB1
 
 exports.getData = async (req, res) => {
   try {
@@ -10,7 +10,7 @@ exports.getData = async (req, res) => {
       poli = null,
       startDate = "",
       endDate = "",
-      search = ""
+      search = "",
     } = req.query;
 
     page = parseInt(page);
@@ -97,7 +97,7 @@ exports.getData = async (req, res) => {
     let monitoringMap = new Map();
 
     if (hisPatients.length > 0) {
-      const registryIds = hisPatients.map(x => x.registry_id);
+      const registryIds = hisPatients.map((x) => x.registry_id);
       const placeholders = registryIds.map(() => "?").join(",");
 
       const taSql = `
@@ -134,7 +134,6 @@ exports.getData = async (req, res) => {
           monitoringMap.set(row.registry_id, row);
         }
       }
-
     }
 
     // === STAT ANTRIAN (ONLINE / ONSITE / TOTAL) ===
@@ -148,7 +147,11 @@ exports.getData = async (req, res) => {
       FROM registry r
       JOIN unit_visit uv ON uv.registry_id = r.registry_id
       JOIN service_unit su ON su.srvc_unit_id = uv.unit_id_to
-      WHERE su.unit_group_id IN (8,9)
+      WHERE 
+        r.inpatient_unit_to IS null
+        AND r.out_dt IS null
+        AND r.in_out_sts = 'O'
+        #AND su.unit_group_id IN (8, 9)
     `;
 
     const totalParams = [];
@@ -195,12 +198,12 @@ exports.getData = async (req, res) => {
     // ============================================
 
     // Merge final data
-    const mergedData = hisPatients.map(p => {
+    const mergedData = hisPatients.map((p) => {
       const antrianData = monitoringMap.get(p.registry_id) || {};
 
       let patient_nm_display = p.patient_nm;
 
-      if (p.patient_nm === 'BOOKING') {
+      if (p.patient_nm === "BOOKING") {
         patient_nm_display = antrianData.patient_nm_rill || null;
       }
 
@@ -235,12 +238,13 @@ exports.getData = async (req, res) => {
     if (search && search.trim() !== "") {
       const keyword = search.toLowerCase();
 
-      filteredData = mergedData.filter(item =>
-        (item.patient_nm || "").toLowerCase().includes(keyword) ||
-        (item.mr_code || "").toLowerCase().includes(keyword) ||
-        (item.nik || "").toLowerCase().includes(keyword) ||
-        (item.kode_booking || "").toLowerCase().includes(keyword) ||
-        (item.nomor_kartu || "").toLowerCase().includes(keyword)
+      filteredData = mergedData.filter(
+        (item) =>
+          (item.patient_nm || "").toLowerCase().includes(keyword) ||
+          (item.mr_code || "").toLowerCase().includes(keyword) ||
+          (item.nik || "").toLowerCase().includes(keyword) ||
+          (item.kode_booking || "").toLowerCase().includes(keyword) ||
+          (item.nomor_kartu || "").toLowerCase().includes(keyword),
       );
     }
 
@@ -256,15 +260,14 @@ exports.getData = async (req, res) => {
       antrianStats: {
         totalOnline: antrian_online,
         totalOnsite: antrian_onsite,
-        totalAntrian: antrian_total
+        totalAntrian: antrian_total,
       },
-      
+
       totalDilayani: statusCount.totalDilayani,
       totalDibatalkan: statusCount.totalDibatalkan,
       totalCheckIn: statusCount.totalCheckIn,
-      totalPatientPoli
+      totalPatientPoli,
     });
-
   } catch (err) {
     console.log(err);
     res.status(500).json({ error: err.message });
@@ -295,10 +298,7 @@ exports.getAntrianSummary = (req, res) => {
     WHERE tanggal_periksa BETWEEN ? AND ?
   `;
 
-  const params = [
-    `${startDate} 00:00:00`,
-    `${endDate} 23:59:59`
-  ];
+  const params = [`${startDate} 00:00:00`, `${endDate} 23:59:59`];
 
   if (poli && poli !== "ALL") {
     sql += " AND srvc_unit_id = ?";
@@ -314,70 +314,3 @@ exports.getAntrianSummary = (req, res) => {
     res.json(rows[0]);
   });
 };
-
-
-
-/*exports.exportIcare = async (req, res) => {
-  try {
-    const { startDate = "", endDate = "", poli = "" } = req.query;
-
-    let filter = "WHERE 1=1";
-    const params = [];
-
-    if (poli && poli !== "ALL") {
-      filter += " AND srvc_unit_id = ?";
-      params.push(poli);
-    }
-    if (startDate) {
-      filter += " AND DATE(created_at) >= ?";
-      params.push(startDate);
-    }
-    if (endDate) {
-      filter += " AND DATE(created_at) <= ?";
-      params.push(endDate);
-    }
-
-    const sql = `
-      SELECT * FROM monitoring_icare
-      ${filter}
-      ORDER BY created_at DESC
-    `;
-    const [rows] = await db.promise().query(sql, params);
-
-    const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet("Monitoring iCare");
-
-    sheet.addRow(["Laporan Monitoring iCare"]);
-    sheet.addRow([`Periode: ${startDate} s/d ${endDate}`]);
-    sheet.addRow([`Poli: ${poli}`]);
-    sheet.addRow([]);
-
-    sheet.addRow([
-      "No","Registry ID","MR","Nama Pasien","Poli","Status","Message","Petugas","Waktu"
-    ]);
-
-    let no = 1;
-    rows.forEach(r => {
-      sheet.addRow([
-        no++,
-        r.registry_id,
-        r.mr_code ?? "-",
-        r.patient_nm ?? "-",
-        r.srvc_unit_nm ?? "-",
-        r.status ?? "-",
-        r.message ?? "-",
-        r.employee_nm ?? "-",
-        r.created_at
-      ]);
-    });
-
-    res.setHeader("Content-Type","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-    res.setHeader("Content-Disposition","attachment; filename=monitoring-icare.xlsx");
-
-    await workbook.xlsx.write(res);
-    res.end();
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};*/

@@ -15,6 +15,7 @@ const Topbar = ({ onToggleSidebar, onToggleRight, onLogout }) => {
     role,
     roles,
     setRole,
+    applicationId,
     applicationName,
     applicationDescription,
   } = useAuth();
@@ -27,7 +28,7 @@ const Topbar = ({ onToggleSidebar, onToggleRight, onLogout }) => {
 
   // Theme state
   const [theme, setTheme] = useState(
-    localStorage.getItem("app-theme") || "light"
+    localStorage.getItem("app-theme") || "light",
   );
 
   const [profileName, setProfileName] = useState("");
@@ -52,7 +53,7 @@ const Topbar = ({ onToggleSidebar, onToggleRight, onLogout }) => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-  
+
   useEffect(() => {
     //console.log("EMPLOYEE_ID:", peg_id);
     //console.log("TOKEN:", token);
@@ -64,13 +65,10 @@ const Topbar = ({ onToggleSidebar, onToggleRight, onLogout }) => {
       }
 
       try {
-        const res = await API.get(
-          "/api/rswj-inv/auth/profile-detail",
-          {
-            params: { peg_id }, 
-            headers: { Authorization: `Bearer ${token}` }
-          }
-        );
+        const res = await API.get("/api/rswj-inv/auth/profile-detail", {
+          params: { peg_id },
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
         const data = res.data;
 
@@ -95,18 +93,20 @@ const Topbar = ({ onToggleSidebar, onToggleRight, onLogout }) => {
     >
       {/* KIRI: Sidebar + Judul */}
       <div className="d-flex align-items-center gap-3">
-        <button
-          className="topbar-btn btn-lg"
-          onClick={onToggleSidebar}
-          style={{ padding: isMobile ? "12px 8px" : "" }}
-        >
-          ☰
-        </button>
+        {applicationId !== 3 && ( //WJ-SIGMA/SMART BUGARR
+          <button
+            className="topbar-btn btn-lg"
+            onClick={onToggleSidebar}
+            style={{ padding: isMobile ? "12px 8px" : "", marginRight: "10px" }}
+          >
+            ☰
+          </button>
+        )}
 
-        <div style={{ marginLeft: "10px" }}>
+        <div>
           <div
             className="topbar-title"
-            style={{ fontSize: isMobile ? "12pt" : "18pt"}}
+            style={{ fontSize: isMobile ? "12pt" : "18pt" }}
           >
             {applicationName}
           </div>
@@ -114,7 +114,9 @@ const Topbar = ({ onToggleSidebar, onToggleRight, onLogout }) => {
             className="topbar-subtitle {isMobile ? mt-1 : mt-0}"
             style={{ fontSize: isMobile ? "5pt" : "8pt" }}
           >
-            {applicationDescription ? applicationDescription : 'Subtittle here...'}
+            {applicationDescription
+              ? applicationDescription
+              : "Subtittle here..."}
           </div>
         </div>
       </div>
@@ -133,11 +135,11 @@ const Topbar = ({ onToggleSidebar, onToggleRight, onLogout }) => {
             ) : (
               <i className="fas fa-moon"></i>
             )}
-            {!isMobile &&
+            {!isMobile && (
               <span className="theme-switch-text">
                 {theme === "dark" ? "Light" : "Dark"}
               </span>
-            }
+            )}
           </button>
         </div>
 
@@ -176,14 +178,15 @@ const Topbar = ({ onToggleSidebar, onToggleRight, onLogout }) => {
                 style={{ minWidth: "220px", borderRadius: "4px" }}
               >
                 {isMobile && (
-                <>
-                  <div className="text-center p-2">
-                    <i className="fas fa-fw fa-user me-1"></i>
-                    {profileName || username || "Loading..."} ({formatRole(role)})
-                  </div>
-                  <hr style={{ margin: "4px 0" }} />
-                </>
-              )}
+                  <>
+                    <div className="text-center p-2">
+                      <i className="fas fa-fw fa-user me-1"></i>
+                      {profileName || username || "Loading..."} (
+                      {formatRole(role)})
+                    </div>
+                    <hr style={{ margin: "4px 0" }} />
+                  </>
+                )}
 
                 {/* Switch Role */}
                 {roles &&
@@ -195,7 +198,11 @@ const Topbar = ({ onToggleSidebar, onToggleRight, onLogout }) => {
                       <button
                         key={idx}
                         className={`dropdown-item-theme w-100 btn ${r === role ? "active" : ""}`}
-                        style={{ padding: "6px 8px", fontSize: "9pt", textAlign: "left" }}
+                        style={{
+                          padding: "6px 8px",
+                          fontSize: "9pt",
+                          textAlign: "left",
+                        }}
                         onClick={() => {
                           setRole(r);
                           setDropdownOpen(false);
@@ -217,7 +224,8 @@ const Topbar = ({ onToggleSidebar, onToggleRight, onLogout }) => {
                     setDropdownOpen(false);
                   }}
                 >
-                  <i className="bi bi-arrow-repeat fs-5 me-2"></i> Ganti Aplikasi
+                  <i className="bi bi-arrow-repeat fs-5 me-2"></i> Ganti
+                  Aplikasi
                 </button>
                 <hr style={{ margin: "4px 0" }} />
 
@@ -251,13 +259,15 @@ const Topbar = ({ onToggleSidebar, onToggleRight, onLogout }) => {
         )}
 
         {/* Right Toggle */}
-        <button
-          className="topbar-btn btn-lg"
-          style={{ padding: isMobile ? "12px 8px" : "", marginLeft: "10px" }}
-          onClick={onToggleRight}
-        >
-          ➤
-        </button>
+        {applicationId !== 3 && ( //WJ-SIGMA/SMART BUGARR
+          <button
+            className="topbar-btn btn-lg"
+            style={{ padding: isMobile ? "12px 8px" : "", marginLeft: "10px" }}
+            onClick={onToggleRight}
+          >
+            ➤
+          </button>
+        )}
       </div>
 
       {/* Modal Notifikasi */}
@@ -290,7 +300,7 @@ const Topbar = ({ onToggleSidebar, onToggleRight, onLogout }) => {
           </Button>
         </Modal.Footer>
       </Modal>
-    </div >
+    </div>
   );
 };
 

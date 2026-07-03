@@ -132,9 +132,9 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
   });
 
   const [supervisiStats, setSupervisiStats] = useState({
-    totalSuccess: 0,
-    totalError: 0,
-    totalSupervisi: 0,
+    kendalaCount: 0,
+    focus: 0,
+    action: 0,
   });
 
   const [wsRekamMedisStats, setWSRekamMedisStats] = useState({
@@ -250,17 +250,20 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
         const res = await fetchDashboardSupervisi();
         const dashboard = res.data || res;
 
+        const kendalaCount = Number(dashboard.kendalaCount || 0);
+
         const focusCount = Array.isArray(dashboard.fokusDireksi)
           ? dashboard.fokusDireksi.length
           : 0;
+
         const actionCount = Array.isArray(dashboard.rencanaAksi)
           ? dashboard.rencanaAksi.length
           : 0;
 
         setSupervisiStats({
-          totalSuccess: focusCount,
-          totalError: actionCount,
-          totalSupervisi: focusCount + actionCount,
+          kendalaCount,
+          focus: focusCount,
+          action: actionCount,
         });
       } catch (error) {
         console.error("Gagal ambil statistik Supervisi:", error);
@@ -423,9 +426,9 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
         label: "Monitoring Supervisi",
         wslist: ["Supervisi Harian"],
         stats: [
-          { label: "Sukses", value: supervisiStats.totalSuccess },
-          { label: "Gagal", value: supervisiStats.totalError },
-          { label: "Total", value: supervisiStats.totalSupervisi },
+          { label: "Kendala", value: supervisiStats.kendalaCount },
+          { label: "Fokus", value: supervisiStats.focus },
+          { label: "Action", value: supervisiStats.action },
         ],
         disabled: false,
         component: (props) => <MonitoringSupervisi {...props} />,

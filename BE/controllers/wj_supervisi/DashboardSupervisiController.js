@@ -251,23 +251,17 @@ exports.getHomeDashboard = async (req, res) => {
         COUNT(DISTINCT r.registry_id) AS kunjunganRajal
       FROM registry r
       JOIN unit_visit uv ON uv.registry_id = r.registry_id
-      WHERE r.registry_dt BETWEEN CONCAT(CURDATE(), ' 00:00:00')
-        AND CONCAT(CURDATE(), ' 23:59:59')
+      WHERE r.registry_dt BETWEEN CONCAT(CURDATE(), ' 00:00:00') AND CONCAT(CURDATE(), ' 23:59:59')
+        AND r.inpatient_unit_to IS null
+        AND r.out_dt IS null
         AND r.in_out_sts = 'O'
-        AND uv.unit_id_to <> 'RJ001'
+        #AND su.unit_group_id IN (8, 9)
+    `);
 
-        /*select count(b.registry_id) as pasien 
-        from patient a 
-        join registry b on a.mr_id=b.mr_id 
-        join unit_visit e on  b.registry_id=e.registry_id 
-        join service_unit f on f.srvc_unit_id=e.unit_id_to 
-        join unit_group k on f.unit_group_id=k.unit_group_id 
-        join village m on a.village_id=m.village_id 
-        join subdistrict n on a.subdistrict_id=n.subdistrict_id 
-        join district o on a.district_id=o.district_id 
-        where b.registry_dt between '2026-07-03 00:00:00' and '2026-07-03 23:59:59' 
-        and k.unit_group_id='8' 
-        order by b.registry_dt ASC*/
+    const [rajalOnlineSummary] = await dbAvesina.promise().query(`
+      SELECT COUNT(DISTINCT ta.registry_id) AS online
+      FROM temp_antrian ta
+      WHERE ta.tanggal_periksa BETWEEN CONCAT(CURDATE(), ' 00:00:00') AND CONCAT(CURDATE(), ' 23:59:59')
     `);
 
     const [igdRowsCount] = await dbAvesina.promise().query(`
@@ -280,26 +274,63 @@ exports.getHomeDashboard = async (req, res) => {
         AND uv.unit_id_to = 'RJ001'
     `);
 
+    const [igdMRSRows] = await dbAvesina.promise().query(`
+      SELECT
+        COUNT(DISTINCT r.registry_id) AS kunjunganIGDMRS
+      FROM registry r
+      JOIN unit_visit uv ON uv.registry_id = r.registry_id
+      WHERE r.registry_dt BETWEEN CONCAT(CURDATE(), ' 00:00:00')
+        AND CONCAT(CURDATE(), ' 23:59:59')
+        AND uv.unit_id_to = 'RJ001'
+        AND r.in_out_sts = 'I'
+    `);
+
+    const [admisiRanapRows] = await dbAvesina.promise().query(`
+      SELECT COUNT(DISTINCT r.registry_id) AS totalAdmisiRanap
+      FROM registry r
+      JOIN unit_visit uv ON uv.registry_id = r.registry_id
+      WHERE r.registry_dt BETWEEN CONCAT(CURDATE(), ' 00:00:00') AND CONCAT(CURDATE(), ' 23:59:59')
+        AND r.in_out_sts = 'I'
+    `);
+
+    const [inapKRSRows] = await dbAvesina.promise().query(`
+      SELECT COUNT(DISTINCT r.registry_id) AS totalInapKRS
+      FROM registry r
+      JOIN unit_visit uv ON uv.registry_id = r.registry_id
+      WHERE r.out_dt BETWEEN CONCAT(CURDATE(), ' 00:00:00') AND CONCAT(CURDATE(), ' 23:59:59')
+        AND r.in_out_sts = 'I'
+    `);
+
     const rawatJalanSummary = rawatJalanRows[0] || { kunjunganRajal: 0 };
     const igdSummaryCount = igdRowsCount[0] || { kunjunganIGD: 0 };
+    const igdMRSSummary = igdMRSRows[0] || { kunjunganIGDMRS: 0 };
+    const rajalOnline = rajalOnlineSummary[0] || { online: 0 };
+    const admisiRanapSummary = admisiRanapRows[0] || { totalAdmisiRanap: 0 };
+    const inapKRSSummary = inapKRSRows[0] || { totalInapKRS: 0 };
 
     const dashboardSummary = {
       kunjunganRajal: Number(rawatJalanSummary.kunjunganRajal || 0),
       kunjunganIGD: Number(igdSummaryCount.kunjunganIGD || 0),
       pasienRawatInap: Number(applicareSummary.total_terisi || 0),
       ttTersedia: Number(applicareSummary.total_tersedia || 0),
-      distribusiTT: Number(applicareSummary.total_unit || 0),
-      rajalMJKN: 0,
-      rajalOnsite: 0,
-      igdMRS: 0,
-      igdSisa: 0,
-      inapAdmisi: 0,
-      inapKRS: 0,
+      distribusiTT: Number(applicareSummary.total_terisi || 0),
+      rajalMJKN: Number(rajalOnline.online || 0),
+      rajalOnsite:
+        Number(rawatJalanSummary.kunjunganRajal || 0) -
+        Number(rajalOnline.online || 0),
+      igdMRS: Number(igdMRSSummary.kunjunganIGDMRS || 0),
+      igdSisa:
+        Number(igdSummaryCount.kunjunganIGD || 0) -
+        Number(igdMRSSummary.kunjunganIGDMRS || 0),
+      inapAdmisi: Number(admisiRanapSummary.totalAdmisiRanap || 0),
+      inapKRS: Number(inapKRSSummary.totalInapKRS || 0),
     };
 
     const kebutuhanDetail = kebutuhanDetailRows[0] || [];
     const kendalaDetail = kendalaDetailRows[0] || [];
     const eksekutifDetail = eksekutifDetailRows[0] || [];
+
+    const kendalaCount = kebutuhanDetail.length + kendalaDetail.length;
 
     // =====================================================
     // RESPONSE
@@ -338,6 +369,7 @@ exports.getHomeDashboard = async (req, res) => {
         inapAdmisi: dashboardSummary.inapAdmisi,
         inapKRS: dashboardSummary.inapKRS,
 
+        kendalaCount,
         fokusDireksi,
         rencanaAksi,
       },
