@@ -772,12 +772,11 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
                   right: "10px",
                   width: "auto",
                   height: "200px",
-                  border: "3px solid #fff",
                   zIndex: 2,
                 }}
               >
                 <img
-                  src="../../../../public/yessy.png"
+                  src="../../../../public/dr_yessy.png"
                   alt="Foto Direktur"
                   style={{
                     maxHeight: "100%",
@@ -794,12 +793,11 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
                     float: "left",
                   }}
                 >
-                  <span style={{ marginTop: "100px" }}>
+                  {/*<span style={{ marginTop: "100px" }}>
                     Direktur
                     <br />
-                    Dr. dr. H. Yessy Rahmawati, Sp.OG(K), M.H., M.Kes., FISQua,
-                    FCHMC
-                  </span>
+                    Dr. dr. H. Yessy Rahmawati, Sp.OG(K), M.H., M.Kes., FISQua, FCHMC.
+                </span>*/}
                 </div>
               </div>
             </div>
