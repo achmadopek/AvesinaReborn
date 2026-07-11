@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { fetchHasilPemeriksaan } from "../../../api/wj_mcu/DataMCU";
+import Swal from "sweetalert2";
 
 const HasilPemeriksaan = () => {
   const { nrm, tgl } = useParams();
@@ -18,7 +19,7 @@ const HasilPemeriksaan = () => {
     tda: { label: "Tekanan Darah Sistolik", unit: "mmHg" },
     tdb: { label: "Tekanan Darah Diastolik", unit: "mmHg" },
     nadi: { label: "Nadi", unit: "x/menit" },
-    suhu: { label: "Suhu Tubuh", unit: "°C" }
+    suhu: { label: "Suhu Tubuh", unit: "°C" },
   };
 
   useEffect(() => {
@@ -42,6 +43,24 @@ const HasilPemeriksaan = () => {
   if (loading) return <div>Loading...</div>;
   if (!header) return <div>Data tidak ditemukan</div>;
 
+  const UNIT_BUTTONS = {
+    LB001: "Daftarkan Laboratorium",
+    RA001: "Daftarkan Radiologi",
+    RJ010: "Daftarkan Klinik Mata",
+    "131210919634RSJK": "Daftarkan Klinik Jantung",
+    RJ009: "Daftarkan Klinik Gigi",
+    RJ008: "Daftarkan Klinik THT",
+  };
+
+  const handleDaftarUnit = (unit) => {
+    Swal.fire({
+      icon: "info",
+      title: unit.unit_name,
+      text: "Form pendaftaran masih dalam tahap pengembangan. \nSementara bisa pakai fitur di Avesina. \nKedepan akan bisa daftar/request dari sini",
+      confirmButtonText: "OK",
+    });
+  };
+
   return (
     <>
       <div className="card shadow-sm card-theme mb-3">
@@ -52,9 +71,7 @@ const HasilPemeriksaan = () => {
         <div className="card-body">
           <div className="d-flex justify-content-between align-items-start">
             <div>
-              <h5 className="fw-bold mb-1 text-primary">
-                {header.nama}
-              </h5>
+              <h5 className="fw-bold mb-1 text-primary">{header.nama}</h5>
               <div className="small text-muted mb-2">
                 <span className="me-3">
                   <strong>NRM:</strong> {header.nrm}
@@ -93,6 +110,33 @@ const HasilPemeriksaan = () => {
       <div className="tab-content border border-top-0 p-3">
         {visits.map((v, i) => {
           const { anamnesa = [], diagnosa = [], hasil } = v;
+
+          if (!v.unit_visit_id) {
+            return (
+              <div
+                key={v.unit_code}
+                id={`tab-${i}`}
+                className={`tab-pane fade ${i === 0 ? "show active" : ""}`}
+              >
+                <div className="text-center py-5">
+                  <h5>{v.unit_name}</h5>
+
+                  <p className="text-muted">
+                    Pasien belum terdaftar ke unit ini
+                  </p>
+
+                  {UNIT_BUTTONS[v.unit_code] && (
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => handleDaftarUnit(v)}
+                    >
+                      {UNIT_BUTTONS[v.unit_code]}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          }
 
           return (
             <div
@@ -135,7 +179,10 @@ const HasilPemeriksaan = () => {
 
                   {Array.isArray(hasil) && hasil.length ? (
                     hasil.map((group, gIdx) => (
-                      <div key={group.medical_service_id || gIdx} className="mb-3">
+                      <div
+                        key={group.medical_service_id || gIdx}
+                        className="mb-3"
+                      >
                         <div className="fw-semibold text-success">
                           {group.medical_service_name}
                         </div>
@@ -152,13 +199,12 @@ const HasilPemeriksaan = () => {
                               <strong>{item.lab_srvc_nm}</strong>
                               {" : "}
                               {item.result ?? "-"} {item.unit || ""}
-
                               {item.normal && (
                                 <span className="text-muted">
-                                  {" "}({item.normal})
+                                  {" "}
+                                  ({item.normal})
                                 </span>
                               )}
-
                               {item.analisis && (
                                 <div className="small fst-italic">
                                   Catatan: {item.analisis}
@@ -208,27 +254,25 @@ const HasilPemeriksaan = () => {
               )}
 
               {/* ===== HASIL UMUM (BUKAN LAB & RADIOLOGI) ===== */}
-              {v.unit_code !== "LB001" &&
-                v.unit_code !== "RA001" &&
-                hasil && (
-                  <>
-                    <h6>Hasil Pemeriksaan</h6>
+              {v.unit_code !== "LB001" && v.unit_code !== "RA001" && hasil && (
+                <>
+                  <h6>Hasil Pemeriksaan</h6>
 
-                    {typeof hasil === "object" ? (
-                      <ul>
-                        {Object.entries(hasil)
-                          .filter(([key]) => key !== "registry_id")
-                          .map(([key, val], idx) => (
-                            <li key={idx}>
-                              <strong>{key}</strong> : {val ?? "-"}
-                            </li>
-                          ))}
-                      </ul>
-                    ) : (
-                      <em className="text-muted">Tidak ada hasil</em>
-                    )}
-                  </>
-                )}
+                  {typeof hasil === "object" ? (
+                    <ul>
+                      {Object.entries(hasil)
+                        .filter(([key]) => key !== "registry_id")
+                        .map(([key, val], idx) => (
+                          <li key={idx}>
+                            <strong>{key}</strong> : {val ?? "-"}
+                          </li>
+                        ))}
+                    </ul>
+                  ) : (
+                    <em className="text-muted">Tidak ada hasil</em>
+                  )}
+                </>
+              )}
 
               {/* ================= KESIMPULAN & SARAN ================= */}
               {(v.kesimpulan || v.saran) && (
@@ -237,7 +281,8 @@ const HasilPemeriksaan = () => {
 
                   {v.kesimpulan && (
                     <p>
-                      <strong>Kesimpulan:</strong><br />
+                      <strong>Kesimpulan:</strong>
+                      <br />
                       <span style={{ whiteSpace: "pre-line" }}>
                         {v.kesimpulan}
                       </span>
@@ -246,10 +291,9 @@ const HasilPemeriksaan = () => {
 
                   {v.saran && (
                     <p>
-                      <strong>Saran:</strong><br />
-                      <span style={{ whiteSpace: "pre-line" }}>
-                        {v.saran}
-                      </span>
+                      <strong>Saran:</strong>
+                      <br />
+                      <span style={{ whiteSpace: "pre-line" }}>{v.saran}</span>
                     </p>
                   )}
                 </>
@@ -263,34 +307,33 @@ const HasilPemeriksaan = () => {
       <div className="d-flex gap-2 mb-3 mt-3">
         <button
           className="btn btn-secondary"
-          onClick={() => navigate(-1)}
+          onClick={() =>
+            navigate(`/mcu/PesertaMCU?tgl=${params.get("tgl_param")}`)
+          }
         >
           Kembali
         </button>
 
-
         <button
           className="btn btn-success"
           onClick={() =>
-            navigate(`/mcu/FormMCU/${header.nrm}/${header.tgl_periksa.slice(0, 10)}`)
+            navigate(
+              `/mcu/FormMCU/${header.nrm}/${header.tgl_periksa.slice(0, 10)}`,
+            )
           }
         >
-          {header.status_mcu === 'DRAFT' ? "Lanjutkan MCU" : "Proses MCU"}
+          {header.status_mcu === "DRAFT" ? "Lanjutkan MCU" : "Proses MCU"}
         </button>
 
-
-        {header.status_mcu === 'FINAL' && (
+        {header.status_mcu === "FINAL" && (
           <button
             className="btn btn-primary"
-            onClick={() =>
-              navigate(`/mcu/CetakMCU/${header.mcu_id}`)
-            }
+            onClick={() => navigate(`/mcu/CetakMCU/${header.mcu_id}`)}
           >
             Cetak Suket
           </button>
         )}
       </div>
-
     </>
   );
 };

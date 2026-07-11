@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { fetchPesertaMCU } from "../../../api/wj_mcu/DataPasienMCU";
 import { saveMirrorMCU } from "../../../api/wj_mcu/MirrorMCU";
@@ -10,7 +10,10 @@ import SaveMirrorMCU from "../mirror_mcu/FormMCU";
 import HasilAkhirMCU from "../data_mcu/CetakMCU";
 
 const PesertaMCU = () => {
-  const [tgl, setTgl] = useState(getToday());
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const [tgl, setTgl] = useState(searchParams.get("tgl") || getToday());
+
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -25,6 +28,10 @@ const PesertaMCU = () => {
   const navigate = useNavigate();
 
   const handleLoad = async () => {
+    setSearchParams({
+      tgl,
+    });
+
     if (!tgl) {
       toast.warn("Tanggal periksa wajib diisi");
       return;
@@ -49,14 +56,14 @@ const PesertaMCU = () => {
 
   const handlePilihPasien = (row) => {
     navigate(
-      `/mcu/HasilPemeriksaan/${row.nrm}/${row.tgl_periksa.slice(0, 10)}?tgl_param=${tgl}`
+      `/mcu/HasilPemeriksaan/${row.nrm}/${row.tgl_periksa.slice(0, 10)}?tgl_param=${tgl}`,
     );
   };
 
   const STATUS = {
     null: { label: "BELUM", color: "secondary" },
-    'DRAFT': { label: "DRAFT", color: "warning" },
-    'FINAL': { label: "FINAL", color: "success" },
+    DRAFT: { label: "DRAFT", color: "warning" },
+    FINAL: { label: "FINAL", color: "success" },
   };
 
   // EKSEKUSI SIMPAN MCU
@@ -86,12 +93,8 @@ const PesertaMCU = () => {
           <div className="modal-backdrop fade show" />
 
           <div className="modal fade show d-block" tabIndex="-1">
-            <div
-              className="modal-dialog modal-xl"
-              style={{ maxWidth: "95vw" }}
-            >
+            <div className="modal-dialog modal-xl" style={{ maxWidth: "95vw" }}>
               <div className="modal-content" style={{ height: "90vh" }}>
-
                 <div className="modal-header">
                   <h6 className="modal-title">Hasil Pemeriksaan MCU</h6>
                   <button
@@ -119,7 +122,7 @@ const PesertaMCU = () => {
                     Tutup
                   </button>
 
-                  {payloadMCU?.header?.status_mcu === 'FINAL' && (
+                  {payloadMCU?.header?.status_mcu === "FINAL" && (
                     <button
                       className="btn btn-primary"
                       onClick={() => {
@@ -131,7 +134,7 @@ const PesertaMCU = () => {
                     </button>
                   )}
 
-                  {payloadMCU?.header?.status_mcu === 'DRAFT' && (
+                  {payloadMCU?.header?.status_mcu === "DRAFT" && (
                     <button
                       className="btn btn-success"
                       onClick={() => {
@@ -143,7 +146,6 @@ const PesertaMCU = () => {
                     </button>
                   )}
                 </div>
-
               </div>
             </div>
           </div>
@@ -177,12 +179,8 @@ const PesertaMCU = () => {
           <div className="modal-backdrop fade show" />
 
           <div className="modal fade show d-block" tabIndex="-1">
-            <div
-              className="modal-dialog modal-xl"
-              style={{ maxWidth: "95vw" }}
-            >
+            <div className="modal-dialog modal-xl" style={{ maxWidth: "95vw" }}>
               <div className="modal-content">
-
                 <div className="modal-header">
                   <h6 className="modal-title">Form MCU</h6>
                   <button
@@ -220,7 +218,6 @@ const PesertaMCU = () => {
                     {saving ? "Menyimpan..." : "Simpan MCU"}
                   </button>
                 </div>
-
               </div>
             </div>
           </div>
@@ -233,7 +230,6 @@ const PesertaMCU = () => {
         </div>
 
         <div className="card-body px-3 py-3 modal-body-custom">
-
           {/* FILTER */}
           <div className="row g-2 mb-3 align-items-end">
             <div className="col-12 col-sm-4">
@@ -285,7 +281,8 @@ const PesertaMCU = () => {
                 )}
 
                 {data.map((row, i) => {
-                  const status = STATUS[row.status_mcu == null ? null : row.status_mcu];
+                  const status =
+                    STATUS[row.status_mcu == null ? null : row.status_mcu];
 
                   return (
                     <tr key={row.no_daftar}>
@@ -314,7 +311,7 @@ const PesertaMCU = () => {
                           </button>
                         )}
 
-                        {row.status_mcu === 'DRAFT' && (
+                        {row.status_mcu === "DRAFT" && (
                           <button
                             className="btn btn-sm btn-warning"
                             onClick={() => handlePilihPasien(row)}
@@ -323,7 +320,7 @@ const PesertaMCU = () => {
                           </button>
                         )}
 
-                        {row.status_mcu === 'FINAL' && (
+                        {row.status_mcu === "FINAL" && (
                           <button
                             className="btn btn-sm btn-primary"
                             onClick={() => handlePilihPasien(row)}
@@ -338,7 +335,6 @@ const PesertaMCU = () => {
               </tbody>
             </table>
           </div>
-
         </div>
       </div>
     </>

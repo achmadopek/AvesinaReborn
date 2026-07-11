@@ -36,7 +36,7 @@ exports.getPasienMCU = async (req, res) => {
         AND r.registry_dt < DATE_ADD(?, INTERVAL 1 DAY)
       ORDER BY r.registry_dt ASC
       `,
-      [tgl, tgl]
+      [tgl, tgl],
     );
 
     if (rows.length === 0) {
@@ -46,7 +46,7 @@ exports.getPasienMCU = async (req, res) => {
     // =========================
     // 2️⃣ DATA MIRROR (DB LOKAL)
     // =========================
-    const registryIds = rows.map(r => r.no_daftar);
+    const registryIds = rows.map((r) => r.no_daftar);
 
     const [mirrors] = await dbL.promise().query(
       `
@@ -58,11 +58,11 @@ exports.getPasienMCU = async (req, res) => {
       FROM mcu_mirror
       WHERE registry_id IN (?)
       `,
-      [registryIds]
+      [registryIds],
     );
 
     const mirrorMap = new Map();
-    mirrors.forEach(m => {
+    mirrors.forEach((m) => {
       mirrorMap.set(m.registry_id, m);
     });
 
@@ -76,7 +76,7 @@ exports.getPasienMCU = async (req, res) => {
       3: "BATAL",
     };
 
-    const result = rows.map(r => {
+    const result = rows.map((r) => {
       const mirror = mirrorMap.get(r.no_daftar);
 
       // BELUM = tidak ada mirror
@@ -109,7 +109,6 @@ exports.getPasienMCU = async (req, res) => {
       success: true,
       data: result,
     });
-
   } catch (err) {
     console.error("getPasienMCU error:", err);
     res.status(500).json({

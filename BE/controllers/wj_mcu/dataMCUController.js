@@ -1,6 +1,37 @@
 const db = require("../../db/connection-avesina");
 const db2 = require("../../db/connection-lokal");
 
+const MCU_UNITS = [
+  {
+    unit_code: "MCU",
+    unit_name: "Pemeriksaan Umum",
+  },
+  {
+    unit_code: "LB001",
+    unit_name: "Laboratorium",
+  },
+  {
+    unit_code: "RA001",
+    unit_name: "Radiologi",
+  },
+  {
+    unit_code: "RJ010",
+    unit_name: "Klinik Mata",
+  },
+  {
+    unit_code: "131210919634RSJK",
+    unit_name: "Klinik Jantung",
+  },
+  {
+    unit_code: "RJ009",
+    unit_name: "Klinik Gigi",
+  },
+  {
+    unit_code: "RJ008",
+    unit_name: "Klinik THT",
+  },
+];
+
 exports.getHasilPemeriksaan = async (req, res) => {
   const { nrm, tgl } = req.query;
 
@@ -25,11 +56,35 @@ exports.getHasilPemeriksaan = async (req, res) => {
     header.printed_at = mirror?.printed_at ?? null;
     header.finalized_at = mirror?.finalized_at ?? null;
     header.kesimpulan = mirror?.kesimpulan ?? null;
-    header.rekomendasi = mirror?.rekomendasi ?? null
+    header.rekomendasi = mirror?.rekomendasi ?? null;
 
-    const visits = await getUnitVisits(header.registry_id);
+    const existingVisits = await getUnitVisits(header.registry_id);
+
+    const visits = MCU_UNITS.map((master) => {
+      const found = existingVisits.find(
+        (v) => v.unit_code === master.unit_code,
+      );
+
+      return (
+        found || {
+          unit_visit_id: null,
+          unit_code: master.unit_code,
+          unit_name: master.unit_name,
+          not_registered: true,
+          anamnesa: [],
+          diagnosa: [],
+          hasil: null,
+          kesimpulan: null,
+          saran: null,
+        }
+      );
+    });
 
     for (const v of visits) {
+      if (!v.unit_visit_id) {
+        continue;
+      }
+
       v.anamnesa = await getAnamnesis(v.unit_visit_id);
       v.diagnosa = await getDiagnosa(v.unit_visit_id);
 
@@ -63,7 +118,6 @@ exports.getHasilPemeriksaan = async (req, res) => {
       success: true,
       data: { header, visits },
     });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, error: err.message });
@@ -265,7 +319,7 @@ const getLabResult = (unitVisitId) => {
             medical_service_name: r.medical_service_name,
             group_report: r.group_report, // contoh: CBC 5 DIFF
             desc_ms: r.desc_ms,
-            items: []
+            items: [],
           };
         }
 
@@ -276,7 +330,7 @@ const getLabResult = (unitVisitId) => {
           unit: r.output_unit,
           normal: r.normal_value,
           methode: r.methode,
-          analisis: r.analisis
+          analisis: r.analisis,
         });
       }
 
@@ -304,4 +358,3 @@ const getRadiologiResult = (unitVisitId) => {
     });
   });
 };
-
