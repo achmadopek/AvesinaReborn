@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   LineChart,
   Line,
@@ -11,10 +11,7 @@ import {
 } from "recharts";
 import { toast } from "react-toastify";
 import { useAuth } from "../../context/AuthContext";
-
 import { fetchRekapSPMIndikator } from "../../api/wj_spm/DashboardSPM";
-
-// contoh API list (sesuaikan dengan punyamu)
 import {
   fetchRuangan,
   fetchInstalasi,
@@ -22,6 +19,8 @@ import {
 } from "../../api/wj_spm/EntriHarian";
 
 const HomeSPM = () => {
+  const { role } = useAuth();
+
   // ================= STATE =================
   const [rekap, setRekap] = useState([]);
   const [meta, setMeta] = useState(null);
@@ -31,24 +30,13 @@ const HomeSPM = () => {
   const now = new Date();
   const [mode, setMode] = useState("instalasi");
   const [selectedId, setSelectedId] = useState("");
-
-  const [RefId, setRefId] = useState();
   const [listUnit, setListUnit] = useState([]);
   const [listInstalasi, setListInstalasi] = useState([]);
   const [listBidang, setListBidang] = useState([]);
-
   const [periode, setPeriode] = useState("TW1");
   const [year, setYear] = useState(now.getFullYear());
-
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
-
-  const [selectedIndikatorId, setSelectedIndikatorId] = useState(null);
-
-  const { role } = useAuth();
-
-  const indikatorAktif =
-    rekap.find((r) => r.indikator_id === selectedIndikatorId) || rekap[0];
 
   const namaBulan = [
     "",
@@ -88,45 +76,60 @@ const HomeSPM = () => {
     }
   };
 
-  // -------------------------
-  // Load master data sesuai mode
-  // -------------------------
+  // Helper untuk format tampilan capaian
+  const formatCapaian = (value, measurement) => {
+    if (value === null || value === undefined) return "-";
+
+    const num = Number(value);
+
+    switch (measurement?.toLowerCase()) {
+      case "%":
+        return `${num.toFixed(2)}%`;
+      case "menit":
+      case "jam":
+      case "hari":
+        return `${num.toFixed(2)} ${measurement}`;
+      case "orang":
+      case "tim":
+      case "poli":
+      case "buah":
+        return `${Math.round(num)} ${measurement}`;
+      default:
+        return `${num.toFixed(2)} ${measurement || ""}`;
+    }
+  };
+
+  // ================= LOAD MASTER DATA =================
   useEffect(() => {
+    setSelectedId("");
+    setRekap([]);
+    setMeta(null);
+    setStart("");
+    setEnd("");
+
     const loadMaster = async () => {
       try {
         if (mode === "unit") {
           const res = await fetchRuangan();
           const data = res.data || [];
           setListUnit(data);
-
-          if (data.length > 0) {
-            setSelectedId(data[0].ruangan_id);
-            setRefId(data[0].ruangan_id);
-          }
-        }
-
-        if (mode === "instalasi") {
+          setListInstalasi([]);
+          setListBidang([]);
+        } else if (mode === "instalasi") {
           const res = await fetchInstalasi();
           const data = res.data || [];
           setListInstalasi(data);
-
-          if (data.length > 0) {
-            setSelectedId(data[0].instalasi_id);
-            setRefId(data[0].instalasi_id);
-          }
-        }
-
-        if (mode === "bidang") {
+          setListUnit([]);
+          setListBidang([]);
+        } else if (mode === "bidang") {
           const res = await fetchBidang();
           const data = res.data || [];
           setListBidang(data);
-
-          if (data.length > 0) {
-            setSelectedId(data[0].bidang_id);
-            setRefId(data[0].bidang_id);
-          }
+          setListUnit([]);
+          setListInstalasi([]);
         }
       } catch (err) {
+        console.error(err);
         toast.error("Gagal memuat data master");
       }
     };
@@ -134,15 +137,7 @@ const HomeSPM = () => {
     loadMaster();
   }, [mode]);
 
-  useEffect(() => {
-    if (selectedId) {
-      setRefId(selectedId);
-    }
-
-    console.log("Role:", role);
-  }, [selectedId]);
-
-  // ================= FETCH =================
+  // ================= FETCH DASHBOARD =================
   const fetchDashboard = async () => {
     if (!selectedId) {
       toast.warn(`Pilih ${mode} terlebih dahulu`);
@@ -151,7 +146,6 @@ const HomeSPM = () => {
 
     try {
       setLoading(true);
-
       const range = getRangeByPeriode(year, periode);
       if (!range) return;
 
@@ -164,21 +158,18 @@ const HomeSPM = () => {
         range.start,
         range.end,
       );
-
-      setRekap(res.data || []);
-      setMeta(res.meta || null);
+      setRekap(Array.isArray(res?.data) ? res.data : []);
+      setMeta(res?.meta || null);
     } catch (err) {
-      console.error("Fetch SPM error:", err.response?.data || err.message);
+      console.error(err);
+      setRekap([]);
+      setMeta(null);
       toast.error("Gagal memuat rekap indikator");
     } finally {
       setLoading(false);
     }
   };
 
-  // ================= RENDER SELECT MODE =====
-  // -------------------------
-  // Render select target
-  // -------------------------
   const renderSelectTarget = () => {
     if (mode === "unit") {
       return (
@@ -189,7 +180,7 @@ const HomeSPM = () => {
         >
           <option value="">-- Pilih Unit --</option>
           {listUnit.map((u) => (
-            <option key={`${mode}-${u.ruangan_id}`} value={u.ruangan_id}>
+            <option key={`unit-${u.ruangan_id}`} value={u.ruangan_id}>
               {u.kode_ruangan} - {u.nama_ruangan}
             </option>
           ))}
@@ -206,7 +197,7 @@ const HomeSPM = () => {
         >
           <option value="">-- Pilih Instalasi --</option>
           {listInstalasi.map((i) => (
-            <option key={`${mode}-${i.instalasi_id}`} value={i.instalasi_id}>
+            <option key={`instalasi-${i.instalasi_id}`} value={i.instalasi_id}>
               {i.kode_instalasi} - {i.nama_instalasi}
             </option>
           ))}
@@ -223,7 +214,7 @@ const HomeSPM = () => {
         >
           <option value="">-- Pilih Bidang --</option>
           {listBidang.map((b) => (
-            <option key={`${mode}-${b.bidang_id}`} value={b.bidang_id}>
+            <option key={`bidang-${b.bidang_id}`} value={b.bidang_id}>
               {b.kode_bidang} - {b.nama_bidang}
             </option>
           ))}
@@ -315,12 +306,10 @@ const HomeSPM = () => {
         </div>
       </div>
 
-      {/* TABLE */}
       <div className="card shadow-sm mb-3">
         <div className="card-header">
           <b>Rekap Ringkas SPM</b>
         </div>
-
         <div className="card-body table-responsive">
           <table className="table table-bordered table-sm">
             <thead>
@@ -328,40 +317,45 @@ const HomeSPM = () => {
                 <th>No</th>
                 <th>Indikator</th>
                 <th>Target</th>
-                {meta?.periode?.bulan?.map((b) => (
+                {(meta?.periode?.bulan || []).map((b) => (
                   <th key={b}>{namaBulan[b]}</th>
                 ))}
                 <th>Capaian</th>
               </tr>
             </thead>
             <tbody>
-              {rekap.map((r, i) => (
-                <tr key={r.indikator_id}>
-                  <td className="text-center">{i + 1}</td>
-                  <td>{r.indikator}</td>
-                  <td>
-                    {r.target} {r.satuan}
-                  </td>
-
-                  {meta?.periode?.bulan?.map((b) => (
-                    <td key={b} className="text-center">
-                      {r.bulan?.[b] !== null && r.bulan?.[b] !== undefined
-                        ? `${r.bulan[b]}%`
-                        : "-"}
-                    </td>
-                  ))}
-
-                  <td className="fw-bold text-center">
-                    {r.capaian ? `${r.capaian}%` : "-"}
+              {rekap.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={4 + (meta?.periode?.bulan?.length || 0)}
+                    className="text-center text-muted"
+                  >
+                    {loading ? "Memuat data..." : "Belum ada data rekapitulasi"}
                   </td>
                 </tr>
-              ))}
+              ) : (
+                rekap.map((r, i) => (
+                  <tr key={r.indikator_id || `${r.indikator}-${i}`}>
+                    <td className="text-center">{i + 1}</td>
+                    <td>{r.indikator || "-"}</td>
+                    <td>
+                      {r.target ?? "-"} {r.satuan || ""}
+                    </td>
+                    {(meta?.periode?.bulan || []).map((b) => (
+                      <td key={b} className="text-center">
+                        {r.bulan?.[b] !== null && r.bulan?.[b] !== undefined
+                          ? formatCapaian(r.bulan[b], r.measurement)
+                          : "-"}
+                      </td>
+                    ))}
+                    <td className="fw-bold text-center">
+                      {formatCapaian(r.capaian, r.measurement)}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
-
-          {!loading && rekap.length === 0 && (
-            <div className="text-center text-muted">Tidak ada data</div>
-          )}
         </div>
       </div>
 

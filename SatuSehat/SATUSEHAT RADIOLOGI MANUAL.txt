@@ -7,6 +7,10 @@ base URL	: https://api-satusehat.kemkes.go.id/fhir-r4/v1
 use erm_rswj;
 describe satusehat;
 
+SATUSEHAT_CLIENT_ID=zBGZ9d4agPOQGxGGgIF0XW21wMaaDYskmXH4FPcbZHlir7Dq
+SATUSEHAT_CLIENT_SECRET=He1TxdIlwgnMNx731TBMG4E8jCG5E2b6SlPI85muh1vpXaElwEmOaqtjIgYA4JAR
+ORGANIZATION_ID=100025813
+
 select p.mr_code, p.patient_nm, ss.* from erm_rswj.satusehat ss
 join avesina_wj.patient p on p.id_number = ss.patient_nik
 where ss.registry_date between '2026-06-24 00:00:00' and '2026-06-24 23:59:59'
@@ -23,6 +27,31 @@ and ss.patient_ihs_number <> 'GET - Patient Search NIK';
 
 Pengirim	: 10014839571 / dr. RIZA HIDAYAT, Sp.THT. KL
 Pelaksana	: 10011291498 / dr. AGUSTINING RAHAYU, Sp.Rad,R.I. (K)
+
+==========================================================================
+
+select p.mr_code, p.patient_nm, ss.* from erm_rswj.satusehat ss
+join avesina_wj.patient p on p.id_number = ss.patient_nik
+where ss.registry_date between '2026-07-09 00:00:00' and '2026-07-09 23:59:59'
+and ss.patient_ihs_number <> 'GET - Patient Search NIK';
+
+1a. Patient IHS : P00040398898 / SUHAIRINI {390428}
+1b. Petugas Loket : 10000914759 / NYOMAN RULIWATI 
+1c. Token 	: KFrdbI4jX7yP8G6wd3UCneBeiHGW
+1d. Encounter 	: eac865f2-8951-47fd-bec8-01a86896bce1
+1e. Service Request : b64bb589-0f09-4c9b-b4fe-99ef373b7625
+1f. Imaging Study	: 22bdccf6-4dc7-4333-b02a-8acf1cce4901
+1g. Observation		: 89d39ea4-b9b3-4c69-8dba-5e8c109b1f08
+1h. DiagnosticReport	: 7e7fedbe-16a5-4fcc-9e3a-11a3975a7363`
+
+Pengirim	: 10011934308 / dr. NOVINNA KUSUMAWATI, Sp.P
+Pelaksana	: 10011291498 / dr. KARTIKA, Sp. Rad
+
+Study UID    : 2.16.360.1.112233.20260709103700.0001
+Series UID   : 2.16.360.1.112233.20260709103700.0001.1
+Instance UID : 2.16.360.1.112233.20260709103700.0001.1.1
+
+============================================================================
 
 AI:
 KIRIM SATUSEHAT ges postman 
@@ -323,125 +352,6 @@ Kalau kamu kasih struktur tabel registrasi AVESINA (field no_reg, patient_id, do
 
 skrng service request utnuk Thorax PA/AP
 
-{
-    "resourceType": "ServiceRequest",
-    "identifier": [
-        {
-            "system": "http://sys-ids.kemkes.go.id/servicerequest/{{Org_id}}",
-            "value": "{{Rad_SRID_CXR}}"
-        },
-        {
-            "use": "usual",
-            "type": {
-                "coding": [
-                    {
-                        "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
-                        "code": "ACSN"
-                    }
-                ]
-            },
-            "system": "http://sys-ids.kemkes.go.id/acsn/{{Org_id}}",
-            "value": "{{ACSN}}"
-        }
-    ],
-    "status": "active",
-    "intent": "original-order",
-    "priority": "routine",
-    "category": [
-        {
-            "coding": [
-                {
-                    "system": "http://snomed.info/sct",
-                    "code": "363679005",
-                    "display": "Imaging"
-                }
-            ]
-        }
-    ],
-    "code": {
-        "coding": [
-            {
-                "system": "http://loinc.org",
-                "code": "24648-8",
-                "display": "XR Chest PA upright"
-            },
-            {
-                "system": "http://terminology.kemkes.go.id/CodeSystem/kptl",
-                "code": "31243.NP001.AP005",
-                "display": "Radiografi Thorax 1 proyeksi (AP/PA/Lateral/Top)"
-            }
-        ],
-        "text": "Pemeriksaan CXR PA"
-    },
-    "orderDetail": [
-        {
-            "coding": [
-                {
-                    "system": "http://dicom.nema.org/resources/ontology/DCM",
-                    "code": "DX"
-                }
-            ],
-            "text": "Modality Code: DX"
-        },
-        {
-            "coding": [
-                {
-                    "system": "http://sys-ids.kemkes.go.id/ae-title",
-                    "display": "XR0001"
-                }
-            ]
-        },
-        {
-            "coding": [
-                {
-                    "system": "http://sys-ids.kemkes.go.id/kfa",
-                    "code": "91000928",
-                    "display": "Barium Sulfate"
-                }
-            ]
-        }
-    ],
-    "subject": {
-        "reference": "Patient/{{Patient_id}}"
-    },
-    "encounter": {
-        "reference": "Encounter/{{Encounter_id}}"
-    },
-    "occurrenceDateTime": "2023-06-04T08:15:00+00:00",
-    "requester": {
-        "reference": "Practitioner/{{Practitioner_id}}",
-        "display": "{{Practitioner_Name}}"
-    },
-    "performer": [
-        {
-            "reference": "Practitioner/10012572188",
-            "display": "Dokter Radiologist"
-        }
-    ],
-    "reasonCode": [
-        {
-            "coding": [
-                {
-                    "system": "http://hl7.org/fhir/sid/icd-10",
-                    "code": "A91",
-                    "display": "Dengue haemorrhagic fever"
-                }
-            ]
-        }
-    ],
-    "supportingInfo": [
-        {
-            "reference": "Observation/{{Observation_Rad1}}"
-        },
-        {
-            "reference": "Procedure/{{Procedure_Rad}}"
-        },
-        {
-            "reference": "AllergyIntolerance/{{AllergyIntolerance_Rad}}"
-        }
-    ]
-}
-
 Mantap ges. Untuk Thorax PA/AP, payload ServiceRequest yang kamu bawa itu sebenarnya template resmi SATUSEHAT Radiologi. Yang perlu disesuaikan adalah kode LOINC, KPTL, performer, reasonCode, dan supportingInfo sesuai kondisi riil AVESINA.
 
 Kalau kasusnya Foto Thorax AP/PA biasa, saya biasanya sederhanakan dulu seperti ini saat testing Postman:
@@ -616,69 +526,6 @@ Biar integrasinya bertahap dan gampang tracing errornya.
 Kalau mau lanjut, kirim struktur tabel radiologi AVESINA (misalnya x_ray, x_ray_dtl, service_request, atau tabel order radiologi yang sekarang dipakai), nanti kita mapping langsung ke payload ServiceRequest SATUSEHAT yang siap dibuat controller Node.js.
 
 lanjut imagyngstudy:
-{
-  "resourceType": "ImagingStudy",
-  "identifier": [
-    {
-      "use": "usual",
-      "type": {
-        "coding": [
-          {
-            "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
-            "code": "ACSN"
-          }
-        ]
-      },
-      "system": "http://sys-ids.kemkes.go.id/acsn/{{Org_id}}",
-      "value": "210610114146"
-    },
-    {
-      "system": "urn:dicom:uid",
-      "value": "urn:oid:2.16.380.31256.1.2449191199178232.20210610114926906"
-    }
-  ],
-  "status": "available",
-  "modality": [
-    {
-      "system": "http://dicom.nema.org/resources/ontology/DCM",
-      "code": "OP"
-    }
-  ],
-  "subject": {
-    "reference": "Patient/100000030009"
-  },
-  "started": "2021-06-10T11:41:46+07:00",
-  "basedOn": [
-    {
-      "reference": "ServiceRequest/83218f28-0027-4d3d-9981-94517f14223e"
-    }
-  ],
-  "numberOfSeries": 1,
-  "numberOfInstances": 1,
-  "series": [
-    {
-      "uid": "2.16.380.31256.1.2449191199178232.20210610114926922.1",
-      "number": 1,
-      "modality": {
-        "system": "http://dicom.nema.org/resources/ontology/DCM",
-        "code": "OP"
-      },
-      "numberOfInstances": 1,
-      "started": "2021-06-10T11:45:01+07:00",
-      "instance": [
-        {
-          "uid": "2.16.380.31256.1.2449191199178232.20210610114930875.1.1",
-          "sopClass": {
-            "system": "urn:ietf:rfc:3986",
-            "code": "urn:oid:1.2.840.10008.5.1.4.1.1.77.1.5.1"
-          },
-          "number": 7,
-          "title": "ORIGINAL\\PRIMARY"
-        }
-      ]
-    }
-  ]
-}
 
 tapi uid buatkan ya ges unik saja tanpa ambil dari dcm
 

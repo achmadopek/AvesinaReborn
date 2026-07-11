@@ -133,6 +133,7 @@ exports.getIndikatorByUnit = (req, res) => {
       ind.numerator,
       ind.denominator,
       ind.conversion_factor,
+      ind.is_proportion,
 
       ind.group_pelayanan_id,
 
@@ -161,6 +162,36 @@ exports.getIndikatorByUnit = (req, res) => {
 /* ======================================================
    SIMPAN SPM HARIAN
 ====================================================== */
+function validateNumeratorDenominator(num, den, isProportion) {
+  const n = Number(num) || 0;
+  const d = Number(den) || 0;
+
+  if (isProportion === 0 || isProportion === false) {
+    return { valid: true }; // Bebas (contoh: jam buka, waktu tunggu, dll)
+  }
+
+  // Validasi untuk proporsi (is_proportion = 1)
+  if (d === 0 && n > 0) {
+    return { valid: false, message: "Denominator tidak boleh 0" };
+  }
+  if (n > d) {
+    return {
+      valid: false,
+      message: "Numerator tidak boleh lebih besar dari Denominator",
+    };
+  }
+  if (n < 0 || d < 0) {
+    return { valid: false, message: "Nilai tidak boleh negatif" };
+  }
+
+  return { valid: true };
+}
+
+exports.validateNumeratorDenominator = validateNumeratorDenominator;
+
+/* ======================================================
+   SIMPAN SPM HARIAN - VERSI PERBAIKAN
+====================================================== */
 exports.simpanHarianBulk = async (req, res) => {
   try {
     const clientIP = getClientIP(req);
@@ -186,7 +217,6 @@ exports.simpanHarianBulk = async (req, res) => {
     /* ===============================
        INSERT HEADER
     =============================== */
-
     const sqlHarian = `
       INSERT INTO spm_harian (unit_id, tgl_input, created_by, created_at)
       VALUES (?, ?, ?, NOW())
@@ -204,54 +234,65 @@ exports.simpanHarianBulk = async (req, res) => {
     /* ===============================
        AMBIL MASTER INDIKATOR
     =============================== */
-
     const indikatorIds = details.map((d) => d.indikator_id);
 
     const sqlIndikator = `
       SELECT
-          id,
-          measurement,
-          operator,
-          standart,
-          conversion_factor
+        id,
+        measurement,
+        operator,
+        standart,
+        conversion_factor,
+        is_proportion,
+        judul_indikator
       FROM spm_indikator
       WHERE id IN (?)
-      `;
+    `;
 
     const [indikatorRows] = await db_lokal
       .promise()
       .query(sqlIndikator, [indikatorIds]);
 
     const indikatorMap = {};
-
     indikatorRows.forEach((i) => {
       indikatorMap[i.id] = i;
     });
 
     /* ===============================
-       HITUNG NILAI
+       VALIDASI + HITUNG NILAI
     =============================== */
+    const values = [];
+    const errors = [];
 
-    const values = details.map((d) => {
-      const indikator = indikatorMap[d.indikator_id];
+    for (const d of details) {
+      const ind = indikatorMap[d.indikator_id];
+      if (!ind) continue;
 
       const num = Number(d.numerator_value) || 0;
       const den = Number(d.denominator_value) || 0;
 
-      let nilai = hitungCapaian(num, den, indikator?.measurement);
-
-      nilai =
-        nilai === null
-          ? null
-          : nilai * Number(indikator?.conversion_factor || 1);
-
-      const memenuhi = cekStandar(
-        nilai,
-        indikator?.operator,
-        indikator?.standart,
+      // === VALIDASI NUMERATOR & DENOMINATOR ===
+      const propValidation = validateNumeratorDenominator(
+        num,
+        den,
+        ind.is_proportion,
       );
 
-      return [
+      if (!propValidation.valid) {
+        errors.push(
+          `Indikator ID ${d.indikator_id} - ${ind.judul_indikator || ""}: ${propValidation.message}`,
+        );
+        continue;
+      }
+
+      // === HITUNG NILAI ===
+      let nilai = hitungCapaian(num, den, ind.measurement);
+      nilai =
+        nilai === null ? null : nilai * Number(ind.conversion_factor || 1);
+
+      const memenuhi = cekStandar(nilai, ind.operator, ind.standart);
+
+      values.push([
         harian_id,
         d.indikator_id,
         num,
@@ -260,13 +301,21 @@ exports.simpanHarianBulk = async (req, res) => {
         memenuhi,
         new Date(),
         new Date(),
-      ];
-    });
+      ]);
+    }
+
+    // Jika ada error validasi
+    if (errors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Validasi data gagal",
+        errors: errors,
+      });
+    }
 
     /* ===============================
        INSERT DETAIL
     =============================== */
-
     const sqlDetail = `
       INSERT INTO spm_harian_detail
       (
@@ -291,9 +340,8 @@ exports.simpanHarianBulk = async (req, res) => {
     await db_lokal.promise().query(sqlDetail, [values]);
 
     /* ===============================
-       GENERATE PDF (WAJIB DITUNGGU)
+       GENERATE PDF
     =============================== */
-
     const pdfFile = await generateSPMPDF(
       { id: harian_id, tgl_input },
       details,
@@ -309,25 +357,23 @@ exports.simpanHarianBulk = async (req, res) => {
     /* ===============================
        UPDATE PATH PDF
     =============================== */
-
     await db_lokal
       .promise()
-      .query("UPDATE spm_harian SET pdf_path=? WHERE id=?", [
+      .query("UPDATE spm_harian SET pdf_path = ? WHERE id = ?", [
         pdfFile,
         harian_id,
       ]);
 
     /* ===============================
-       RESPONSE KE FRONTEND
+       RESPONSE
     =============================== */
-
     res.json({
       success: true,
       harian_id,
+      message: "Data SPM berhasil disimpan",
     });
   } catch (err) {
     console.error("SPM ERROR:", err);
-
     res.status(500).json({
       success: false,
       message: "Gagal menyimpan SPM",

@@ -1,54 +1,31 @@
-import { useState, useEffect } from "react";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  ResponsiveContainer,
-  Legend,
-} from "recharts";
-import { toast } from "react-toastify";
-import { useAuth } from "../../../context/AuthContext";
-
+import React, { useState, useEffect } from "react";
 import { fetchRekapSPMIndikator } from "../../../api/wj_spm/DashboardSPM";
-
-// contoh API list (sesuaikan dengan punyamu)
 import {
   fetchRuangan,
   fetchInstalasi,
   fetchBidang,
 } from "../../../api/wj_spm/EntriHarian";
+import { generateRekapPDF } from "../../../utils/generateRekapPDF";
+import { toast } from "react-toastify";
+import { useAuth } from "../../../context/AuthContext";
 
 const RekapitulasiSPM = () => {
-  // ================= STATE =================
+  const { role, unit_id: userUnitId } = useAuth(); // pastikan AuthContext mengembalikan unit_id user
+
   const [rekap, setRekap] = useState([]);
   const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // ================= FILTER =================
-  const now = new Date();
-  const [mode, setMode] = useState("instalasi");
+  const [mode, setMode] = useState("unit");
   const [selectedId, setSelectedId] = useState("");
-
-  const [RefId, setRefId] = useState();
   const [listUnit, setListUnit] = useState([]);
   const [listInstalasi, setListInstalasi] = useState([]);
   const [listBidang, setListBidang] = useState([]);
 
   const [periode, setPeriode] = useState("TW1");
-  const [year, setYear] = useState(now.getFullYear());
-
+  const [year, setYear] = useState(new Date().getFullYear());
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
-
-  const [selectedIndikatorId, setSelectedIndikatorId] = useState(null);
-
-  const { role } = useAuth();
-
-  const indikatorAktif =
-    rekap.find((r) => r.indikator_id === selectedIndikatorId) || rekap[0];
 
   const namaBulan = [
     "",
@@ -66,7 +43,47 @@ const RekapitulasiSPM = () => {
     "Des",
   ];
 
-  // ================= HELPER =================
+  // Format Capaian
+  const formatCapaian = (value, measurement = "") => {
+    if (value === null || value === undefined) return "-";
+    const num = Number(value);
+
+    switch (measurement?.toLowerCase()) {
+      case "%":
+        return `${num.toFixed(2)}%`;
+      case "menit":
+      case "jam":
+      case "hari":
+        return `${num.toFixed(2)} ${measurement}`;
+      default:
+        return `${num.toFixed(2)} ${measurement}`;
+    }
+  };
+
+  // Load Master Data
+  useEffect(() => {
+    const loadMaster = async () => {
+      try {
+        if (mode === "unit") {
+          const res = await fetchRuangan();
+          setListUnit(res.data || []);
+          if (res.data?.length > 0) setSelectedId(res.data[0].ruangan_id);
+        } else if (mode === "instalasi") {
+          const res = await fetchInstalasi();
+          setListInstalasi(res.data || []);
+          if (res.data?.length > 0) setSelectedId(res.data[0].instalasi_id);
+        } else if (mode === "bidang") {
+          const res = await fetchBidang();
+          setListBidang(res.data || []);
+          if (res.data?.length > 0) setSelectedId(res.data[0].bidang_id);
+        }
+      } catch (err) {
+        toast.error("Gagal memuat data master");
+      }
+    };
+    loadMaster();
+  }, [mode]);
+
   const getRangeByPeriode = (tahun, p) => {
     switch (p) {
       case "TW1":
@@ -88,70 +105,11 @@ const RekapitulasiSPM = () => {
     }
   };
 
-  // -------------------------
-  // Load master data sesuai mode
-  // -------------------------
-  useEffect(() => {
-    const loadMaster = async () => {
-      try {
-        if (mode === "unit") {
-          const res = await fetchRuangan();
-          const data = res.data || [];
-          setListUnit(data);
-
-          if (data.length > 0) {
-            setSelectedId(data[0].ruangan_id);
-            setRefId(data[0].ruangan_id);
-          }
-        }
-
-        if (mode === "instalasi") {
-          const res = await fetchInstalasi();
-          const data = res.data || [];
-          setListInstalasi(data);
-
-          if (data.length > 0) {
-            setSelectedId(data[0].instalasi_id);
-            setRefId(data[0].instalasi_id);
-          }
-        }
-
-        if (mode === "bidang") {
-          const res = await fetchBidang();
-          const data = res.data || [];
-          setListBidang(data);
-
-          if (data.length > 0) {
-            setSelectedId(data[0].bidang_id);
-            setRefId(data[0].bidang_id);
-          }
-        }
-      } catch (err) {
-        toast.error("Gagal memuat data master");
-      }
-    };
-
-    loadMaster();
-  }, [mode]);
-
-  useEffect(() => {
-    if (selectedId) {
-      setRefId(selectedId);
-    }
-
-    console.log("Role:", role);
-  }, [selectedId]);
-
-  // ================= FETCH =================
   const fetchDashboard = async () => {
-    if (!selectedId) {
-      toast.warn(`Pilih ${mode} terlebih dahulu`);
-      return;
-    }
+    if (!selectedId) return toast.warn(`Pilih ${mode} terlebih dahulu`);
 
     try {
       setLoading(true);
-
       const range = getRangeByPeriode(year, periode);
       if (!range) return;
 
@@ -164,21 +122,18 @@ const RekapitulasiSPM = () => {
         range.start,
         range.end,
       );
-
-      setRekap(res.data || []);
-      setMeta(res.meta || null);
+      setRekap(Array.isArray(res?.data) ? res.data : []);
+      setMeta(res?.meta || null);
     } catch (err) {
-      console.error("Fetch SPM error:", err.response?.data || err.message);
-      toast.error("Gagal memuat rekap indikator");
+      console.error(err);
+      setRekap([]);
+      setMeta(null);
+      toast.error("Gagal memuat data rekapitulasi");
     } finally {
       setLoading(false);
     }
   };
 
-  // ================= RENDER SELECT MODE =====
-  // -------------------------
-  // Render select target
-  // -------------------------
   const renderSelectTarget = () => {
     if (mode === "unit") {
       return (
@@ -189,7 +144,7 @@ const RekapitulasiSPM = () => {
         >
           <option value="">-- Pilih Unit --</option>
           {listUnit.map((u) => (
-            <option key={`${mode}-${u.ruangan_id}`} value={u.ruangan_id}>
+            <option key={`unit-${u.ruangan_id}`} value={u.ruangan_id}>
               {u.kode_ruangan} - {u.nama_ruangan}
             </option>
           ))}
@@ -206,7 +161,7 @@ const RekapitulasiSPM = () => {
         >
           <option value="">-- Pilih Instalasi --</option>
           {listInstalasi.map((i) => (
-            <option key={`${mode}-${i.instalasi_id}`} value={i.instalasi_id}>
+            <option key={`instalasi-${i.instalasi_id}`} value={i.instalasi_id}>
               {i.kode_instalasi} - {i.nama_instalasi}
             </option>
           ))}
@@ -223,7 +178,7 @@ const RekapitulasiSPM = () => {
         >
           <option value="">-- Pilih Bidang --</option>
           {listBidang.map((b) => (
-            <option key={`${mode}-${b.bidang_id}`} value={b.bidang_id}>
+            <option key={`bidang-${b.bidang_id}`} value={b.bidang_id}>
               {b.kode_bidang} - {b.nama_bidang}
             </option>
           ))}
@@ -234,13 +189,36 @@ const RekapitulasiSPM = () => {
     return null;
   };
 
-  // ================= RENDER =================
+  const handlePrintPDF = () => {
+    if (rekap.length === 0) return toast.warn("Tidak ada data untuk dicetak");
+
+    generateRekapPDF({
+      rekap,
+      meta,
+      periode,
+      year,
+      start,
+      end,
+      namaMode:
+        mode === "unit"
+          ? "Unit"
+          : mode === "instalasi"
+            ? "Instalasi"
+            : "Bidang",
+      namaTarget: meta?.nama || "-",
+    });
+  };
+
   return (
     <div className="container-fluid px-2">
-      {/* FILTER */}
       <div className="card shadow-sm mb-3">
-        <div className="card-header">
-          <b>Filter Rekapitulasi SPM</b>
+        <div className="card-header d-flex justify-content-between align-items-center">
+          <b>Rekapitulasi SPM Rumah Sakit</b>
+          {rekap.length > 0 && (
+            <button className="btn btn-success btn-sm" onClick={handlePrintPDF}>
+              🖨 Cetak PDF
+            </button>
+          )}
         </div>
         <div className="card-body row g-2 align-items-end">
           <div className="col-md-2">
@@ -306,11 +284,8 @@ const RekapitulasiSPM = () => {
       </div>
 
       {/* TABLE */}
-      <div className="card shadow-sm mb-3">
-        <div className="card-header">
-          <b>Rekapitulasi SPM</b>
-        </div>
-
+      {/* Tabel Rekap */}
+      <div className="card shadow-sm">
         <div className="card-body table-responsive">
           <table className="table table-bordered table-sm">
             <thead>
@@ -318,40 +293,43 @@ const RekapitulasiSPM = () => {
                 <th>No</th>
                 <th>Indikator</th>
                 <th>Target</th>
-                {meta?.periode?.bulan?.map((b) => (
+                {(meta?.periode?.bulan || []).map((b) => (
                   <th key={b}>{namaBulan[b]}</th>
                 ))}
                 <th>Capaian</th>
               </tr>
             </thead>
             <tbody>
-              {rekap.map((r, i) => (
-                <tr key={r.indikator_id}>
-                  <td className="text-center">{i + 1}</td>
-                  <td>{r.indikator}</td>
-                  <td>
-                    {r.target} {r.satuan}
-                  </td>
-
-                  {meta?.periode?.bulan?.map((b) => (
-                    <td key={b} className="text-center">
-                      {r.bulan?.[b] !== null && r.bulan?.[b] !== undefined
-                        ? `${r.bulan[b]}%`
-                        : "-"}
-                    </td>
-                  ))}
-
-                  <td className="fw-bold text-center">
-                    {r.capaian ? `${r.capaian}%` : "-"}
+              {rekap.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={4 + (meta?.periode?.bulan?.length || 0)}
+                    className="text-center text-muted"
+                  >
+                    {loading ? "Memuat data..." : "Belum ada data rekapitulasi"}
                   </td>
                 </tr>
-              ))}
+              ) : (
+                rekap.map((r, i) => (
+                  <tr key={r.indikator_id || `${r.indikator}-${i}`}>
+                    <td className="text-center">{i + 1}</td>
+                    <td>{r.indikator || "-"}</td>
+                    <td>
+                      {r.target ?? "-"} {r.satuan || ""}
+                    </td>
+                    {(meta?.periode?.bulan || []).map((b) => (
+                      <td key={b} className="text-center">
+                        {formatCapaian(r.bulan?.[b], r.measurement)}
+                      </td>
+                    ))}
+                    <td className="fw-bold text-center">
+                      {formatCapaian(r.capaian, r.measurement)}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
-
-          {!loading && rekap.length === 0 && (
-            <div className="text-center text-muted">Tidak ada data</div>
-          )}
         </div>
       </div>
     </div>
