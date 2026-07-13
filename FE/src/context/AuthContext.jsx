@@ -1,32 +1,40 @@
-import { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { jwtDecode } from 'jwt-decode';
-import API from '../api/axiosInstance';
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
+import { useNavigate } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
+import API from "../api/axiosInstance";
 
 // === Context Setup ===
 const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
 
 // URL App Center dari .env (fallback lokal)
-const APP_CENTER_URL = import.meta.env.VITE_APP_CENTER_URL || "http://localhost:5173";
+const APP_CENTER_URL =
+  import.meta.env.VITE_APP_CENTER_URL || "http://localhost:5173";
 
 export const AuthProvider = ({ children }) => {
   // === State utama Auth ===
-  const [token, setToken] = useState(localStorage.getItem('token'));
-  const [username, setUsername] = useState('');
-  const [nik, setNik] = useState('');
-  const [peg_id, setPegId] = useState(''); //di token = employee_id
-  const [user_id, setUserId] = useState(''); //di token = id
-  const [nama, setNama] = useState('');
+  const [token, setToken] = useState(localStorage.getItem("token"));
+  const [username, setUsername] = useState("");
+  const [nik, setNik] = useState("");
+  const [peg_id, setPegId] = useState(""); //di token = employee_id
+  const [user_id, setUserId] = useState(""); //di token = id
+  const [nama, setNama] = useState("");
   const [roles, setRoles] = useState([]);
   const [units, setUnits] = useState([]);
-  const [role, setRole] = useState('');
-  const [role_id, setRoleID] = useState('');
-  const [applicationId, setApplicationId] = useState('');
-  const [applicationName, setApplicationName] = useState('');
-  const [applicationDescription, setApplicationDescription] = useState('');
+  const [role, setRole] = useState("");
+  const [role_id, setRoleID] = useState("");
+  const [applicationId, setApplicationId] = useState("");
+  const [applicationName, setApplicationName] = useState("");
+  const [applicationDescription, setApplicationDescription] = useState("");
   const [appPrefix, setAppPrefix] = useState("");
-  const [dashboard, setDashboard] = useState('');
+  const [dashboard, setDashboard] = useState("");
 
   // Loader state
   const [isLoading, setIsLoading] = useState(true);
@@ -110,7 +118,6 @@ export const AuthProvider = ({ children }) => {
         } else {
           setUserData(decoded);
         }
-
       } catch (error) {
         console.error("Token tidak valid:", error);
         logout();
@@ -135,9 +142,12 @@ export const AuthProvider = ({ children }) => {
 
     console.log("Monitoring mode → auto refresh aktif");
 
-    const interval = setInterval(() => {
-      getValidToken();
-    }, 5 * 60 * 1000);
+    const interval = setInterval(
+      () => {
+        getValidToken();
+      },
+      5 * 60 * 1000,
+    );
 
     return () => clearInterval(interval);
   }, [token]);
@@ -162,36 +172,35 @@ export const AuthProvider = ({ children }) => {
     return () => clearTimeout(timeout);
   }, []);
 
-
   // === Simpan data user dari decoded token ===
   const setUserData = (decoded) => {
     // console.log("SET USER DATA CALLED");
     const currentPrefix = window.location.pathname.split("/")[1];
 
     // DATA USER DASAR → TETAP SET
-    setUsername(decoded.username || '');
-    setPegId(decoded.employee_id || '');
-    setNama(decoded.nama || '');
-    setNik(decoded.nik || '');
-    setUserId(decoded.id || '');
+    setUsername(decoded.username || "");
+    setPegId(decoded.employee_id || "");
+    setNama(decoded.nama || "");
+    setNik(decoded.nik || "");
+    setUserId(decoded.id || "");
 
     if (decoded.roles && Array.isArray(decoded.roles)) {
-      let currentApp = decoded.roles.find(r =>
-        r.url?.replace("/", "") === currentPrefix
+      let currentApp = decoded.roles.find(
+        (r) => r.url?.replace("/", "") === currentPrefix,
       );
 
       if (!currentApp) {
         currentApp = decoded.roles[0];
       }
 
-      setApplicationName(currentApp.application_name || '');
-      setApplicationId(currentApp.application_id || '');
-      setRole((currentApp.roles?.[0]?.role_name || '').toLowerCase());
-      setRoleID((currentApp.roles?.[0]?.role_id || ''));
-      setRoles(currentApp.roles?.map(r => r.role_name) || []);
+      setApplicationName(currentApp.application_name || "");
+      setApplicationId(currentApp.application_id || "");
+      setRole((currentApp.roles?.[0]?.role_name || "").toLowerCase());
+      setRoleID(currentApp.roles?.[0]?.role_id || "");
+      setRoles(currentApp.roles?.map((r) => r.role_name) || []);
       setUnits(decoded.units || []);
-      setApplicationDescription(currentApp.application_description || '');
-      setDashboard(currentApp.dashboard || '/');
+      setApplicationDescription(currentApp.application_description || "");
+      setDashboard(currentApp.dashboard || "/");
 
       //console.log("TOKEN DECODED:", decoded);
       //console.log("UNITS ROOT TOKEN:", decoded.units);
@@ -214,22 +223,22 @@ export const AuthProvider = ({ children }) => {
   // === Logout (hapus token + reset state) ===
   const logout = () => {
     setToken(null);
-    setUsername('');
-    setRole('');
-    setRoleID('');
+    setUsername("");
+    setRole("");
+    setRoleID("");
     setRoles([]);
     setUnits([]);
-    setNik('');
-    setPegId('');
-    setUserId('');
-    setNama('');
-    setApplicationName('');
-    setApplicationDescription('');
+    setNik("");
+    setPegId("");
+    setUserId("");
+    setNama("");
+    setApplicationName("");
+    setApplicationDescription("");
     setIsLoading(false);
     setIsRefreshing(false);
-    setDashboard('');
+    setDashboard("");
 
-    localStorage.removeItem('token');
+    localStorage.removeItem("token");
 
     // Redirect ke App Center (SSO)
     window.location.href = APP_CENTER_URL;
@@ -239,13 +248,16 @@ export const AuthProvider = ({ children }) => {
   const refreshToken = async () => {
     try {
       setIsRefreshing(true);
-      const res = await API.post('/api/refresh', {}, { withCredentials: true });
+      const res = await API.post("/api/refresh", {}, { withCredentials: true });
       if (res.data.token) {
         login(res.data.token);
         return true;
       }
     } catch (error) {
-      console.error('Refresh token gagal:', error.response?.data || error.message);
+      console.error(
+        "Refresh token gagal:",
+        error.response?.data || error.message,
+      );
     } finally {
       setIsRefreshing(false);
     }
@@ -262,7 +274,7 @@ export const AuthProvider = ({ children }) => {
       return Promise.race([
         refreshToken(),
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Refresh timeout")), 5000)
+          setTimeout(() => reject(new Error("Refresh timeout")), 5000),
         ),
       ]);
     };
@@ -287,12 +299,12 @@ export const AuthProvider = ({ children }) => {
       refreshingPromise.current = null;
 
       if (!success) {
-        logout();
+        console.error("Refresh gagal");
+
         return null;
       }
 
       return localStorage.getItem("token");
-
     } catch (error) {
       console.error("Gagal decode token:", error);
       logout();
@@ -342,7 +354,7 @@ export const AuthProvider = ({ children }) => {
       isRefreshing,
       appPrefix,
       dashboard,
-    ]
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

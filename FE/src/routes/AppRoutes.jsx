@@ -45,6 +45,7 @@ import VerifikasiPengajuan from "../pages/wj_mobay/akuntansi/VerifikasiPengajuan
 import PembayaranTagihan from "../pages/wj_mobay/akuntansi/PembayaranTagihan";
 import MonitoringTagihan from "../pages/wj_mobay/akuntansi/MonitoringTagihan";
 import RekapPembayaranBahanMedis from "../pages/wj_mobay/akuntansi/RekapPembayaranBahanMedis";
+import PembelianBarang from "../pages/wj_mobay/pengadaan/PembelianBarang";
 
 // === SPM ===
 import HomeSPM from "../components/layout/HomeSPM";
@@ -420,6 +421,15 @@ const AppRoutes = ({ setRightContent }) => {
         element={
           <ProtectedRoute allowedRoles={["admin", "penunjang", "akuntansi"]}>
             <RekapPembayaranBahanMedis setRightContent={setRightContent} />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/mobay/PembelianBarang"
+        element={
+          <ProtectedRoute allowedRoles={["admin", "pengadaan"]}>
+            <PembelianBarang setRightContent={setRightContent} />
           </ProtectedRoute>
         }
       />

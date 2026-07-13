@@ -370,7 +370,6 @@ const EntriSPMHarian = () => {
               disabled={!ruanganList.length}
               onChange={(e) => setUnitId(e.target.value)}
             >
-              <option value="">-- Pilih Ruangan --</option>
               {ruanganList.map((r) => (
                 <option key={r.ruangan_id} value={r.ruangan_id}>
                   {r.kode_ruangan} - {r.nama_ruangan}

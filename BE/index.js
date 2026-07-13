@@ -240,7 +240,11 @@ app.use(
 );
 app.use(
   "/api/mobay/RekapPembayaranBahanMedis",
-  require("./routes/wj_mobay/RekapPembayaranBahanMedis"),
+  require("./routes/wj_mobay/RekapPembayaranBahanMedisRoutes"),
+);
+app.use(
+  "/api/mobay/PembelianBarang",
+  require("./routes/wj_mobay/PembelianBarangRoutes"),
 );
 
 // Antrian

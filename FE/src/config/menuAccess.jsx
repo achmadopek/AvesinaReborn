@@ -24,6 +24,8 @@ export const roleAccess = {
   // Role 'akuntansi' bisa akses menu Akuntansi
   akuntansi: ["Beranda", "Akuntansi", "LaporanMobay"],
 
+  pengadaan: ["Beranda", "PembelianBarang"],
+
   // Role 'user_MCU' bisa akses menu MCU
   user_mcu: ["Beranda", "PelayananMedis", "Poli"],
   dokter_mcu: ["Beranda", "PelayananMedis"],
