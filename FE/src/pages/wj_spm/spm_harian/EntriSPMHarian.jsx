@@ -24,6 +24,16 @@ const EntriSPMHarian = () => {
   const validationTimersRef = useRef({});
 
   /* ===============================
+       SET DEFAULT UNIT ID
+  =============================== 
+  useEffect(() => {
+    // Memastikan units ada, berupa array, dan tidak kosong
+    if (Array.isArray(units) && units.length > 0) {
+      setUnitId(units[0]); // Mengisi dengan unit pertama
+    }
+  }, [units]);
+
+  /* ===============================
        LOAD RUANGAN
   =============================== */
   useEffect(() => {
@@ -370,6 +380,7 @@ const EntriSPMHarian = () => {
               disabled={!ruanganList.length}
               onChange={(e) => setUnitId(e.target.value)}
             >
+              <option>Pilih Ruangan</option>
               {ruanganList.map((r) => (
                 <option key={r.ruangan_id} value={r.ruangan_id}>
                   {r.kode_ruangan} - {r.nama_ruangan}
