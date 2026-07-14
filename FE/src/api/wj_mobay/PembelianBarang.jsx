@@ -1,7 +1,7 @@
 import API from "../axiosInstance";
 
-export const fetchUnitList = async () => {
-  const res = await API.get("/api/mobay/PembelianBarang/unitList");
+export const fetchUnitList = async (units) => {
+  const res = await API.post("/api/mobay/PembelianBarang/unitList", { units });
 
   return res.data;
 };
@@ -35,6 +35,18 @@ export const savePembelianBarang = async ({
     employee_id,
     units,
   });
+
+  return res.data;
+};
+
+export const submitFinalisasi = async (id) => {
+  const res = await API.post("/api/mobay/PembelianBarang/finalisasi", { id });
+
+  return res.data;
+};
+
+export const getPembelianById = async (id) => {
+  const res = await API.get(`/api/mobay/PembelianBarang/${id}`);
 
   return res.data;
 };

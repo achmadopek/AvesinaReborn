@@ -5,7 +5,7 @@ const db = require("../../db/connection-lokal");
 // ======================================
 exports.fetchUnitList = async (req, res) => {
   try {
-    const allowedUnits = req.user.units || [];
+    const allowedUnits = req.body.units || [];
 
     if (allowedUnits.length === 0) {
       return res.json({
@@ -191,6 +191,41 @@ exports.getDetail = async (req, res) => {
   }
 };
 
+exports.getById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [header] = await db.promise().query(
+      `
+      SELECT *
+      FROM mobay_pembelian
+      WHERE id = ?
+      `,
+      [id],
+    );
+
+    const [detail] = await db.promise().query(
+      `
+      SELECT *
+      FROM mobay_pembelian_detail
+      WHERE pembelian_id = ?
+      `,
+      [id],
+    );
+
+    res.json({
+      success: true,
+      header: header[0],
+      detail,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
 // ======================================
 // SAVE BARANG BARU
 // ======================================
@@ -298,6 +333,7 @@ exports.save = async (req, res) => {
 
     if (!allowedUnits.includes(header.unit_id)) {
       return res.status(403).json({
+        success: false,
         message: "Tidak memiliki akses ke unit tersebut",
       });
     }
@@ -309,16 +345,80 @@ exports.save = async (req, res) => {
       0,
     );
 
-    const nomorPembelian = "PBL-" + Date.now();
+    let pembelianId = header.id || null;
 
-    const [result] = await conn.query(
-      `
+    // =====================================
+    // UPDATE DRAFT
+    // =====================================
+
+    if (pembelianId) {
+      const [cek] = await conn.query(
+        `
+        SELECT id,status
+        FROM mobay_pembelian
+        WHERE id = ?
+        `,
+        [pembelianId],
+      );
+
+      if (cek.length === 0) {
+        throw new Error("Data pembelian tidak ditemukan");
+      }
+
+      if (cek[0].status !== "DRAFT") {
+        throw new Error("Transaksi sudah difinalisasi dan tidak dapat diubah");
+      }
+
+      await conn.query(
+        `
+        UPDATE mobay_pembelian
+        SET
+          tanggal_beli=?,
+          tanggal_terima=?,
+          unit_id=?,
+          supplier=?,
+          nomor_nota=?,
+          total=?,
+          keterangan=?
+        WHERE id=?
+        `,
+        [
+          header.tanggal_beli,
+          header.tanggal_terima,
+          header.unit_id,
+          header.supplier,
+          header.nomor_nota,
+          total,
+          header.keterangan,
+          pembelianId,
+        ],
+      );
+
+      await conn.query(
+        `
+        DELETE
+        FROM mobay_pembelian_detail
+        WHERE pembelian_id=?
+        `,
+        [pembelianId],
+      );
+    }
+
+    // =====================================
+    // INSERT BARU
+    // =====================================
+    else {
+      const nomorPembelian = "PBL-" + Date.now();
+
+      const [result] = await conn.query(
+        `
         INSERT INTO mobay_pembelian
         (
           nomor_pembelian,
           tanggal_beli,
           tanggal_terima,
           unit_id,
+          unit_pengaju,
           supplier,
           nomor_nota,
           total,
@@ -328,25 +428,30 @@ exports.save = async (req, res) => {
         )
         VALUES
         (
-          ?,?,?,?,?,?,?,?,
-          ?,?
+          ?,?,?,?,?,?,?,?,?,?,?
         )
         `,
-      [
-        nomorPembelian,
-        header.tanggal_beli,
-        header.tanggal_terima,
-        header.unit_id,
-        header.supplier,
-        header.nomor_nota,
-        total,
-        "DRAFT",
-        header.keterangan,
-        employee_id,
-      ],
-    );
+        [
+          nomorPembelian,
+          header.tanggal_beli,
+          header.tanggal_terima,
+          header.unit_id,
+          header.unit_id,
+          header.supplier,
+          header.nomor_nota,
+          total,
+          "DRAFT",
+          header.keterangan,
+          employee_id,
+        ],
+      );
 
-    const pembelianId = result.insertId;
+      pembelianId = result.insertId;
+    }
+
+    // =====================================
+    // INSERT DETAIL
+    // =====================================
 
     for (const item of details) {
       await conn.query(
@@ -371,15 +476,14 @@ exports.save = async (req, res) => {
           item.qty,
           item.satuan,
           item.harga,
-          Number(item.qty) * Number(item.harga),
+          Number(item.qty || 0) * Number(item.harga || 0),
         ],
       );
 
       await conn.query(
         `
         UPDATE mobay_barang
-        SET
-          last_price = ?
+        SET last_price = ?
         WHERE id = ?
         `,
         [item.harga, item.barang_id],
@@ -388,7 +492,7 @@ exports.save = async (req, res) => {
 
     await conn.commit();
 
-    res.json({
+    return res.json({
       success: true,
       message: "Pembelian berhasil disimpan",
       id: pembelianId,
@@ -398,11 +502,61 @@ exports.save = async (req, res) => {
 
     console.error(err);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: err.message,
     });
   } finally {
     conn.release();
+  }
+};
+
+exports.finalisasi = async (req, res) => {
+  try {
+    const { id } = req.body;
+
+    const [rows] = await db.promise().query(
+      `
+      SELECT *
+      FROM mobay_pembelian
+      WHERE id = ?
+      `,
+      [id],
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Data tidak ditemukan",
+      });
+    }
+
+    if (rows[0].status !== "DRAFT") {
+      return res.status(400).json({
+        success: false,
+        message: "Status bukan DRAFT",
+      });
+    }
+
+    await db.promise().query(
+      `
+      UPDATE mobay_pembelian
+      SET status='FINAL'
+      WHERE id=?
+      `,
+      [id],
+    );
+
+    res.json({
+      success: true,
+      message: "Data berhasil difinalisasi",
+    });
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
   }
 };

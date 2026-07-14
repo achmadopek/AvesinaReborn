@@ -5,15 +5,20 @@ import { toast } from "react-toastify";
 import { useAuth } from "../../../context/AuthContext";
 
 import {
+  fetchUnitList,
   fetchBarangList,
   fetchKategoriBarang,
   savePembelianBarang,
   saveBarangBaru,
+  submitFinalisasi,
+  getPembelianById,
 } from "../../../api/wj_mobay/PembelianBarang";
 
 import { formatCurrency } from "../../../utils/FormatNumber";
 
 import Select from "react-select";
+
+import { useParams } from "react-router-dom";
 
 /**
  * ===============================
@@ -26,10 +31,13 @@ const PembelianBarang = () => {
   // STATE
   // -----------------------
 
+  const { id } = useParams();
+
   const { units, peg_id } = useAuth();
 
   const [unitId, setUnitId] = useState("");
 
+  const [unitList, setUnitList] = useState([]);
   const [barangList, setBarangList] = useState([]);
   const [kategoriList, setKategoriList] = useState([]);
 
@@ -38,6 +46,8 @@ const PembelianBarang = () => {
   const today = new Date().toISOString().split("T")[0];
 
   const [header, setHeader] = useState({
+    id: null,
+    status: "DRAFT",
     tanggal_beli: today,
     tanggal_terima: today,
     supplier: "",
@@ -53,11 +63,25 @@ const PembelianBarang = () => {
     satuan: "",
   });
 
-  useEffect(() => {
-    if (units.length > 0) {
-      setUnitId(units[0]);
+  const loadUnit = async () => {
+    try {
+      const res = await fetchUnitList(units);
+
+      setUnitList(res.data || []);
+    } catch (err) {
+      toast.error("Gagal memuat unit");
     }
-  }, [units]);
+  };
+
+  useEffect(() => {
+    loadUnit();
+  }, []);
+
+  useEffect(() => {
+    if (unitList.length > 0) {
+      setUnitId(unitList[0].unit_id);
+    }
+  }, [unitList]);
 
   const loadBarang = async () => {
     try {
@@ -78,6 +102,26 @@ const PembelianBarang = () => {
       toast.error("Gagal memuat kategori");
     }
   };
+
+  const loadPembelian = async (id) => {
+    try {
+      const res = await getPembelianById(id);
+
+      setHeader(res.header);
+
+      setUnitId(res.header.unit_id);
+
+      setDetails(res.detail);
+    } catch (err) {
+      toast.error("Gagal memuat data pembelian");
+    }
+  };
+
+  useEffect(() => {
+    if (id) {
+      loadPembelian(id);
+    }
+  }, [id]);
 
   useEffect(() => {
     loadKategori();
@@ -141,7 +185,7 @@ const PembelianBarang = () => {
 
   const handleSave = async () => {
     try {
-      await savePembelianBarang({
+      const res = await savePembelianBarang({
         header: {
           ...header,
           unit_id: unitId,
@@ -151,9 +195,31 @@ const PembelianBarang = () => {
         units,
       });
 
-      toast.success("Pembelian berhasil disimpan");
+      if (res?.id) {
+        setHeader((prev) => ({
+          ...prev,
+          id: res.id,
+        }));
+      }
+
+      toast.success(res.message || "Pembelian berhasil disimpan");
     } catch (err) {
       toast.error(err.response?.data?.message || "Gagal menyimpan");
+    }
+  };
+
+  const handleFinalisasi = async () => {
+    try {
+      await submitFinalisasi(header.id);
+
+      toast.success("Pembelian berhasil difinalisasi");
+
+      setHeader((prev) => ({
+        ...prev,
+        status: "FINAL",
+      }));
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Gagal finalisasi");
     }
   };
 
@@ -191,6 +257,15 @@ const PembelianBarang = () => {
       toast.error(err.response?.data?.message || "Gagal menyimpan barang");
     }
   };
+
+  // =========================
+  // READ ONLY
+  // =========================
+
+  const isDraft = header.status === "DRAFT";
+  const isFinal = header.status === "FINAL";
+
+  // =========================
 
   // -----------------------
   // RENDER
@@ -246,9 +321,9 @@ const PembelianBarang = () => {
                 value={unitId}
                 onChange={(e) => setUnitId(e.target.value)}
               >
-                {units.map((unit) => (
-                  <option key={unit} value={unit}>
-                    {unit}
+                {unitList.map((unit) => (
+                  <option key={unit.unit_id} value={unit.unit_id}>
+                    {unit.unit_nm}
                   </option>
                 ))}
               </select>
@@ -379,7 +454,8 @@ const PembelianBarang = () => {
                         <input
                           type="number"
                           min="1"
-                          className="form-control form-control-sm pt-2"
+                          className="form-control form-control-sm"
+                          style={{ padding: "9px" }}
                           value={row.qty}
                           onChange={(e) =>
                             updateRow(idx, "qty", e.target.value)
@@ -393,6 +469,7 @@ const PembelianBarang = () => {
                         <input
                           type="number"
                           className="form-control form-control-sm text-end"
+                          style={{ padding: "9px" }}
                           value={row.harga}
                           onChange={(e) =>
                             updateRow(idx, "harga", e.target.value)
@@ -417,9 +494,22 @@ const PembelianBarang = () => {
           </div>
 
           <div className="mt-3 text-end">
-            <button className="btn btn-success" onClick={handleSave}>
-              Simpan Pembelian
-            </button>
+            {/* SIMPAN */}
+            {isDraft && (
+              <button className="btn btn-success" onClick={handleSave}>
+                Simpan Pembelian
+              </button>
+            )}
+
+            {/* FINALISASI */}
+            {header.id && isDraft && (
+              <button
+                className="btn btn-warning ms-2"
+                onClick={handleFinalisasi}
+              >
+                Finalisasi
+              </button>
+            )}
           </div>
         </div>
       </div>

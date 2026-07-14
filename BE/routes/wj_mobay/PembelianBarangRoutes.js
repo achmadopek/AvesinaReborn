@@ -5,7 +5,7 @@ const router = express.Router();
 
 const pembelianBarangController = require("../../controllers/wj_mobay/pembelianBarangController");
 
-router.get("/unitList", pembelianBarangController.fetchUnitList);
+router.post("/unitList", pembelianBarangController.fetchUnitList);
 
 router.get("/barangList", pembelianBarangController.fetchBarangList);
 
@@ -18,5 +18,9 @@ router.get("/detail/:id", pembelianBarangController.getDetail);
 router.post("/saveBarang", pembelianBarangController.saveBarang);
 
 router.post("/save", pembelianBarangController.save);
+
+router.post("/finalisasi", pembelianBarangController.finalisasi);
+
+router.get("/:id", pembelianBarangController.getById);
 
 module.exports = router;
