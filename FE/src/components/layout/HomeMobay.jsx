@@ -14,6 +14,7 @@ import {
   getTagihanJatuhTempo,
   getTopTagihan,
   getBottomTagihan,
+  getSummaryUtangPiutang,
 } from "../../api/wj_mobay/DashboardMobay";
 
 import { formatCurrency } from "../../utils/FormatNumber";
@@ -28,6 +29,12 @@ const HomeMobay = () => {
   const [top5, setTop5] = useState([]);
   const [bottom5, setBottom5] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const [data, setData] = useState([]);
+  const [utangPiutang, setUtangPiutang] = useState({
+    detail: [],
+    total: {},
+  });
 
   // ======== STATE UNTUK FILTER ========
   const [showFilter, setShowFilter] = useState(false);
@@ -61,11 +68,11 @@ const HomeMobay = () => {
   };
 
   const [start, setStart] = useState(
-    formatLocalDate(new Date(now.getFullYear(), now.getMonth(), 1))
+    formatLocalDate(new Date(now.getFullYear(), now.getMonth(), 1)),
   );
 
   const [end, setEnd] = useState(
-    formatLocalDate(new Date(now.getFullYear(), now.getMonth() + 1, 0))
+    formatLocalDate(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
   );
 
   const fetchDashboard = (startDate, endDate) => {
@@ -133,6 +140,33 @@ const HomeMobay = () => {
 
     setShowFilter(false);
   };
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const today = new Date();
+
+        const start = new Date(today.getFullYear(), today.getMonth(), 1)
+          .toISOString()
+          .slice(0, 10);
+
+        const end = today.toISOString().slice(0, 10);
+
+        const res = await getSummaryUtangPiutang({
+          start,
+          end,
+          status: "",
+          units: [1, 2, 3, 4, 5],
+        });
+
+        setUtangPiutang(res);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    loadData();
+  }, []);
 
   return (
     <div className="container-fluid py-0 px-0" style={{ position: "relative" }}>
@@ -210,7 +244,6 @@ const HomeMobay = () => {
             </h2>
 
             <div className="space-y-3">
-
               {/* MODE */}
               <div className="row items-center">
                 <label className="col-md-4 text-sm font-medium text-gray-700">
@@ -289,7 +322,6 @@ const HomeMobay = () => {
                   </div>
                 </>
               )}
-
             </div>
 
             <div className="mt-3 flex justify-between">
@@ -571,6 +603,145 @@ const HomeMobay = () => {
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+
+        {/* SUMMARY UTANG PIUTANG */}
+        <div className="card shadow-sm card-theme mt-3">
+          <div className="card-header bg-primary text-white">
+            <h6 className="mb-0">Posisi Sisa Hutang Saat Ini</h6>
+            <small>
+              Akumulasi penerimaan dan pembayaran hingga tanggal hari ini
+            </small>
+          </div>
+
+          <div className="card-body p-2">
+            <div className="table-responsive">
+              <table className="table table-bordered table-sm">
+                <thead>
+                  <tr>
+                    <th style={{ minWidth: "220px" }}>Sumber / Kategori</th>
+                    <th className="text-end">Diajukan</th>
+                    <th className="text-end">Dibayar</th>
+                    <th className="text-end">Saldo</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {utangPiutang?.detail?.length > 0 ? (
+                    <>
+                      {/* ====== BAGIAN AVESINA ====== */}
+                      {utangPiutang.detail
+                        .filter((row) => row.sumber === "AVESINA")
+                        .map((row, idx) => (
+                          <tr key={`avesina-${idx}`}>
+                            <td>
+                              <span className="badge bg-info me-2">
+                                AVESINA
+                              </span>
+                              {row.kategori}
+                              {row.diajukan === 0 &&
+                                row.dibayar === 0 &&
+                                row.saldo === 0 && (
+                                  <span className="badge bg-secondary ms-2">
+                                    Kosong
+                                  </span>
+                                )}
+                            </td>
+                            <td className="text-end">
+                              {formatCurrency(row.diajukan)}
+                            </td>
+                            <td className="text-end">
+                              {formatCurrency(row.dibayar)}
+                            </td>
+                            <td className="text-end fw-bold">
+                              {formatCurrency(row.saldo)}
+                            </td>
+                          </tr>
+                        ))}
+
+                      {/* ====== SEPARATOR ====== 
+                      {utangPiutang.detail.some(
+                        (r) => r.sumber === "PEMBELIAN LANGSUNG",
+                      ) && (
+                        <tr className="table-secondary">
+                          <td colSpan="4" className="text-center fw-bold py-1">
+                            ─── PEMBELIAN LANGSUNG ───
+                          </td>
+                        </tr>
+                      )} */}
+
+                      {/* ====== BAGIAN PEMBELIAN LANGSUNG ====== */}
+                      {utangPiutang.detail
+                        .filter((row) => row.sumber === "PEMBELIAN LANGSUNG")
+                        .map((row, idx) => (
+                          <tr
+                            key={`langsung-${idx}`}
+                            //className={row.saldo === 0 ? "table-light" : ""}
+                          >
+                            <td>
+                              <span className="badge bg-success me-2">
+                                LANGSUNG
+                              </span>
+                              {row.kategori}
+                              {/*{row.saldo === 0 && (
+                                <span className="badge bg-secondary ms-2">
+                                  Rp 0
+                                </span>
+                              )}*/}
+                            </td>
+                            <td className="text-end">
+                              {formatCurrency(row.diajukan)}
+                            </td>
+                            <td className="text-end">
+                              <span className="text-muted">
+                                {formatCurrency(row.dibayar)}
+                              </span>
+                            </td>
+                            <td
+                              className={`text-end fw-bold ${row.saldo > 0 ? "text-danger" : "text-muted"}`}
+                            >
+                              {formatCurrency(row.saldo)}
+                            </td>
+                          </tr>
+                        ))}
+                    </>
+                  ) : (
+                    <tr>
+                      <td colSpan="4" className="text-center text-muted">
+                        Tidak ada data
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+
+                {/* ====== TOTAL ====== */}
+                <tfoot>
+                  <tr className="table-primary fw-bold">
+                    <td>TOTAL KESELURUHAN</td>
+                    <td className="text-end">
+                      {formatCurrency(utangPiutang?.total?.diajukan || 0)}
+                    </td>
+                    <td className="text-end">
+                      {formatCurrency(utangPiutang?.total?.dibayar || 0)}
+                    </td>
+                    <td className="text-end">
+                      {formatCurrency(utangPiutang?.total?.saldo || 0)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            {/* ====== LEGENDA ====== */}
+            <div className="mt-2 p-2 bg-light rounded small">
+              <span className="badge bg-info me-2">AVESINA</span> Data dari
+              aplikasi AVESINA (PO / Invoice)
+              <span className="badge bg-success ms-3 me-2">LANGSUNG</span> Data
+              dari Pembelian Langsung (termasuk DRAFT)
+              <span className="badge bg-secondary ms-3 me-2">Kosong</span>{" "}
+              Kategori tanpa transaksi
             </div>
           </div>
         </div>

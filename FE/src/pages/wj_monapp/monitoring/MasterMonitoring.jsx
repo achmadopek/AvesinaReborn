@@ -29,7 +29,7 @@ import { useNotification } from "../../../context/NotificationContext";
 import { Button } from "react-bootstrap";
 
 const MonitoringAplicares = lazy(() => import("./MonitoringAplicares"));
-const MonitoringVClaim = lazy(() => import("./MonitoringVClaim"));
+const MonitoringMobay = lazy(() => import("./MonitoringMobay"));
 const MonitoringAntreanRS = lazy(() => import("./MonitoringAntreanRS"));
 const MonitoringDisplay = lazy(() => import("./MonitoringDisplay"));
 const MonitoringApotek = lazy(() => import("./MonitoringApotek"));
@@ -563,7 +563,7 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
           { label: "Diajukan", value: mobayStats.totalDiajukan },
         ],
         disabled: false,
-        component: (props) => <MonitoringVClaim {...props} />,
+        component: (props) => <MonitoringMobay {...props} />,
       },
     ],
     [

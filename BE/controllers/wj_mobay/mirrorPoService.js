@@ -142,10 +142,7 @@ async function getDataSumberByTanggal(startDate, endDate, typeTglFilter) {
       AND ${column} BETWEEN ? AND ?
     `;
 
-    params = [
-      `${startDate} 00:00:00`,
-      `${endDate} 23:59:59`,
-    ];
+    params = [`${startDate} 00:00:00`, `${endDate} 23:59:59`];
   }
 
   sql += `
@@ -276,10 +273,9 @@ async function getDataMirrorByTanggal(start, end, typeTglFilter) {
     ORDER BY po.po_acce_id, d.id
   `;
 
-  const [rows] = await db.promise().query(sql, [
-    `${start} 00:00:00`,
-    `${end} 23:59:59`,
-  ]);
+  const [rows] = await db
+    .promise()
+    .query(sql, [`${start} 00:00:00`, `${end} 23:59:59`]);
 
   return rows;
 }
@@ -319,10 +315,9 @@ async function getDataMirrorPengajuanByTanggal(start, end, typeTglFilter) {
     ORDER BY po.po_acce_id, d.id
   `;
 
-  const [rows] = await db.promise().query(sql, [
-    `${start} 00:00:00`,
-    `${end} 23:59:59`,
-  ]);
+  const [rows] = await db
+    .promise()
+    .query(sql, [`${start} 00:00:00`, `${end} 23:59:59`]);
 
   return rows;
 }
@@ -412,10 +407,9 @@ async function getMonitoringBySuratPengantar(start, end, typeTglFilter) {
     ORDER BY po.pengajuan_id DESC, po.po_acce_id
   `;
 
-  const [rows] = await db.promise().query(sql, [
-    `${start} 00:00:00`,
-    `${end} 23:59:59`,
-  ]);
+  const [rows] = await db
+    .promise()
+    .query(sql, [`${start} 00:00:00`, `${end} 23:59:59`]);
 
   const suratMap = new Map();
 
@@ -457,9 +451,7 @@ async function getMonitoringBySuratPengantar(start, end, typeTglFilter) {
     if (r.tgl_bayar) surat.tgl_bayar = r.tgl_bayar;
 
     // ================= INVOICE =================
-    let invoice = surat.invoices.find(
-      (inv) => inv.po_acce_id === r.po_acce_id
-    );
+    let invoice = surat.invoices.find((inv) => inv.po_acce_id === r.po_acce_id);
 
     if (!invoice) {
       invoice = {
@@ -498,12 +490,11 @@ async function getMonitoringBySuratPengantar(start, end, typeTglFilter) {
   }
 
   // cleanup internal field
-  return Array.from(suratMap.values()).map(s => {
+  return Array.from(suratMap.values()).map((s) => {
     delete s._invoiceSet;
     return s;
   });
 }
-
 
 /* ======================================================
  * B. KONSOLIDASI → MIRROR ENTRY
@@ -543,7 +534,7 @@ async function saveKonsolidasiHeader({
   total_tagihan,
   total_diajukan,
 
-  conn
+  conn,
 }) {
   if (!po_acce_id) {
     throw new Error("po_acce_id wajib diisi");
@@ -554,7 +545,7 @@ async function saveKonsolidasiHeader({
   // cek apakah header mirror sudah ada
   const [exist] = await executor.query(
     `SELECT id FROM mobay_mirror_po WHERE po_acce_id = ?`,
-    [po_acce_id]
+    [po_acce_id],
   );
 
   if (exist.length === 0) {
@@ -608,8 +599,8 @@ async function saveKonsolidasiHeader({
         invoice_received_dt,
 
         total_tagihan,
-        total_diajukan
-      ]
+        total_diajukan,
+      ],
     );
   } else {
     // ================= UPDATE =================
@@ -652,8 +643,8 @@ async function saveKonsolidasiHeader({
         total_tagihan,
         total_diajukan,
 
-        po_acce_id
-      ]
+        po_acce_id,
+      ],
     );
   }
 }
@@ -664,7 +655,7 @@ async function saveKonsolidasiItems(po_acce_id, items, conn) {
   // ambil mirror_po_id
   const [header] = await executor.query(
     `SELECT id FROM mobay_mirror_po WHERE po_acce_id = ?`,
-    [po_acce_id]
+    [po_acce_id],
   );
 
   if (!header.length) {
@@ -689,7 +680,8 @@ async function saveKonsolidasiItems(po_acce_id, items, conn) {
     } = it;
 
     // UPSERT item
-    await executor.query(`
+    await executor.query(
+      `
       INSERT INTO mobay_mirror_po_dtl (
         mirror_po_id,
         drug_equi_id,
@@ -723,37 +715,42 @@ async function saveKonsolidasiItems(po_acce_id, items, conn) {
         jenis_item = VALUES(jenis_item),
         is_checked = VALUES(is_checked),
         jenis_pengadaan = VALUES(jenis_pengadaan)
-    `, [
-      mirror_po_id,
-      drug_equi_id,
-      item_name,
-      qty,
-      price,
-      tax,
-      discount,
-      nettoprice,
-      subtotal,
-      jenis_item,
-      jenis_pengadaan,
-      is_checked
-    ]);
+    `,
+      [
+        mirror_po_id,
+        drug_equi_id,
+        item_name,
+        qty,
+        price,
+        tax,
+        discount,
+        nettoprice,
+        subtotal,
+        jenis_item,
+        jenis_pengadaan,
+        is_checked,
+      ],
+    );
   }
 }
 
 async function getKonsolidasiItems(po_acce_id, conn = db.promise()) {
   const [header] = await conn.query(
     `SELECT id FROM mobay_mirror_po WHERE po_acce_id = ?`,
-    [po_acce_id]
+    [po_acce_id],
   );
 
   if (!header.length) return [];
 
-  const [rows] = await conn.query(`
+  const [rows] = await conn.query(
+    `
     SELECT *
     FROM mobay_mirror_po_dtl
     WHERE mirror_po_id = ?
       AND is_checked = 1
-  `, [header[0].id]);
+  `,
+    [header[0].id],
+  );
 
   return rows;
 }
@@ -761,14 +758,14 @@ async function getKonsolidasiItems(po_acce_id, conn = db.promise()) {
 async function updateTahap(po_acce_id, tahap, conn = db.promise()) {
   await conn.query(
     `UPDATE mobay_mirror_po SET tahap = ? WHERE po_acce_id = ?`,
-    [tahap, po_acce_id]
+    [tahap, po_acce_id],
   );
 }
 
 async function recalcTotalTagihan(po_acce_id, conn) {
   const [[header]] = await conn.query(
     `SELECT id FROM mobay_mirror_po WHERE po_acce_id = ?`,
-    [po_acce_id]
+    [po_acce_id],
   );
 
   if (!header) throw new Error("Header mirror tidak ditemukan");
@@ -780,7 +777,7 @@ async function recalcTotalTagihan(po_acce_id, conn) {
       FROM mobay_mirror_po_dtl
       WHERE mirror_po_id = ?
     `,
-    [header.id]
+    [header.id],
   );
 
   await conn.query(
@@ -789,7 +786,7 @@ async function recalcTotalTagihan(po_acce_id, conn) {
       SET total_tagihan = ?
       WHERE id = ?
     `,
-    [row.total || 0, header.id]
+    [row.total || 0, header.id],
   );
 }
 
@@ -803,33 +800,24 @@ async function updateMirrorStatus(
   status_pengolahan,
   status_validasi,
   status_pembayaran,
-  conn
+  conn,
 ) {
   const executor = conn || db.promise();
 
   const fields = [];
   const values = [];
 
-  if (
-    status_pengolahan !== undefined &&
-    status_pengolahan !== null
-  ) {
+  if (status_pengolahan !== undefined && status_pengolahan !== null) {
     fields.push("status_pengolahan = ?");
     values.push(status_pengolahan);
   }
 
-  if (
-    status_validasi !== undefined &&
-    status_validasi !== null
-  ) {
+  if (status_validasi !== undefined && status_validasi !== null) {
     fields.push("status_validasi = ?");
     values.push(status_validasi);
   }
 
-  if (
-    status_pembayaran !== undefined &&
-    status_pembayaran !== null
-  ) {
+  if (status_pembayaran !== undefined && status_pembayaran !== null) {
     fields.push("status_pembayaran = ?");
     values.push(status_pembayaran);
   }
@@ -857,14 +845,14 @@ async function updateCatatanVerifikasi(po_acce_id, catatan, conn) {
     `UPDATE mobay_mirror_po
      SET catatan_verifikasi = ?
      WHERE po_acce_id = ?`,
-    [catatan, po_acce_id]
+    [catatan, po_acce_id],
   );
 }
 
 async function updateItemPembayaran(po_acce_id, items, conn) {
   const [header] = await conn.query(
     `SELECT id FROM mobay_mirror_po WHERE po_acce_id = ?`,
-    [po_acce_id]
+    [po_acce_id],
   );
 
   if (!header.length) {
@@ -881,7 +869,7 @@ async function updateItemPembayaran(po_acce_id, items, conn) {
           nominal_ajukan = NULL
       WHERE mirror_po_id = ?
     `,
-    [mirror_po_id]
+    [mirror_po_id],
   );
 
   // 2️⃣ Update item terpilih
@@ -900,7 +888,7 @@ async function updateItemPembayaran(po_acce_id, items, conn) {
         WHERE mirror_po_id = ?
           AND drug_equi_id = ?
       `,
-      [nominal, mirror_po_id, it.drug_equi_id]
+      [nominal, mirror_po_id, it.drug_equi_id],
     );
   }
 }
@@ -910,9 +898,8 @@ async function updateItemNominalPembayaran(
   drugId,
   status_pembayaran,
   nominal_bayar,
-  conn
+  conn,
 ) {
-
   if (nominal_bayar === null) {
     // mode bayar total → skip item
     return;
@@ -925,7 +912,7 @@ async function updateItemNominalPembayaran(
 
   const [header] = await conn.query(
     `SELECT id FROM mobay_mirror_po WHERE po_acce_id = ?`,
-    [po_acce_id]
+    [po_acce_id],
   );
 
   if (!header.length) {
@@ -938,7 +925,7 @@ async function updateItemNominalPembayaran(
     SET status_pembayaran = ?, nominal_bayar = ?
     WHERE mirror_po_id = ? AND drug_equi_id = ?
   `,
-    [status_pembayaran, safeNominal, header[0].id, drugId]
+    [status_pembayaran, safeNominal, header[0].id, drugId],
   );
 
   return result;
@@ -947,7 +934,7 @@ async function updateItemNominalPembayaran(
 async function recalcTotalDiajukan(po_acce_id, conn) {
   const [[header]] = await conn.query(
     `SELECT id FROM mobay_mirror_po WHERE po_acce_id = ?`,
-    [po_acce_id]
+    [po_acce_id],
   );
 
   const [[row]] = await conn.query(
@@ -957,7 +944,7 @@ async function recalcTotalDiajukan(po_acce_id, conn) {
       WHERE mirror_po_id = ?
         AND is_checked = 1
     `,
-    [header.id]
+    [header.id],
   );
 
   await conn.query(
@@ -966,14 +953,14 @@ async function recalcTotalDiajukan(po_acce_id, conn) {
       SET total_diajukan = ?
       WHERE id = ?
     `,
-    [row.total || 0, header.id]
+    [row.total || 0, header.id],
   );
 }
 
 async function recalcTotalBayar(po_acce_id, conn) {
   const [[header]] = await conn.query(
     `SELECT id, total_diajukan FROM mobay_mirror_po WHERE po_acce_id = ?`,
-    [po_acce_id]
+    [po_acce_id],
   );
 
   const [[row]] = await conn.query(
@@ -982,7 +969,7 @@ async function recalcTotalBayar(po_acce_id, conn) {
       FROM mobay_mirror_po_dtl
       WHERE mirror_po_id = ?
     `,
-    [header.id]
+    [header.id],
   );
 
   const totalBayar = row.total || 0;
@@ -994,7 +981,7 @@ async function recalcTotalBayar(po_acce_id, conn) {
       SET total_bayar = ?, selisih_bayar = ?
       WHERE id = ?
     `,
-    [totalBayar, selisih, header.id]
+    [totalBayar, selisih, header.id],
   );
 }
 
@@ -1004,7 +991,7 @@ async function updateTotalBayar(
   selisih_bayar,
   tgl_bayar,
   catatan_bayar,
-  conn
+  conn,
 ) {
   const executor = conn || db.promise();
 
@@ -1015,7 +1002,7 @@ async function updateTotalBayar(
          invoice_paid_dt = ?,
          catatan_bayar = ?
      WHERE po_acce_id = ?`,
-    [total_bayar, selisih_bayar, tgl_bayar, catatan_bayar, po_acce_id]
+    [total_bayar, selisih_bayar, tgl_bayar, catatan_bayar, po_acce_id],
   );
 
   return result;
@@ -1026,7 +1013,7 @@ async function resetItemsValidasi(po_acce_id) {
     `UPDATE mobay_mirror_po_dtl
      SET status_validasi = 'Belum Validasi'
      WHERE mirror_po_id = (SELECT id FROM mobay_mirror_po WHERE po_acce_id = ?)`,
-    [po_acce_id]
+    [po_acce_id],
   );
 }
 
@@ -1035,16 +1022,17 @@ async function resetItemsPembayaran(po_acce_id) {
     `UPDATE mobay_mirror_po_dtl
       SET status_pembayaran = 'Belum Bayar'
     WHERE mirror_po_id = (SELECT id FROM mobay_mirror_po WHERE po_acce_id = ?)`,
-    [po_acce_id]
+    [po_acce_id],
   );
 }
 
 async function kunciInvoice(po_acce_id) {
   const [result] = await db
     .promise()
-    .query(`UPDATE mobay_mirror_po SET kunci_invoice = 1 WHERE po_acce_id = ?`, [
-      po_acce_id,
-    ]);
+    .query(
+      `UPDATE mobay_mirror_po SET kunci_invoice = 1 WHERE po_acce_id = ?`,
+      [po_acce_id],
+    );
   return result;
 }
 
@@ -1054,7 +1042,8 @@ async function kunciInvoice(po_acce_id) {
  * ====================================================== */
 
 async function getProviderSaldo(prvdr_id, conn = db.promise()) {
-  const [rows] = await conn.query(`
+  const [rows] = await conn.query(
+    `
     SELECT COALESCE(SUM(
       CASE
         WHEN tipe = 'KREDIT' THEN nominal
@@ -1063,7 +1052,9 @@ async function getProviderSaldo(prvdr_id, conn = db.promise()) {
     ), 0) AS saldo
     FROM mobay_provider_saldo_tx
     WHERE prvdr_id = ?
-  `, [prvdr_id]);
+  `,
+    [prvdr_id],
+  );
 
   return Number(rows[0].saldo);
 }
@@ -1074,18 +1065,22 @@ async function insertProviderSaldoTx({
   tipe,
   nominal,
   keterangan,
-  conn
+  conn,
 }) {
-  await conn.query(`
+  await conn.query(
+    `
     INSERT INTO mobay_provider_saldo_tx
     (prvdr_id, ref_po_acce_id, tipe, nominal, keterangan)
     VALUES (?, ?, ?, ?, ?)
-  `, [prvdr_id, po_acce_id, tipe, nominal, keterangan]);
+  `,
+    [prvdr_id, po_acce_id, tipe, nominal, keterangan],
+  );
 }
 
 async function applySaldoToInvoice(po_acce_id, prvdr_id, conn) {
   // 0️⃣ Guard: jangan apply dua kali
-  const [exist] = await conn.query(`
+  const [exist] = await conn.query(
+    `
     SELECT 1
     FROM mobay_mirror_po_dtl d
     JOIN mobay_mirror_po h ON h.id = d.mirror_po_id
@@ -1093,7 +1088,9 @@ async function applySaldoToInvoice(po_acce_id, prvdr_id, conn) {
     AND d.is_adjustment = 1
     LIMIT 1
     FOR UPDATE
-  `, [po_acce_id]);
+  `,
+    [po_acce_id],
+  );
 
   if (exist.length > 0) return;
 
@@ -1104,7 +1101,7 @@ async function applySaldoToInvoice(po_acce_id, prvdr_id, conn) {
   // 2️⃣ Ambil mirror_po_id
   const [header] = await conn.query(
     `SELECT id FROM mobay_mirror_po WHERE po_acce_id = ?`,
-    [po_acce_id]
+    [po_acce_id],
   );
 
   if (header.length === 0) {
@@ -1117,11 +1114,14 @@ async function applySaldoToInvoice(po_acce_id, prvdr_id, conn) {
   // SALDO LEBIH BAYAR
   // ======================
   if (saldo > 0) {
-    await conn.query(`
+    await conn.query(
+      `
       INSERT INTO mobay_mirror_po_dtl
       (mirror_po_id, drug_nm, qty, price, subtotal, is_adjustment)
       VALUES (?, 'Pemakaian saldo sebelumnya', 1, ?, ?, 1)
-    `, [mirror_po_id, -saldo, -saldo]);
+    `,
+      [mirror_po_id, -saldo, -saldo],
+    );
 
     await insertProviderSaldoTx({
       prvdr_id,
@@ -1129,7 +1129,7 @@ async function applySaldoToInvoice(po_acce_id, prvdr_id, conn) {
       tipe: "DEBIT",
       nominal: saldo,
       keterangan: "Pemakaian saldo",
-      conn
+      conn,
     });
   }
 
@@ -1139,11 +1139,14 @@ async function applySaldoToInvoice(po_acce_id, prvdr_id, conn) {
   if (saldo < 0) {
     const hutang = Math.abs(saldo);
 
-    await conn.query(`
+    await conn.query(
+      `
       INSERT INTO mobay_mirror_po_dtl
       (mirror_po_id, drug_nm, qty, price, subtotal, is_adjustment)
       VALUES (?, 'Penagihan saldo sebelumnya', 1, ?, ?, 1)
-    `, [mirror_po_id, hutang, hutang]);
+    `,
+      [mirror_po_id, hutang, hutang],
+    );
 
     await insertProviderSaldoTx({
       prvdr_id,
@@ -1151,7 +1154,7 @@ async function applySaldoToInvoice(po_acce_id, prvdr_id, conn) {
       tipe: "KREDIT",
       nominal: hutang,
       keterangan: "Pelunasan hutang saldo",
-      conn
+      conn,
     });
   }
 }
@@ -1179,16 +1182,15 @@ async function getInvoiceMirrorList() {
 async function getMirrorByPoAcce(po_acce_id, conn = db.promise()) {
   const [rows] = await conn.query(
     `SELECT * FROM mobay_mirror_po WHERE po_acce_id = ? LIMIT 1`,
-    [po_acce_id]
+    [po_acce_id],
   );
   return rows[0] || null;
 }
 
 async function getMirrorItemsByPoAcce(po_acce_id) {
-  const [header] = await db.promise().query(
-    `SELECT id FROM mobay_mirror_po WHERE po_acce_id = ?`,
-    [po_acce_id]
-  );
+  const [header] = await db
+    .promise()
+    .query(`SELECT id FROM mobay_mirror_po WHERE po_acce_id = ?`, [po_acce_id]);
   if (!header.length) return [];
 
   const [rows] = await db.promise().query(
@@ -1202,7 +1204,7 @@ async function getMirrorItemsByPoAcce(po_acce_id) {
       FROM mobay_mirror_po_dtl
       WHERE mirror_po_id = ?
     `,
-    [header[0].id]
+    [header[0].id],
   );
 
   return rows;
@@ -1308,7 +1310,6 @@ async function getDashboardSummary(start, end, typeTglFilter) {
   };
 }
 
-
 async function getTagihanGrouped(startDate, endDate, typeTglFilter) {
   const rows = await getDataSumberByTanggal(startDate, endDate, typeTglFilter);
   const mirrorMap = await getInvoiceMirrorList();
@@ -1325,15 +1326,9 @@ async function getTagihanGrouped(startDate, endDate, typeTglFilter) {
         prvdr_str: r.prvdr_str,
         srvc_unit_nm: r.srvc_unit_nm,
 
-        invoice_due_dt:
-          mirror?.invoice_due_dt ??
-          r.invoice_due_dt ??
-          null,
+        invoice_due_dt: mirror?.invoice_due_dt ?? r.invoice_due_dt ?? null,
 
-        invoice_dt:
-          mirror?.invoice_dt ??
-          r.invoice_dt ??
-          null,
+        invoice_dt: mirror?.invoice_dt ?? r.invoice_dt ?? null,
 
         total_tagihan: 0,
         total_diajukan: Number(mirror?.total_diajukan ?? 0),
@@ -1376,8 +1371,8 @@ async function getTagihanGrouped(startDate, endDate, typeTglFilter) {
 }
 
 async function ambilDataBySurat(surat_id) {
-
-  const [rows] = await db.promise().query(`
+  const [rows] = await db.promise().query(
+    `
     SELECT 
       po.id,
       po.invoice_no,
@@ -1401,7 +1396,9 @@ async function ambilDataBySurat(surat_id) {
       ON po.pengajuan_id = msp.id 
     WHERE po.pengajuan_id = ?
     ORDER BY po.id
-  `, [surat_id]);
+  `,
+    [surat_id],
+  );
 
   if (!rows.length) {
     throw new Error("Data surat tidak ditemukan");
@@ -1413,22 +1410,17 @@ async function ambilDataBySurat(surat_id) {
   let checklist_verifikasi = {};
 
   try {
-
-    checklist_verifikasi =
-      rows[0].checklist_verifikasi
-        ? JSON.parse(rows[0].checklist_verifikasi)
-        : {};
-
+    checklist_verifikasi = rows[0].checklist_verifikasi
+      ? JSON.parse(rows[0].checklist_verifikasi)
+      : {};
   } catch {
-
     checklist_verifikasi = {};
   }
 
   // =========================
   // DETAIL PER INVOICE
   // =========================
-  const invoiceDetails = rows.map(r => {
-    
+  const invoiceDetails = rows.map((r) => {
     if (
       r.dpp_rounded == null ||
       r.ppn_rounded == null ||
@@ -1440,11 +1432,11 @@ async function ambilDataBySurat(surat_id) {
     return {
       invoice_no: r.invoice_no,
       diajukan: Number(r.total_diajukan || 0),
-    
+
       dpp_rounded: Number(r.dpp_rounded || 0),
       ppn_rounded: Number(r.ppn_rounded || 0),
       pph_rounded: Number(r.pph_rounded || 0),
-    
+
       status_validasi: r.status_validasi || "Belum Validasi",
     };
   });
@@ -1454,9 +1446,7 @@ async function ambilDataBySurat(surat_id) {
   // =========================
   const round = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 
-  const grandTotal = round(
-    invoiceDetails.reduce((s, v) => s + v.diajukan, 0)
-  );
+  const grandTotal = round(invoiceDetails.reduce((s, v) => s + v.diajukan, 0));
 
   const grandDPP = round(invoiceDetails.reduce((s, v) => s + v.dpp, 0));
   const grandPPN = round(invoiceDetails.reduce((s, v) => s + v.ppn, 0));
@@ -1501,7 +1491,7 @@ async function updateStatusKonsolidasi(po_acce_id, conn) {
       invoice_consolidated_dt = NULL
     WHERE po_acce_id = ?
     `,
-    [po_acce_id]
+    [po_acce_id],
   );
 
   const [res2] = await executor.query(
@@ -1513,27 +1503,38 @@ async function updateStatusKonsolidasi(po_acce_id, conn) {
       d.is_konsolidasi = 0
     WHERE h.po_acce_id = ?
     `,
-    [po_acce_id]
+    [po_acce_id],
   );
 
   return { success: true };
 }
 
 async function generateNoVerifikasi(conn) {
-
   const now = new Date();
 
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
 
   const roman = [
-    "", "I", "II", "III", "IV", "V", "VI",
-    "VII", "VIII", "IX", "X", "XI", "XII"
+    "",
+    "I",
+    "II",
+    "III",
+    "IV",
+    "V",
+    "VI",
+    "VII",
+    "VIII",
+    "IX",
+    "X",
+    "XI",
+    "XII",
   ];
 
   const bulanRomawi = roman[month];
 
-  const [rows] = await conn.query(`
+  const [rows] = await conn.query(
+    `
     SELECT no_verifikasi
     FROM mobay_pengajuan
     WHERE no_verifikasi IS NOT NULL
@@ -1548,12 +1549,13 @@ async function generateNoVerifikasi(conn) {
       ) DESC
     LIMIT 1
     FOR UPDATE
-  `, [`%/${bulanRomawi}/${year}`]);
+  `,
+    [`%/${bulanRomawi}/${year}`],
+  );
 
   let lastNumber = 0;
 
   if (rows.length > 0) {
-
     const last = rows[0].no_verifikasi;
 
     const match = last.match(/\.(\d{4})\//);
@@ -1624,5 +1626,5 @@ module.exports = {
 
   //SURAT PENGANTAR
   ambilDataBySurat,
-  generateNoVerifikasi
+  generateNoVerifikasi,
 };

@@ -37,3 +37,9 @@ export const getTopTagihan = ({ start, end, typeTglFilter }) =>
 // ================================
 export const getBottomTagihan = ({ start, end, typeTglFilter }) =>
   safeGet(`${BASE}/bottom`, { start, end, typeTglFilter }, []);
+
+// ================================
+// 5. Utang Piutang
+// ================================
+export const getSummaryUtangPiutang = ({ start, end, status, units }) =>
+  safeGet(`${BASE}/summary-utang-piutang`, { start, end, status, units }, []);

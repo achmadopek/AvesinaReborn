@@ -8,4 +8,9 @@ router.get("/jatuh-tempo", dashboardMobayController.getTagihanJatuhTempo);
 router.get("/top", dashboardMobayController.getTopTagihan);
 router.get("/bottom", dashboardMobayController.getBottomTagihan);
 
+router.get(
+  "/summary-utang-piutang",
+  dashboardMobayController.getUtangPiutangSummary,
+);
+
 module.exports = router;

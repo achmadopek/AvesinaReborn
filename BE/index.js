@@ -209,7 +209,10 @@ app.use(
 );
 
 // Mobay
-app.use("/api/mobay/Dashboard", require("./routes/wj_mobay/DashboardMobay"));
+app.use(
+  "/api/mobay/Dashboard",
+  require("./routes/wj_mobay/DashboardMobayRoutes"),
+);
 app.use(
   "/api/mobay/KonsolidasiTagihan",
   require("./routes/wj_mobay/KonsolidasiTagihanRoutes"),
