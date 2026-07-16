@@ -7,20 +7,25 @@ export const verifikasiINMHarian = async ({
   catatan_verifikasi,
   verified_by,
 }) => {
-  const res = await API.put(
-    "/api/inm/VerifikasiINMHarian/verifikasi",
-    {
-      harian_id,
-      status_verifikasi,
-      catatan_verifikasi,
-      verified_by,
-    }
-  );
+  const res = await API.put("/api/inm/VerifikasiINMHarian/verifikasi", {
+    harian_id,
+    status_verifikasi,
+    catatan_verifikasi,
+    verified_by,
+  });
   return res.data;
 };
 
+export const fetchRuanganByInstalasi = async (peg_id, role, units) => {
+  const res = await API.get("/api/inm/VerifikasiINMHarian/ruangan", {
+    params: { peg_id, role, units },
+  });
+  return res.data;
+};
 
-
-
-
-
+export const fetchRuanganAll = async (peg_id, role, units) => {
+  const res = await API.get("/api/inm/VerifikasiINMHarian/ruangan", {
+    params: { peg_id, role, units },
+  });
+  return res.data;
+};

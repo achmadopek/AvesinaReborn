@@ -30,77 +30,75 @@ exports.getHomeDashboard = async (req, res) => {
           eksekutif: null,
           fokusDireksi: [],
           rencanaAksi: [],
+          // Data kosong untuk dashboard
+          applicareSummary: {
+            total_kapasitas: 0,
+            total_terisi: 0,
+            total_tersedia: 0,
+            bor: 0,
+          },
+          applicareList: [],
+          kunjunganRajal: 0,
+          kunjunganIGD: 0,
+          pasienRawatInap: 0,
+          ttTersedia: 0,
+          distribusiTT: 0,
+          rajalMJKN: 0,
+          rajalOnsite: 0,
+          igdMRS: 0,
+          igdSisa: 0,
+          inapAdmisi: 0,
+          inapKRS: 0,
+          // Tambahan BOR Periode
+          borPeriode: null,
+          borPerRuangan: [],
         },
       });
     }
 
     const supervisiId = supervisi.supervisi_id;
+    const periodeAwal = supervisi.periode_awal;
+    const periodeAkhir = supervisi.periode_akhir;
 
     // =====================================================
-    // DATA SUPERVISI
+    // DATA SUPERVISI (IGD, HD, IBS, MUTU, KENDALA, EKSEKUTIF)
     // =====================================================
 
     const [igdRows, hdRows, ibsRows, mutuRows, kendalaRows, eksekutifRows] =
       await Promise.all([
-        db2.promise().query(
-          `
-          SELECT *
-          FROM supervisi_igd
-          WHERE supervisi_id = ?
-          LIMIT 1
-        `,
-          [supervisiId],
-        ),
-
-        db2.promise().query(
-          `
-          SELECT *
-          FROM supervisi_hd
-          WHERE supervisi_id = ?
-          LIMIT 1
-        `,
-          [supervisiId],
-        ),
-
-        db2.promise().query(
-          `
-          SELECT *
-          FROM supervisi_ibs
-          WHERE supervisi_id = ?
-          LIMIT 1
-        `,
-          [supervisiId],
-        ),
-
-        db2.promise().query(
-          `
-          SELECT *
-          FROM supervisi_mutu
-          WHERE supervisi_id = ?
-          LIMIT 1
-        `,
-          [supervisiId],
-        ),
-
-        db2.promise().query(
-          `
-          SELECT *
-          FROM supervisi_kendala
-          WHERE supervisi_id = ?
-          LIMIT 1
-        `,
-          [supervisiId],
-        ),
-
-        db2.promise().query(
-          `
-          SELECT *
-          FROM supervisi_eksekutif
-          WHERE supervisi_id = ?
-          LIMIT 1
-        `,
-          [supervisiId],
-        ),
+        db2
+          .promise()
+          .query(`SELECT * FROM supervisi_igd WHERE supervisi_id = ? LIMIT 1`, [
+            supervisiId,
+          ]),
+        db2
+          .promise()
+          .query(`SELECT * FROM supervisi_hd WHERE supervisi_id = ? LIMIT 1`, [
+            supervisiId,
+          ]),
+        db2
+          .promise()
+          .query(`SELECT * FROM supervisi_ibs WHERE supervisi_id = ? LIMIT 1`, [
+            supervisiId,
+          ]),
+        db2
+          .promise()
+          .query(
+            `SELECT * FROM supervisi_mutu WHERE supervisi_id = ? LIMIT 1`,
+            [supervisiId],
+          ),
+        db2
+          .promise()
+          .query(
+            `SELECT * FROM supervisi_kendala WHERE supervisi_id = ? LIMIT 1`,
+            [supervisiId],
+          ),
+        db2
+          .promise()
+          .query(
+            `SELECT * FROM supervisi_eksekutif WHERE supervisi_id = ? LIMIT 1`,
+            [supervisiId],
+          ),
       ]);
 
     // =====================================================
@@ -122,51 +120,29 @@ exports.getHomeDashboard = async (req, res) => {
         AND is_fokus_hari_ini = 1
         AND status <> 'DONE'
       ORDER BY
-        FIELD(
-          prioritas,
-          'KRITIS',
-          'TINGGI',
-          'SEDANG',
-          'RENDAH'
-        ),
+        FIELD(prioritas, 'KRITIS', 'TINGGI', 'SEDANG', 'RENDAH'),
         created_at DESC
     `);
 
     // =====================================================
     // DETAIL KEBUTUHAN, KENDALA, EKSEKUTIF
     // =====================================================
+
     const [kebutuhanDetailRows, kendalaDetailRows, eksekutifDetailRows] =
       await Promise.all([
         db2.promise().query(
-          `
-        SELECT uraian
-          FROM supervisi_kebutuhan_detail
-          WHERE supervisi_id = ?
-            AND is_active = 1
-          ORDER BY urut
-      `,
+          `SELECT uraian FROM supervisi_kebutuhan_detail
+           WHERE supervisi_id = ? AND is_active = 1 ORDER BY urut`,
           [supervisiId],
         ),
-
         db2.promise().query(
-          `
-          SELECT uraian
-            FROM supervisi_kendala_detail
-            WHERE supervisi_id = ?
-              AND is_active = 1
-            ORDER BY urut
-        `,
+          `SELECT uraian FROM supervisi_kendala_detail
+           WHERE supervisi_id = ? AND is_active = 1 ORDER BY urut`,
           [supervisiId],
         ),
-
         db2.promise().query(
-          `
-          SELECT uraian
-            FROM supervisi_eksekutif_detail
-            WHERE supervisi_id = ?
-              AND is_active = 1
-            ORDER BY urut
-        `,
+          `SELECT uraian FROM supervisi_eksekutif_detail
+           WHERE supervisi_id = ? AND is_active = 1 ORDER BY urut`,
           [supervisiId],
         ),
       ]);
@@ -187,19 +163,13 @@ exports.getHomeDashboard = async (req, res) => {
         dp.is_active = 1
         AND di.is_active = 1
       ORDER BY
-        FIELD(
-          dp.status,
-          'OPEN',
-          'PROGRESS',
-          'DONE',
-          'CANCEL'
-        ),
+        FIELD(dp.status, 'OPEN', 'PROGRESS', 'DONE', 'CANCEL'),
         dp.target_selesai ASC,
         dp.created_at ASC
     `);
 
     // =====================================================
-    // APPLICARE & BOR SUMMARY
+    // APPLICARE (BOR HARIAN / REAL-TIME)
     // =====================================================
 
     const [applicareSummaryRows] = await dbAvesina.promise().query(`
@@ -225,17 +195,17 @@ exports.getHomeDashboard = async (req, res) => {
         (kapasitas - tersedia) AS terisi,
         lastupdate,
         ROUND(
-            IFNULL((kapasitas - tersedia) / NULLIF(kapasitas, 0) * 100, 0),
-            2
+          IFNULL((kapasitas - tersedia) / NULLIF(kapasitas, 0) * 100, 0),
+          2
         ) AS bor,
         CASE
-            WHEN ((kapasitas - tersedia) / NULLIF(kapasitas, 0) * 100) < 80 THEN 'Aman'
-            WHEN ((kapasitas - tersedia) / NULLIF(kapasitas, 0) * 100) <= 90 THEN 'Waspada'
-            WHEN ((kapasitas - tersedia) / NULLIF(kapasitas, 0) * 100) <= 100 THEN 'Kritis'
-            ELSE 'Overload'
+          WHEN ((kapasitas - tersedia) / NULLIF(kapasitas, 0) * 100) < 80 THEN 'Aman'
+          WHEN ((kapasitas - tersedia) / NULLIF(kapasitas, 0) * 100) <= 90 THEN 'Waspada'
+          WHEN ((kapasitas - tersedia) / NULLIF(kapasitas, 0) * 100) <= 100 THEN 'Kritis'
+          ELSE 'Overload'
         END AS bor_status
-    FROM applicare
-    ORDER BY kodekelas, namaruang
+      FROM applicare
+      ORDER BY kodekelas, namaruang
     `);
 
     const applicareSummary = applicareSummaryRows[0] || {
@@ -246,16 +216,110 @@ exports.getHomeDashboard = async (req, res) => {
       bor: 0,
     };
 
+    // =====================================================
+    // BOR PERIODE (BERDASARKAN PERIODE SUPERVISI)
+    // =====================================================
+
+    // 1. BOR Total Rumah Sakit
+    const [borPeriodeRows] = await dbAvesina.promise().query(
+      `
+      WITH hari_perawatan AS (
+        SELECT 
+          r.registry_id,
+          r.in_dt AS mrs,
+          COALESCE(r.out_dt, NOW()) AS krs,
+          GREATEST(
+            0,
+            DATEDIFF(
+              LEAST(COALESCE(r.out_dt, NOW()), ?),
+              GREATEST(r.in_dt, ?)
+            ) + 1
+          ) AS hari_rawat
+        FROM registry r
+        WHERE r.in_out_sts = 'I'
+          AND r.in_dt <= ?
+          AND (r.out_dt >= ? OR r.out_dt IS NULL)
+      )
+      SELECT
+        COUNT(DISTINCT registry_id) AS total_pasien,
+        SUM(hari_rawat) AS total_hari_perawatan,
+        (SELECT SUM(kapasitas) FROM applicare) AS total_kapasitas,
+        ROUND(
+          SUM(hari_rawat) / 
+          NULLIF((SELECT SUM(kapasitas) FROM applicare) * DATEDIFF(?, ?) + 1, 0) * 100,
+          2
+        ) AS bor_periode
+      FROM hari_perawatan
+      `,
+      [
+        periodeAkhir,
+        periodeAwal,
+        periodeAkhir,
+        periodeAwal,
+        periodeAkhir,
+        periodeAwal,
+      ],
+    );
+
+    const borPeriode = borPeriodeRows[0] || {
+      total_pasien: 0,
+      total_hari_perawatan: 0,
+      total_kapasitas: 0,
+      bor_periode: 0,
+    };
+
+    // 2. BOR per Ruangan (dari room_mutation jika ada, atau dari registry)
+    // Ambil dari applicare sebagai baseline + data dari registry
+    const [borPerRuangan] = await dbAvesina.promise().query(
+      `
+      WITH rawat_inap_bulan AS (
+        SELECT 
+          r.registry_id,
+          r.in_dt,
+          COALESCE(r.out_dt, NOW()) AS out_dt,
+          -- Ambil ruangan terakhir dari unit_visit atau asumsi
+          (SELECT unit_id_to FROM unit_visit 
+           WHERE registry_id = r.registry_id 
+           ORDER BY visit_dt DESC LIMIT 1) AS unit_terakhir
+        FROM registry r
+        WHERE r.in_out_sts = 'I'
+          AND r.in_dt <= ?
+          AND (r.out_dt >= ? OR r.out_dt IS NULL)
+      )
+      SELECT 
+        a.namaruang,
+        a.kodekelas,
+        a.kapasitas,
+        a.terisi,
+        a.tersedia,
+        a.bor AS bor_harian,
+        -- BOR periode (perkiraan sederhana)
+        ROUND(
+          COUNT(ri.registry_id) / NULLIF(a.kapasitas * (DATEDIFF(?, ?) + 1), 0) * 100,
+          2
+        ) AS bor_periode
+      FROM applicare a
+      LEFT JOIN rawat_inap_bulan ri 
+        ON ri.unit_terakhir = a.koderuang
+      GROUP BY a.koderuang
+      ORDER BY a.kodekelas, a.namaruang
+      `,
+      [periodeAkhir, periodeAwal, periodeAkhir, periodeAwal],
+    );
+
+    // =====================================================
+    // DATA KUNJUNGAN (HARIAN)
+    // =====================================================
+
     const [rawatJalanRows] = await dbAvesina.promise().query(`
       SELECT
         COUNT(DISTINCT r.registry_id) AS kunjunganRajal
       FROM registry r
       JOIN unit_visit uv ON uv.registry_id = r.registry_id
       WHERE r.registry_dt BETWEEN CONCAT(CURDATE(), ' 00:00:00') AND CONCAT(CURDATE(), ' 23:59:59')
-        AND r.inpatient_unit_to IS null
-        AND r.out_dt IS null
+        AND r.inpatient_unit_to IS NULL
+        AND r.out_dt IS NULL
         AND r.in_out_sts = 'O'
-        #AND su.unit_group_id IN (8, 9)
     `);
 
     const [rajalOnlineSummary] = await dbAvesina.promise().query(`
@@ -269,8 +333,7 @@ exports.getHomeDashboard = async (req, res) => {
         COUNT(DISTINCT r.registry_id) AS kunjunganIGD
       FROM registry r
       JOIN unit_visit uv ON uv.registry_id = r.registry_id
-      WHERE r.registry_dt BETWEEN CONCAT(CURDATE(), ' 00:00:00')
-        AND CONCAT(CURDATE(), ' 23:59:59')
+      WHERE r.registry_dt BETWEEN CONCAT(CURDATE(), ' 00:00:00') AND CONCAT(CURDATE(), ' 23:59:59')
         AND uv.unit_id_to = 'RJ001'
     `);
 
@@ -279,8 +342,7 @@ exports.getHomeDashboard = async (req, res) => {
         COUNT(DISTINCT r.registry_id) AS kunjunganIGDMRS
       FROM registry r
       JOIN unit_visit uv ON uv.registry_id = r.registry_id
-      WHERE r.registry_dt BETWEEN CONCAT(CURDATE(), ' 00:00:00')
-        AND CONCAT(CURDATE(), ' 23:59:59')
+      WHERE r.registry_dt BETWEEN CONCAT(CURDATE(), ' 00:00:00') AND CONCAT(CURDATE(), ' 23:59:59')
         AND uv.unit_id_to = 'RJ001'
         AND r.in_out_sts = 'I'
     `);
@@ -330,8 +392,6 @@ exports.getHomeDashboard = async (req, res) => {
     const kendalaDetail = kendalaDetailRows[0] || [];
     const eksekutifDetail = eksekutifDetailRows[0] || [];
 
-    const kendalaCount = kebutuhanDetail.length + kendalaDetail.length;
-
     // =====================================================
     // RESPONSE
     // =====================================================
@@ -345,6 +405,7 @@ exports.getHomeDashboard = async (req, res) => {
         hd: hdRows[0][0] || null,
         ibs: ibsRows[0][0] || null,
         mutu: mutuRows[0][0] || null,
+
         kendala: {
           kebutuhan_detail: kebutuhanDetail,
           kendala_detail: kendalaDetail,
@@ -354,9 +415,15 @@ exports.getHomeDashboard = async (req, res) => {
           detail: eksekutifDetail,
         },
 
+        // BOR Real-time
         applicareSummary,
         applicareList: applicareRows || [],
 
+        // BOR Periode (baru)
+        borPeriode: borPeriode,
+        borPerRuangan: borPerRuangan || [],
+
+        // Kunjungan Harian
         kunjunganRajal: dashboardSummary.kunjunganRajal,
         kunjunganIGD: dashboardSummary.kunjunganIGD,
         pasienRawatInap: dashboardSummary.pasienRawatInap,
@@ -369,7 +436,6 @@ exports.getHomeDashboard = async (req, res) => {
         inapAdmisi: dashboardSummary.inapAdmisi,
         inapKRS: dashboardSummary.inapKRS,
 
-        kendalaCount,
         fokusDireksi,
         rencanaAksi,
       },

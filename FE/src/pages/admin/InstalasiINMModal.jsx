@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import {
   createInstalasi,
   updateInstalasi,
-} from "../../api/admin/MasterInstalasiSPM";
+} from "../../api/admin/MasterInstalasiINM";
 
-import SearchSelectBidang from "../../components/search/SearchSelectBidangSPM";
+import SearchSelectBidang from "../../components/search/SearchSelectBidangINM";
 import SearchSelectPegawai from "../../components/search/SearchSelectPegawai";
 
-const InstalasiSPMModal = ({ show, onClose, onSuccess, editData }) => {
+const InstalasiINMModal = ({ show, onClose, onSuccess, editData }) => {
   const defaultForm = {
     bidang_id: null,
     bidang_option: null,
@@ -197,4 +197,4 @@ const InstalasiSPMModal = ({ show, onClose, onSuccess, editData }) => {
   );
 };
 
-export default InstalasiSPMModal;
+export default InstalasiINMModal;

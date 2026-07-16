@@ -90,16 +90,12 @@ const HomeSupervisi = () => {
   };
 
   const color_status = (bor_status) => {
-    if (bor_status === "Aman") {
-      return "success";
-    }
-    if (bor_status === "Waspada") {
-      return "warning";
-    }
-    if (bor_status === "Kritis") {
-      return "danger";
-    }
-    return "dark";
+    if (bor_status === "Aman") return "success";
+    if (bor_status === "Waspada") return "warning";
+    if (bor_status === "Kritis") return "danger";
+    if (bor_status === "Overload" || bor_status === "Over Capacity")
+      return "dark";
+    return "secondary";
   };
 
   const borValue = Number(applicareSummary?.bor || 0);
@@ -115,7 +111,6 @@ const HomeSupervisi = () => {
       {/* ========================================= */}
       {/* BEDGE RINGKASAN */}
       {/* ========================================= */}
-
       <Row className="g-3 mb-3">
         <Col md={3}>
           <Card className="h-100">
@@ -135,9 +130,16 @@ const HomeSupervisi = () => {
                 bg={borStatus.variant}
                 text={borStatus.variant === "warning" ? "dark" : "light"}
               >
-                Total : {formatNumber(applicareSummary?.total_kapasitas || 0)} |
-                Status : {borStatus.label}
+                {formatNumber(applicareSummary?.total_kapasitas || 0)} TT |
+                Terisi: {formatNumber(applicareSummary?.total_terisi || 0)} |
+                Status: {borStatus.label}
               </Badge>
+              <div className="mt-1">
+                <small className="text-muted">
+                  *BOR berdasarkan data real-time Applicare (update:{" "}
+                  {applicareSummary?.lastupdate || "hari ini"})
+                </small>
+              </div>
             </Card.Footer>
           </Card>
         </Col>
@@ -211,11 +213,38 @@ const HomeSupervisi = () => {
           </Card>
         </Col>
       </Row>
-
       {/* ========================================= */}
       {/* RINGKASAN EKSEKUTIF */}
       {/* ========================================= */}
-
+      // Tambahkan di bagian Ringkasan Eksekutif atau card terpisah
+      <Row className="g-3 mb-3">
+        <Col md={3}>
+          <Card className="h-100 border-info">
+            <Card.Header className="text-center bg-info text-white">
+              BOR BULAN INI (Periode)
+            </Card.Header>
+            <Card.Body>
+              <div className="text-center">
+                <h1 style={{ fontSize: "4rem" }}>
+                  {formatNumber(borPeriode?.bor_periode || 0, 2)}
+                </h1>
+                %
+                <div className="mt-2">
+                  <small>
+                    Total Hari Perawatan:{" "}
+                    {formatNumber(borPeriode?.total_hari_perawatan || 0)}
+                  </small>
+                </div>
+              </div>
+            </Card.Body>
+            <Card.Footer className="text-center text-muted">
+              <small>
+                Periode: {formatDate(startOfMonth)} - {formatDate(endOfMonth)}
+              </small>
+            </Card.Footer>
+          </Card>
+        </Col>
+      </Row>
       <Card className="mb-3">
         <Card.Header>Ringkasan Eksekutif</Card.Header>
 
@@ -235,7 +264,6 @@ const HomeSupervisi = () => {
           )}
         </Card.Body>
       </Card>
-
       <div className="row">
         <div className="col-md-9">
           {/* ========================================= */}
@@ -253,31 +281,43 @@ const HomeSupervisi = () => {
                       <th className="text-center">Kapasitas</th>
                       <th className="text-center">Terisi</th>
                       <th className="text-center">Tersedia</th>
-                      <th className="text-center">BOR</th>
+                      <th className="text-center">BOR Harian</th>
+                      <th className="text-center">BOR Periode</th>{" "}
+                      {/* Tambah */}
                       <th className="text-center">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {Array.isArray(applicareList) &&
                     applicareList.length > 0 ? (
-                      applicareList.map((item, index) => (
-                        <tr key={`${item.koderuang || index}-${index}`}>
-                          <td>{index + 1}</td>
-                          <td>{item.namaruang}</td>
-                          <td className="text-center">{item.kapasitas}</td>
-                          <td className="text-center">{item.terisi}</td>
-                          <td className="text-center">{item.tersedia}</td>
-                          <td className="text-center">{item.bor}</td>
-                          <td className="text-center">
-                            <Badge bg={color_status(item.bor_status)}>
-                              {item.bor_status}
-                            </Badge>
-                          </td>
-                        </tr>
-                      ))
+                      applicareList.map((item, index) => {
+                        // Cari data BOR periode untuk ruang ini
+                        const borPeriodeRuang = borPerRuangan?.find(
+                          (r) => r.namaruang === item.namaruang,
+                        );
+
+                        return (
+                          <tr key={`${item.koderuang || index}-${index}`}>
+                            <td>{index + 1}</td>
+                            <td>{item.namaruang}</td>
+                            <td className="text-center">{item.kapasitas}</td>
+                            <td className="text-center">{item.terisi}</td>
+                            <td className="text-center">{item.tersedia}</td>
+                            <td className="text-center">{item.bor}%</td>
+                            <td className="text-center">
+                              {borPeriodeRuang?.bor_periode || "-"}%
+                            </td>
+                            <td className="text-center">
+                              <Badge bg={color_status(item.bor_status)}>
+                                {item.bor_status}
+                              </Badge>
+                            </td>
+                          </tr>
+                        );
+                      })
                     ) : (
                       <tr>
-                        <td colSpan="7" className="text-center">
+                        <td colSpan="8" className="text-center">
                           Tidak ada data applicare.
                         </td>
                       </tr>
@@ -517,7 +557,6 @@ const HomeSupervisi = () => {
           </Row>
         </div>
       </div>
-
       <div className="row">
         <div className="col-md-4">
           {" "}

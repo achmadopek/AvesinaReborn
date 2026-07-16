@@ -3,14 +3,14 @@ import {
   searchMasterUnit,
   createUnit,
   updateUnit,
-} from "../../api/admin/MasterUnitSPM";
+} from "../../api/admin/MasterUnitINM";
 
 import SearchSelectPegawai from "../../components/search/SearchSelectPegawai";
-import SearchSelectBidang from "../../components/search/SearchSelectBidangSPM";
-import SearchSelectInstalasi from "../../components/search/SearchSelectInstalasiSPM";
-import SearchSelectGroupPelayanan from "../../components/search/SearchSelectGroupPelayananSPM";
+import SearchSelectBidang from "../../components/search/SearchSelectBidangINM";
+import SearchSelectInstalasi from "../../components/search/SearchSelectInstalasiINM";
+import SearchSelectGroupPelayanan from "../../components/search/SearchSelectGroupPelayananINM";
 
-const UnitSPMModal = ({ show, onClose, onSuccess, editData }) => {
+const UnitINMModal = ({ show, onClose, onSuccess, editData }) => {
   const defaultForm = {
     bidang_id: null,
     bidang_option: null,
@@ -147,7 +147,7 @@ const UnitSPMModal = ({ show, onClose, onSuccess, editData }) => {
         <div className="modal-content">
           <div className="modal-header py-2">
             <h6 className="mb-0">
-              {isEdit ? "Edit Unit SPM" : "Tambah Unit SPM"}
+              {isEdit ? "Edit Unit INM" : "Tambah Unit INM"}
             </h6>
 
             <button className="btn-close" onClick={handleClose} />
@@ -355,4 +355,4 @@ const UnitSPMModal = ({ show, onClose, onSuccess, editData }) => {
   );
 };
 
-export default UnitSPMModal;
+export default UnitINMModal;

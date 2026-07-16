@@ -141,20 +141,15 @@ const HomeMobay = () => {
     setShowFilter(false);
   };
 
+  // ================= FETCH SUMMARY UTANG PIUTANG ================
   useEffect(() => {
     const loadData = async () => {
       try {
-        const today = new Date();
+        const today = new Date().toISOString().slice(0, 10);
 
-        const start = new Date(today.getFullYear(), today.getMonth(), 1)
-          .toISOString()
-          .slice(0, 10);
-
-        const end = today.toISOString().slice(0, 10);
-
+        // BACKEND akan menggunakan default 2025-01-01
         const res = await getSummaryUtangPiutang({
-          start,
-          end,
+          end: today, // Kirim end saja
           status: "",
           units: [1, 2, 3, 4, 5],
         });
@@ -612,7 +607,7 @@ const HomeMobay = () => {
           <div className="card-header bg-primary text-white">
             <h6 className="mb-0">Posisi Sisa Hutang Saat Ini</h6>
             <small>
-              Akumulasi penerimaan dan pembayaran hingga tanggal hari ini
+              Periode: 1 Januari 2025 - {new Date().toLocaleDateString("id-ID")}
             </small>
           </div>
 
@@ -622,7 +617,7 @@ const HomeMobay = () => {
                 <thead>
                   <tr>
                     <th style={{ minWidth: "220px" }}>Sumber / Kategori</th>
-                    <th className="text-end">Diajukan</th>
+                    <th className="text-end">Tagihan</th>
                     <th className="text-end">Dibayar</th>
                     <th className="text-end">Saldo</th>
                   </tr>
@@ -655,13 +650,15 @@ const HomeMobay = () => {
                             <td className="text-end">
                               {formatCurrency(row.dibayar)}
                             </td>
-                            <td className="text-end fw-bold">
+                            <td
+                              className={`text-end fw-bold ${row.saldo > 0 ? "text-danger" : "text-success"}`}
+                            >
                               {formatCurrency(row.saldo)}
                             </td>
                           </tr>
                         ))}
 
-                      {/* ====== SEPARATOR ====== 
+                      {/* ====== SEPARATOR ====== */}
                       {utangPiutang.detail.some(
                         (r) => r.sumber === "PEMBELIAN LANGSUNG",
                       ) && (
@@ -670,7 +667,7 @@ const HomeMobay = () => {
                             ─── PEMBELIAN LANGSUNG ───
                           </td>
                         </tr>
-                      )} */}
+                      )}
 
                       {/* ====== BAGIAN PEMBELIAN LANGSUNG ====== */}
                       {utangPiutang.detail
@@ -678,18 +675,18 @@ const HomeMobay = () => {
                         .map((row, idx) => (
                           <tr
                             key={`langsung-${idx}`}
-                            //className={row.saldo === 0 ? "table-light" : ""}
+                            className={row.saldo === 0 ? "table-light" : ""}
                           >
                             <td>
                               <span className="badge bg-success me-2">
                                 LANGSUNG
                               </span>
                               {row.kategori}
-                              {/*{row.saldo === 0 && (
+                              {row.saldo === 0 && (
                                 <span className="badge bg-secondary ms-2">
                                   Rp 0
                                 </span>
-                              )}*/}
+                              )}
                             </td>
                             <td className="text-end">
                               {formatCurrency(row.diajukan)}
@@ -742,6 +739,9 @@ const HomeMobay = () => {
               dari Pembelian Langsung (termasuk DRAFT)
               <span className="badge bg-secondary ms-3 me-2">Kosong</span>{" "}
               Kategori tanpa transaksi
+              <span className="ms-3 text-muted">
+                Periode: 1 Jan 2025 - {new Date().toLocaleDateString("id-ID")}
+              </span>
             </div>
           </div>
         </div>

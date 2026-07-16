@@ -9,7 +9,10 @@ const VerifikasiINMModal = ({ show, onClose, data }) => {
   const [catatan, setCatatan] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const { peg_id } = useAuth();
+  const { peg_id, role } = useAuth();
+
+  const isVerifier = role === "verifikator_inm";
+  const isReadOnly = !isVerifier;
 
   useEffect(() => {
     if (data) {
@@ -54,7 +57,9 @@ const VerifikasiINMModal = ({ show, onClose, data }) => {
       </Modal.Header>
 
       <Modal.Body>
-        <p><b>Tanggal:</b> {data.tanggal}</p>
+        <p>
+          <b>Tanggal:</b> {data.tanggal}
+        </p>
 
         <div className="mb-2">
           <label className="d-block">Status</label>
@@ -72,7 +77,7 @@ const VerifikasiINMModal = ({ show, onClose, data }) => {
                 setStatus(val);
                 if (val === 1) setCatatan("Ok");
               }}
-              disabled={data.status_verifikasi !== null}
+              disabled={isReadOnly}
             />
             <label className="form-check-label" htmlFor="status_setuju">
               Disetujui
@@ -92,7 +97,7 @@ const VerifikasiINMModal = ({ show, onClose, data }) => {
                 setStatus(val);
                 if (val === 0) setCatatan("Alasan ...");
               }}
-              disabled={data.status_verifikasi !== null}
+              disabled={isReadOnly}
             />
             <label className="form-check-label" htmlFor="status_tolak">
               Ditolak
@@ -107,7 +112,7 @@ const VerifikasiINMModal = ({ show, onClose, data }) => {
             rows={3}
             value={catatan}
             onChange={(e) => setCatatan(e.target.value)}
-            disabled={data.status_verifikasi !== null}
+            disabled={isReadOnly}
           />
         </div>
 
@@ -121,9 +126,15 @@ const VerifikasiINMModal = ({ show, onClose, data }) => {
           Tutup
         </button>
 
-        {data.status_verifikasi === null && (
-          <button className="btn btn-success" onClick={handleSubmit} disabled={loading}>
-            Simpan Verifikasi
+        {isVerifier && (
+          <button
+            className="btn btn-success"
+            onClick={handleSubmit}
+            disabled={loading}
+          >
+            {data.status_verifikasi === null
+              ? "Simpan Verifikasi"
+              : "Update Verifikasi"}
           </button>
         )}
       </Modal.Footer>

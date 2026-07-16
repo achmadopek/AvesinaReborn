@@ -3,9 +3,13 @@ import { toast } from "react-toastify";
 import { fetchRekapINMRingkas } from "../../../api/wj_inm/DataINM";
 
 // contoh API list (sesuaikan dengan punyamu)
-import { fetchRuangan, fetchInstalasi, fetchBidang } from "../../../api/wj_inm/EntriHarian";
+import {
+  fetchRuangan,
+  fetchInstalasi,
+  fetchBidang,
+} from "../../../api/wj_inm/EntriHarian";
 
-const RekapRingkasINM = () => {
+const RekapKepatuhanINM = () => {
   const [mode, setMode] = useState("unit"); // unit | instalasi | bidang
   const [selectedId, setSelectedId] = useState("");
 
@@ -22,8 +26,18 @@ const RekapRingkasINM = () => {
   const [loading, setLoading] = useState(false);
 
   const bulanLabel = [
-    "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
-    "Jul", "Agu", "Sep", "Okt", "Nov", "Des"
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "Mei",
+    "Jun",
+    "Jul",
+    "Agu",
+    "Sep",
+    "Okt",
+    "Nov",
+    "Des",
   ];
 
   // Helper Date Range
@@ -78,9 +92,7 @@ const RekapRingkasINM = () => {
     }
 
     if (jenisWaktu === "semester") {
-      return semester === "1"
-        ? [1, 2, 3, 4, 5, 6]
-        : [7, 8, 9, 10, 11, 12];
+      return semester === "1" ? [1, 2, 3, 4, 5, 6] : [7, 8, 9, 10, 11, 12];
     }
 
     // tahunan
@@ -99,7 +111,6 @@ const RekapRingkasINM = () => {
 
     return arr;
   };
-
 
   // -------------------------
   // Load master data sesuai mode
@@ -167,7 +178,7 @@ const RekapRingkasINM = () => {
         mode,
         selectedId,
         startDate,
-        endDate
+        endDate,
       );
 
       setData(res.data || []);
@@ -245,10 +256,8 @@ const RekapRingkasINM = () => {
       </div>
 
       <div className="card-body px-3 py-3">
-
         {/* FILTER */}
         <div className="d-flex flex-wrap align-items-end mb-3 gap-2">
-
           {/* MODE */}
           <div>
             <label className="form-label mb-1 fw-semibold">Mode</label>
@@ -329,7 +338,6 @@ const RekapRingkasINM = () => {
                 onChange={(e) => setTahun(e.target.value)}
               />
             </div>
-
           </div>
 
           {/* BUTTON */}
@@ -357,7 +365,7 @@ const RekapRingkasINM = () => {
                 {getBulanRange(jenisWaktu, triwulan, semester).map((m) => (
                   <th key={m}>{bulanLabel[m - 1]}</th>
                 ))}
-                <th>Total</th>
+                <th>Jml Hari Pengisian</th>
               </tr>
             </thead>
 
@@ -377,7 +385,11 @@ const RekapRingkasINM = () => {
                   </td>
 
                   {(() => {
-                    const bulanRange = getBulanRange(jenisWaktu, triwulan, semester);
+                    const bulanRange = getBulanRange(
+                      jenisWaktu,
+                      triwulan,
+                      semester,
+                    );
                     const dataBulan = buildBulanArray(row.periode, tahun);
 
                     let total = 0;
@@ -414,10 +426,9 @@ const RekapRingkasINM = () => {
             </tbody>
           </table>
         </div>
-
       </div>
     </div>
   );
 };
 
-export default RekapRingkasINM;
+export default RekapKepatuhanINM;

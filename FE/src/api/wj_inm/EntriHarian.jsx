@@ -22,11 +22,32 @@ export const fetchIndikatorByUnit = async (unit_id) => {
 };
 
 // SIMPAN entri harian (bulk)
-export const submitINMHarian = async ({ unit_id, tgl_input, details }) => {
+export const submitINMHarian = async ({
+  unit_id,
+  tgl_input,
+  created_by,
+  hostname,
+  username,
+  unitName,
+  details,
+}) => {
   const res = await API.post(`/api/inm/EntriINMHarian/entri`, {
     unit_id,
     tgl_input,
-    details
+    created_by,
+    hostname,
+    username,
+    unitName,
+    details,
   });
+
+  return res.data;
+};
+
+export const downloadINMHarianPDF = async (id) => {
+  const res = await API.get(`/api/inm/EntriINMHarian/download/${id}`, {
+    responseType: "blob",
+  });
+
   return res.data;
 };

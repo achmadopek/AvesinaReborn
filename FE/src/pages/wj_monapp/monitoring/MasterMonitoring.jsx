@@ -24,6 +24,7 @@ import {
 } from "../../../api/wj_monapp/MasterMonitoring";
 import { fetchMobayMonitoringSummary } from "../../../api/wj_mobay/MonitoringTagihan";
 import { fetchDashboardSupervisi } from "../../../api/wj_supervisi/DashboardSupervisi";
+import { getSummaryUtangPiutang } from "../../../api/wj_mobay/DashboardMobay";
 import { AuthContext } from "../../../context/AuthContext";
 import { useNotification } from "../../../context/NotificationContext";
 import { Button } from "react-bootstrap";
@@ -126,9 +127,9 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
   });
 
   const [mobayStats, setMobayStats] = useState({
-    totalDiajukan: 0,
-    totalLunas: 0,
-    totalHutang: 0,
+    totalTagihan: 0, // Tagihan dari AVESINA
+    totalDibayar: 0, // Sudah dibayar
+    totalHutang: 0, // Sisa hutang (Tagihan - Dibayar)
   });
 
   const [supervisiStats, setSupervisiStats] = useState({
@@ -316,17 +317,30 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
   useEffect(() => {
     const loadMobayStats = async () => {
       try {
-        const today = new Date().toISOString().slice(0, 10);
-        const res = await fetchMobayMonitoringSummary({
-          start: today,
-          end: today,
-          typeTglFilter: "tgl_po",
+        // Filter: 1 Januari 2025 sampai hari ini
+        const startDate = "2026-01-01";
+        const endDate = new Date().toISOString().slice(0, 10);
+
+        const res = await getSummaryUtangPiutang({
+          start: startDate,
+          end: endDate,
+          status: "",
+          units: [1, 2, 3, 4, 5],
         });
 
+        const total = res.total || {};
+        const detail = res.detail || [];
+
+        const totalLangsung = detail
+          .filter((d) => d.sumber === "PEMBELIAN LANGSUNG")
+          .reduce((sum, d) => sum + d.diajukan, 0);
+
         setMobayStats({
-          totalDiajukan: Number(res.totalDiajukan || 0),
-          totalLunas: Number(res.totalLunas || 0),
-          totalHutang: Number(res.totalHutang || 0),
+          totalTagihan: Number(total.diajukan || 0),
+          totalDiajukan: Number(total.diajukan || 0),
+          totalDibayar: Number(total.dibayar || 0),
+          totalHutang: Number(total.saldo || 0),
+          totalLangsung: totalLangsung,
         });
       } catch (error) {
         console.error("Gagal ambil statistik Mobay:", error);
@@ -556,11 +570,29 @@ const MasterMonitoring = ({ setRightContent, defaultRightContent }) => {
       {
         id: "Mobay",
         label: "Monitoring Utang/Piutang",
-        wslist: ["Belum Diajukan", "Belum Dibayar", "Lunas", "Hutang"],
+        wslist: ["Total Tagihan", "Sudah Dibayar", "Sisa Hutang"],
         stats: [
-          { label: "Hutang", value: mobayStats.totalHutang },
-          { label: "Lunas", value: mobayStats.totalLunas },
-          { label: "Diajukan", value: mobayStats.totalDiajukan },
+          {
+            label: "Total Tagihan",
+            value: new Intl.NumberFormat("id-ID", {
+              notation: "compact",
+              compactDisplay: "short",
+            }).format(mobayStats.totalTagihan),
+          },
+          {
+            label: "Sudah Dibayar",
+            value: new Intl.NumberFormat("id-ID", {
+              notation: "compact",
+              compactDisplay: "short",
+            }).format(mobayStats.totalDibayar),
+          },
+          {
+            label: "Sisa Hutang",
+            value: new Intl.NumberFormat("id-ID", {
+              notation: "compact",
+              compactDisplay: "short",
+            }).format(mobayStats.totalHutang),
+          },
         ],
         disabled: false,
         component: (props) => <MonitoringMobay {...props} />,

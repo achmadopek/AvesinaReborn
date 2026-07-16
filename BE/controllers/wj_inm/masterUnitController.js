@@ -103,7 +103,7 @@ exports.createPegawai = (req, res) => {
       console.error("Gagal tambah pegawai:", err);
       return res.status(500).json({ error: "Gagal menambahkan data pegawai" });
     }
-    res.json({ message: "Data pegawai berhasil ditambahkan" });
+    res.json({ message: "Data sdm_pegawai berhasil ditambahkan" });
   });
 };
 

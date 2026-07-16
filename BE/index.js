@@ -109,6 +109,11 @@ app.use(
   "/api/admin/MasterInstalasiSPM",
   require("./routes/admin/MasterInstalasiSPM"),
 );
+app.use("/api/admin/MasterUnitINM", require("./routes/admin/MasterUnitINM"));
+app.use(
+  "/api/admin/MasterInstalasiINM",
+  require("./routes/admin/MasterInstalasiINM"),
+);
 
 // SDM
 app.use("/api/sdm/Dashboard", require("./routes/wj_sdm/DashboardSDM"));
@@ -197,6 +202,7 @@ app.use(
 );
 
 // INM
+app.use("/api/inm/MasterUnit", require("./routes/wj_inm/MasterUnitRoutes"));
 app.use(
   "/api/inm/EntriINMHarian",
   require("./routes/wj_inm/EntriINMHarianRoutes"),

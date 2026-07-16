@@ -10,6 +10,8 @@ import ProtectedRoute from "./ProtectedRoute";
 // Admin
 import MasterUnitSPM from "../pages/admin/MasterUnitSPM";
 import MasterInstalasiSPM from "../pages/admin/MasterInstalasiSPM";
+import MasterUnitINM from "../pages/admin/MasterUnitINM";
+import MasterInstalasiINM from "../pages/admin/MasterInstalasiINM";
 
 // === SDM ===
 import HomeSDM from "../components/layout/HomeSDM";
@@ -59,7 +61,8 @@ import RekapitulasiSPM from "../pages/wj_spm/data_spm/RekapitulasiSPM";
 import HomeINM from "../components/layout/HomeINM";
 import EntriINMHarian from "../pages/wj_inm/inm_harian/EntriINMHarian";
 import MonitoringINM from "../pages/wj_inm/data_inm/MonitoringINM";
-import RekapRingkasINM from "../pages/wj_inm/data_inm/RekapRingkasINM";
+import RekapKepatuhanINM from "../pages/wj_inm/data_inm/RekapKepatuhanINM";
+import RekapitulasiINM from "../pages/wj_inm/data_inm/RekapitulasiINM";
 
 // === ANTRIAN ===
 import AntrianPasien from "../pages/wj_antrian/AntrianPasien";
@@ -154,6 +157,24 @@ const AppRoutes = ({ setRightContent }) => {
         element={
           <ProtectedRoute allowedRoles={["admin"]}>
             <MasterInstalasiSPM setRightContent={setRightContent} />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/MasterUnitINM"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <MasterUnitINM setRightContent={setRightContent} />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/MasterInstalasiINM"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <MasterInstalasiINM setRightContent={setRightContent} />
           </ProtectedRoute>
         }
       />
@@ -522,17 +543,26 @@ const AppRoutes = ({ setRightContent }) => {
       <Route
         path="/inm/MonitoringINM"
         element={
-          <ProtectedRoute allowedRoles={["admin", "komite_mutu"]}>
+          <ProtectedRoute allowedRoles={["admin", "verifikator_inm"]}>
             <MonitoringINM setRightContent={setRightContent} />
           </ProtectedRoute>
         }
       />
 
       <Route
-        path="/inm/RekapRingkasINM"
+        path="/inm/RekapKepatuhanINM"
         element={
-          <ProtectedRoute allowedRoles={["admin", "komite_mutu"]}>
-            <RekapRingkasINM setRightContent={setRightContent} />
+          <ProtectedRoute allowedRoles={["admin", "user_inm"]}>
+            <RekapKepatuhanINM setRightContent={setRightContent} />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/inm/RekapitulasiINM"
+        element={
+          <ProtectedRoute allowedRoles={["admin", "user_inm"]}>
+            <RekapitulasiINM setRightContent={setRightContent} />
           </ProtectedRoute>
         }
       />

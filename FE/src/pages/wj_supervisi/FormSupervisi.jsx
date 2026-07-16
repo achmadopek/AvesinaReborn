@@ -114,7 +114,21 @@ const FormSupervisi = () => {
     try {
       if (!form.tanggal_supervisi) {
         Swal.fire("Validasi", "Tanggal Supervisi wajib diisi", "warning");
+        return;
+      }
 
+      if (!form.periode_awal || !form.periode_akhir) {
+        Swal.fire("Validasi", "Periode awal dan akhir wajib diisi", "warning");
+        return;
+      }
+
+      // Validasi periode awal tidak boleh lebih besar dari periode akhir
+      if (new Date(form.periode_awal) > new Date(form.periode_akhir)) {
+        Swal.fire(
+          "Validasi",
+          "Periode awal tidak boleh lebih besar dari periode akhir",
+          "warning",
+        );
         return;
       }
 

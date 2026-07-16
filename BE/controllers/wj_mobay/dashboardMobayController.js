@@ -130,13 +130,25 @@ exports.getBottomTagihan = async (req, res) => {
  */
 exports.getUtangPiutangSummary = async (req, res) => {
   try {
-    console.log("[getUtangPiutangSummary] Start fetching data...");
+    // ==========================
+    // 1. AMBIL PARAMETER TANGGAL DARI REQUEST
+    //    Default: 1 Januari 2025
+    // ==========================
+    const { start, end } = req.query;
+
+    // DEFAULT FILTER: 1 Januari 2025
+    const DEFAULT_START = "2026-01-01";
+    const today = new Date().toISOString().slice(0, 10);
+
+    // Jika start tidak dikirim, gunakan DEFAULT_START
+    const startDate = start || DEFAULT_START;
+    const endDate = end || today;
 
     // ==========================
-    // 1. AMBIL TAGIHAN DARI AVESINA (LANGSUNG)
-    //    Menggunakan koneksi db2 (connection-avesina)
+    // 2. AMBIL TAGIHAN DARI AVESINA (LANGSUNG)
     // ==========================
-    const [avesinaTagihan] = await db2.promise().query(`
+    const [avesinaTagihan] = await db2.promise().query(
+      `
       SELECT
           CASE
               WHEN de.drug_equi_type = 'D' THEN 'Obat'
@@ -167,20 +179,18 @@ exports.getUtangPiutangSummary = async (req, res) => {
       WHERE pa.appr_sts = 'A'
         AND COALESCE(eg.equi_group_id, 0) <> 2  -- exclude Reagen
         AND pa.invoice_no IS NOT NULL
+        AND DATE(pa.po_acce_dt) BETWEEN ? AND ?  -- FILTER TANGGAL
       GROUP BY jenis_item
       ORDER BY jenis_item
-    `);
-
-    console.log(
-      "[getUtangPiutangSummary] AVESINA tagihan found:",
-      avesinaTagihan.length,
+    `,
+      [startDate, endDate],
     );
 
     // ==========================
-    // 2. AMBIL PEMBAYARAN DARI MOBAY
-    //    (total_bayar yang sudah dibayarkan)
+    // 3. AMBIL PEMBAYARAN DARI MOBAY
     // ==========================
-    const [mobayPembayaran] = await db.promise().query(`
+    const [mobayPembayaran] = await db.promise().query(
+      `
       SELECT
           COALESCE(d.jenis_item, 'Lainnya') AS kategori,
           COALESCE(SUM(h.total_bayar), 0) AS total_bayar
@@ -189,21 +199,18 @@ exports.getUtangPiutangSummary = async (req, res) => {
           ON d.mirror_po_id = h.id
       WHERE h.status_pengolahan <> 'Batal'
         AND h.total_bayar > 0
+        AND DATE(h.invoice_paid_dt) BETWEEN ? AND ?  -- FILTER TANGGAL BAYAR
       GROUP BY d.jenis_item
       ORDER BY d.jenis_item
-    `);
-
-    console.log(
-      "[getUtangPiutangSummary] MOBAY pembayaran found:",
-      mobayPembayaran.length,
+    `,
+      [startDate, endDate],
     );
 
     // ==========================
-    // 3. BUAT MAP UNTUK MUDAH DIGABUNG
+    // 4. BUAT MAP UNTUK MUDAH DIGABUNG
     // ==========================
     const tagihanMap = new Map();
 
-    // 3a. Masukkan data tagihan dari AVESINA
     avesinaTagihan.forEach((row) => {
       const kategori = row.jenis_item || "Lainnya";
       tagihanMap.set(kategori, {
@@ -213,13 +220,11 @@ exports.getUtangPiutangSummary = async (req, res) => {
       });
     });
 
-    // 3b. Masukkan data pembayaran dari MOBAY
     mobayPembayaran.forEach((row) => {
       const kategori = row.kategori || "Lainnya";
       if (tagihanMap.has(kategori)) {
         tagihanMap.get(kategori).dibayar = Number(row.total_bayar) || 0;
       } else {
-        // Jika ada pembayaran tapi tidak ada tagihan (kemungkinan data tidak sync)
         tagihanMap.set(kategori, {
           kategori: kategori,
           diajukan: 0,
@@ -229,7 +234,7 @@ exports.getUtangPiutangSummary = async (req, res) => {
     });
 
     // ==========================
-    // 4. AMBIL SEMUA KATEGORI BARANG UNTUK PEMBELIAN LANGSUNG
+    // 5. AMBIL SEMUA KATEGORI BARANG UNTUK PEMBELIAN LANGSUNG
     // ==========================
     const [allCategories] = await db.promise().query(`
       SELECT 
@@ -241,15 +246,11 @@ exports.getUtangPiutangSummary = async (req, res) => {
       ORDER BY nama ASC
     `);
 
-    console.log(
-      "[getUtangPiutangSummary] Categories found:",
-      allCategories.length,
-    );
-
     // ==========================
-    // 5. AMBIL DATA PEMBELIAN LANGSUNG (termasuk DRAFT)
+    // 6. AMBIL DATA PEMBELIAN LANGSUNG
     // ==========================
-    const [langsungData] = await db.promise().query(`
+    const [langsungData] = await db.promise().query(
+      `
       SELECT
           b.kategori_id,
           kb.nama AS kategori_nama,
@@ -262,17 +263,15 @@ exports.getUtangPiutangSummary = async (req, res) => {
       INNER JOIN mobay_kategori_barang kb
           ON kb.id = b.kategori_id
       WHERE p.status IN ('DRAFT', 'FINAL')
+        AND DATE(p.tanggal_beli) BETWEEN ? AND ?  -- FILTER TANGGAL PEMBELIAN
       GROUP BY b.kategori_id, kb.nama
       ORDER BY kb.nama
-    `);
-
-    console.log(
-      "[getUtangPiutangSummary] Langsung data found:",
-      langsungData.length,
+    `,
+      [startDate, endDate],
     );
 
     // ==========================
-    // 6. BUAT MAP UNTUK PEMBELIAN LANGSUNG
+    // 7. BUAT MAP UNTUK PEMBELIAN LANGSUNG
     // ==========================
     const langsungMap = new Map();
     langsungData.forEach((row) => {
@@ -283,14 +282,14 @@ exports.getUtangPiutangSummary = async (req, res) => {
     });
 
     // ==========================
-    // 7. GABUNGKAN SEMUA DATA
+    // 8. GABUNGKAN SEMUA DATA
     // ==========================
     const detail = [];
     let totalDiajukan = 0;
     let totalDibayar = 0;
     let totalSaldo = 0;
 
-    // 7a. Data dari AVESINA + MOBAY
+    // 8a. Data dari AVESINA + MOBAY
     if (tagihanMap.size > 0) {
       for (const [kategori, data] of tagihanMap) {
         const diajukan = data.diajukan;
@@ -310,7 +309,6 @@ exports.getUtangPiutangSummary = async (req, res) => {
         totalSaldo += saldo;
       }
     } else {
-      // Jika tidak ada data dari AVESINA
       detail.push({
         sumber: "AVESINA",
         kategori: "Belum ada tagihan",
@@ -320,13 +318,8 @@ exports.getUtangPiutangSummary = async (req, res) => {
       });
     }
 
-    // 7b. Data dari Pembelian Langsung - SEMUA KATEGORI
+    // 8b. Data dari Pembelian Langsung
     if (allCategories.length > 0) {
-      // Tambahkan separator jika ada data
-      if (detail.length > 0 && detail[0].sumber === "AVESINA") {
-        // Tidak perlu separator, langsung tambahkan
-      }
-
       allCategories.forEach((kategori) => {
         const data = langsungMap.get(kategori.id) || { total: 0 };
         const diajukan = data.total || 0;
@@ -347,14 +340,12 @@ exports.getUtangPiutangSummary = async (req, res) => {
     }
 
     // ==========================
-    // 8. URUTKAN DATA
+    // 9. URUTKAN DATA
     // ==========================
     detail.sort((a, b) => {
-      // AVESINA di atas, PEMBELIAN LANGSUNG di bawah
       if (a.sumber === "AVESINA" && b.sumber === "PEMBELIAN LANGSUNG")
         return -1;
       if (a.sumber === "PEMBELIAN LANGSUNG" && b.sumber === "AVESINA") return 1;
-      // Urutkan berdasarkan kategori
       return a.kategori.localeCompare(b.kategori);
     });
 
@@ -365,9 +356,13 @@ exports.getUtangPiutangSummary = async (req, res) => {
         dibayar: totalDibayar,
         saldo: totalSaldo,
       },
+      filter: {
+        startDate,
+        endDate,
+        defaultStart: DEFAULT_START,
+      },
     };
 
-    console.log("[getUtangPiutangSummary] Response sent successfully");
     res.json(response);
   } catch (err) {
     console.error("[getUtangPiutangSummary] Error:", err);
@@ -376,6 +371,11 @@ exports.getUtangPiutangSummary = async (req, res) => {
       stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
       detail: [],
       total: { diajukan: 0, dibayar: 0, saldo: 0 },
+      filter: {
+        startDate: "2025-01-01",
+        endDate: new Date().toISOString().slice(0, 10),
+        defaultStart: "2025-01-01",
+      },
     });
   }
 };

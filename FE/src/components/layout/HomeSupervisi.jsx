@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Card, Row, Col, Badge, Spinner, Table } from "react-bootstrap";
 
 import { fetchDashboardSupervisi } from "../../api/wj_supervisi/DashboardSupervisi";
+import { formatSortDate } from "../../utils/FormatDate"; // <-- Jangan lupa import
 
 const HomeSupervisi = () => {
   const [loading, setLoading] = useState(true);
@@ -30,8 +31,7 @@ const HomeSupervisi = () => {
   if (loading) {
     return (
       <div className="text-center py-5">
-        {" "}
-        <Spinner />{" "}
+        <Spinner />
       </div>
     );
   }
@@ -39,11 +39,14 @@ const HomeSupervisi = () => {
   if (!dashboard) {
     return (
       <Card>
-        <Card.Body>Belum ada data supervisi.</Card.Body>{" "}
+        <Card.Body>Belum ada data supervisi.</Card.Body>
       </Card>
     );
   }
 
+  // =========================================
+  // DESTRUCTURING (ambil semua data di sini)
+  // =========================================
   const {
     supervisi,
     kpi,
@@ -68,8 +71,13 @@ const HomeSupervisi = () => {
     inapKRS,
     fokusDireksi,
     rencanaAksi,
+    borPeriode, // <-- Sudah diambil di sini
+    borPerRuangan, // <-- Sudah diambil di sini
   } = dashboard;
 
+  // =========================================
+  // HELPER FUNCTIONS
+  // =========================================
   const formatNumber = (value, decimals = 0) => {
     const number = Number(value);
     if (!Number.isFinite(number)) {
@@ -92,354 +100,555 @@ const HomeSupervisi = () => {
   };
 
   const color_status = (bor_status) => {
-    if (bor_status === "Aman") {
-      return "success";
-    }
-    if (bor_status === "Waspada") {
-      return "warning";
-    }
-    if (bor_status === "Kritis") {
-      return "danger";
-    }
+    if (bor_status === "Aman") return "success";
+    if (bor_status === "Waspada") return "warning";
+    if (bor_status === "Kritis") return "danger";
     return "dark";
   };
-
-  const borValue = Number(applicareSummary?.bor || 0);
-  const borStatus = getBorStatus(borValue);
 
   const cardValue = (value) => {
     const number = Number(value);
     return Number.isFinite(number) ? number : 0;
   };
 
+  // =========================================
+  // BOR REAL-TIME (dari applicare)
+  // =========================================
+  const borValue = Number(applicareSummary?.bor || 0);
+  const borStatus = getBorStatus(borValue);
+
+  // =========================================
+  // BOR PERIODE (dari data supervisi)
+  // =========================================
+  // HAPUS deklarasi ulang di sini!
+  // Cukup gunakan borPeriode yang sudah diambil dari destructuring
+  const borPeriodeValue = Number(borPeriode?.bor_periode || 0);
+
+  const getPeriodeStatus = (value) => {
+    if (value >= 100) return { label: "Over Capacity", variant: "dark" };
+    if (value >= 90) return { label: "Kritis", variant: "danger" };
+    if (value >= 80) return { label: "Waspada", variant: "warning" };
+    return { label: "Aman", variant: "success" };
+  };
+
+  const periodeStatus = getPeriodeStatus(borPeriodeValue);
+
+  // =========================================
+  // RENDER
+  // =========================================
   return (
     <>
       {/* ========================================= */}
-      {/* HEADER */}
+      {/* BEDGE RINGKASAN */}
       {/* ========================================= */}
 
-      <Card className="mb-3 shadow-sm">
-        <Card.Header>Home Supervisi</Card.Header>
-        <Card.Body>
-          {/* ========================================= */}
-          {/* RINGKASAN EKSEKUTIF */}
-          {/* ========================================= */}
-
-          <Card className="mb-3">
-            <Card.Header>Ringkasan Eksekutif</Card.Header>
-
+      <Row className="g-3 mb-3">
+        {/* BOR Real-time */}
+        <Col md={3}>
+          <Card className="h-100">
+            <Card.Header className="text-center">
+              BED OCCUPANCY RATE (BOR){" "}
+              <small className="text-muted">• Harian</small>
+            </Card.Header>
             <Card.Body>
-              {eksekutif?.detail?.length > 0 ? (
+              <div className="text-center">
+                <h1 style={{ fontSize: "4rem" }}>
+                  {formatNumber(borValue, 2)}
+                </h1>
+                %
+              </div>
+            </Card.Body>
+            <Card.Footer className="text-center">
+              <Badge
+                bg={borStatus.variant}
+                text={borStatus.variant === "warning" ? "dark" : "light"}
+              >
+                Total : {formatNumber(applicareSummary?.total_kapasitas || 0)} |
+                Status : {borStatus.label}
+              </Badge>
+            </Card.Footer>
+          </Card>
+        </Col>
+
+        {/* BOR Periode Supervisi */}
+        <Col md={3}>
+          <Card className="h-100 border-info">
+            <Card.Header className="text-center bg-info text-white">
+              BOR PERIODE SUPERVISI
+            </Card.Header>
+            <Card.Body>
+              <div className="text-center">
+                <h1 style={{ fontSize: "4rem" }}>
+                  {formatNumber(borPeriodeValue, 2)}
+                </h1>
+                %
+                <div className="mt-2">
+                  <small>
+                    Total Hari Rawat:{" "}
+                    {formatNumber(borPeriode?.total_hari_perawatan || 0)}
+                  </small>
+                </div>
+                <div>
+                  <small>
+                    Pasien: {formatNumber(borPeriode?.total_pasien || 0)}
+                  </small>
+                </div>
+              </div>
+            </Card.Body>
+            <Card.Footer className="text-center">
+              <Badge
+                bg={periodeStatus.variant}
+                text={periodeStatus.variant === "warning" ? "dark" : "light"}
+              >
+                Kapasitas: {formatNumber(borPeriode?.total_kapasitas || 0)} |
+                Status: {periodeStatus.label}
+              </Badge>
+              <div className="mt-1">
+                <small className="text-muted">
+                  Periode: {formatSortDate(supervisi?.periode_awal)} -{" "}
+                  {formatSortDate(supervisi?.periode_akhir)}
+                </small>
+              </div>
+            </Card.Footer>
+          </Card>
+        </Col>
+
+        {/* Kunjungan Rajal */}
+        <Col md={2}>
+          <Card className="h-100">
+            <Card.Header className="text-center">KUNJUNGAN RAJAL</Card.Header>
+            <Card.Body>
+              <div className="text-center">
+                <h1>{cardValue(kunjunganRajal)}</h1>
+                <div>Pasien</div>
+              </div>
+            </Card.Body>
+            <Card.Footer className="text-center">
+              <Badge bg="secondary">
+                {cardValue(rajalMJKN)} MJKN | {cardValue(rajalOnsite)} Onsite
+              </Badge>
+            </Card.Footer>
+          </Card>
+        </Col>
+
+        {/* Kunjungan IGD */}
+        <Col md={2}>
+          <Card className="h-100">
+            <Card.Header className="text-center">KUNJUNGAN IGD</Card.Header>
+            <Card.Body>
+              <div className="text-center">
+                <h1>{cardValue(kunjunganIGD)}</h1>
+                <div>Pasien</div>
+              </div>
+            </Card.Body>
+            <Card.Footer className="text-center">
+              <Badge bg="danger">
+                {cardValue(igdMRS)} MRS | {cardValue(igdSisa)} Sisa
+              </Badge>
+            </Card.Footer>
+          </Card>
+        </Col>
+
+        {/* Pasien Ranap */}
+        <Col md={2}>
+          <Card className="h-100">
+            <Card.Header className="text-center">PASIEN RANAP</Card.Header>
+            <Card.Body>
+              <div className="text-center">
+                <h1>{cardValue(pasienRawatInap)}</h1>
+                <div>Pasien</div>
+              </div>
+            </Card.Body>
+            <Card.Footer className="text-center">
+              <Badge bg="success">
+                {cardValue(inapAdmisi)} Admisi | {cardValue(inapKRS)} KRS
+              </Badge>
+            </Card.Footer>
+          </Card>
+        </Col>
+      </Row>
+
+      {/* ========================================= */}
+      {/* RINGKASAN EKSEKUTIF */}
+      {/* ========================================= */}
+
+      <Card className="mb-3">
+        <Card.Header>Ringkasan Eksekutif</Card.Header>
+        <Card.Body>
+          {eksekutif?.detail?.length > 0 ? (
+            eksekutif.detail.map((item, idx) => (
+              <div
+                key={idx}
+                className="mb-2"
+                style={{ whiteSpace: "pre-line" }}
+              >
+                {item.uraian}
+              </div>
+            ))
+          ) : (
+            <span className="text-muted">Belum ada ringkasan eksekutif</span>
+          )}
+        </Card.Body>
+      </Card>
+
+      <div className="row">
+        <div className="col-md-9">
+          {/* ========================================= */}
+          {/* APPLICARE TABEL */}
+          {/* ========================================= */}
+          <Card className="mb-3">
+            <Card.Header>Detail Applicare / Ketersediaan Kamar</Card.Header>
+            <Card.Body>
+              <div className="table-responsive">
+                <Table size="sm" bordered>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Ruang</th>
+                      <th className="text-center">Kapasitas</th>
+                      <th className="text-center">Terisi</th>
+                      <th className="text-center">Tersedia</th>
+                      <th className="text-center">BOR Harian</th>
+                      <th className="text-center">BOR Periode</th>
+                      <th className="text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Array.isArray(applicareList) &&
+                    applicareList.length > 0 ? (
+                      applicareList.map((item, index) => {
+                        // Cari data BOR periode untuk ruang ini
+                        const borPeriodeRuang = borPerRuangan?.find(
+                          (r) => r.namaruang === item.namaruang,
+                        );
+
+                        return (
+                          <tr key={`${item.koderuang || index}-${index}`}>
+                            <td>{index + 1}</td>
+                            <td>{item.namaruang}</td>
+                            <td className="text-center">{item.kapasitas}</td>
+                            <td className="text-center">{item.terisi}</td>
+                            <td className="text-center">{item.tersedia}</td>
+                            <td className="text-center">{item.bor}%</td>
+                            <td className="text-center">
+                              {borPeriodeRuang?.bor_periode || "-"}%
+                            </td>
+                            <td className="text-center">
+                              <Badge bg={color_status(item.bor_status)}>
+                                {item.bor_status}
+                              </Badge>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan="8" className="text-center">
+                          Tidak ada data applicare.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </Table>
+              </div>
+            </Card.Body>
+            <Card.Footer className="text-muted text-end px-3 py-3">
+              <div className="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
+                <div>
+                  <Badge bg="success">HIJAU</Badge>
+                  <small className="ms-2">Kurang dari 80% Aman</small>
+                </div>
+                <div>
+                  <Badge bg="warning">KUNING</Badge>
+                  <small className="ms-2">80-90% Waspada</small>
+                </div>
+                <div>
+                  <Badge bg="danger">MERAH</Badge>
+                  <small className="ms-2">Diatas 90% Kritis</small>
+                </div>
+                <div>
+                  <Badge bg="dark">OVER</Badge>
+                  <small className="ms-2">100%+ Over Capacity</small>
+                </div>
+              </div>
+
+              <div className="d-flex flex-column flex-md-row justify-content-between gap-3 align-items-center">
+                <div>
+                  <strong>Total Kapasitas:</strong>{" "}
+                  {cardValue(applicareSummary?.total_kapasitas)} TT
+                </div>
+                <div>
+                  <strong>Terisi:</strong>{" "}
+                  {cardValue(applicareSummary?.total_terisi)} TT
+                </div>
+                <div>
+                  <strong>Sisa:</strong>{" "}
+                  {cardValue(applicareSummary?.total_tersedia)} TT
+                </div>
+                <div>
+                  <strong>BOR Periode:</strong>{" "}
+                  {formatNumber(borPeriodeValue, 2)}%
+                </div>
+              </div>
+            </Card.Footer>
+          </Card>
+        </div>
+
+        <div className="col-md-3">
+          <Row className="g-3">
+            {/* IGD */}
+            <Col md={12}>
+              <Card>
+                <Card.Header>A. IGD & Rawat Inap</Card.Header>
+                <Card.Body>
+                  <Table size="sm" bordered>
+                    <thead>
+                      <tr>
+                        <th>Total Pasien IGD</th>
+                        <th width="50" className="text-center">
+                          {igd?.pasien_total}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>Pasien Lama</td>
+                        <td className="text-center">{igd?.pasien_igd_lama}</td>
+                      </tr>
+                      <tr>
+                        <td>Pasien Baru</td>
+                        <td className="text-center">{igd?.pasien_igd_baru}</td>
+                      </tr>
+                      <tr>
+                        <td>Pasien Masuk Ranap</td>
+                        <td className="text-center">
+                          {igd?.pasien_rawat_inap}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>Sisa Pasien IGD</td>
+                        <td className="text-center">{igd?.pasien_igd_sisa}</td>
+                      </tr>
+                      <tr>
+                        <td>Kematian IGD &lt; 6 Jam</td>
+                        <td className="text-center">
+                          {igd?.kematian_igd_6_jam}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </Table>
+                </Card.Body>
+              </Card>
+            </Col>
+
+            {/* IBS */}
+            <Col md={12}>
+              <Card>
+                <Card.Header>B. Instalasi Bedah Sentral</Card.Header>
+                <Card.Body>
+                  <Table size="sm" bordered>
+                    <thead>
+                      <tr>
+                        <th>Total Pasien IBS</th>
+                        <th width="50" className="text-center">
+                          {ibs?.pasien_ibs_total}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>Emergency</td>
+                        <td className="text-center">{ibs?.emergency}</td>
+                      </tr>
+                      <tr>
+                        <td>Urgency</td>
+                        <td className="text-center">{ibs?.urgency}</td>
+                      </tr>
+                      <tr>
+                        <td>Elektif</td>
+                        <td className="text-center">{ibs?.elektif}</td>
+                      </tr>
+                      <tr>
+                        <td>Operasi Besar</td>
+                        <td className="text-center">{ibs?.operasi_besar}</td>
+                      </tr>
+                      <tr>
+                        <td>Operasi Sedang</td>
+                        <td className="text-center">{ibs?.operasi_sedang}</td>
+                      </tr>
+                      <tr>
+                        <td>Operasi Khusus</td>
+                        <td className="text-center">{ibs?.operasi_khusus}</td>
+                      </tr>
+                    </tbody>
+                  </Table>
+                </Card.Body>
+              </Card>
+            </Col>
+
+            {/* HD */}
+            <Col md={12}>
+              <Card>
+                <Card.Header>C. Hemodialisa</Card.Header>
+                <Card.Body>
+                  <Table size="sm" bordered>
+                    <thead>
+                      <tr>
+                        <th>Total Pasien HD</th>
+                        <th width="50" className="text-center">
+                          {hd?.pasien_hd_total}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>Pasien Reguler</td>
+                        <td className="text-center">{hd?.pasien_reguler}</td>
+                      </tr>
+                      <tr>
+                        <td>Pasien Isolasi</td>
+                        <td className="text-center">{hd?.pasien_isolasi}</td>
+                      </tr>
+                      <tr>
+                        <td>CAPD</td>
+                        <td className="text-center">{hd?.capd}</td>
+                      </tr>
+                    </tbody>
+                  </Table>
+                </Card.Body>
+              </Card>
+            </Col>
+
+            {/* MUTU */}
+            <Col md={12}>
+              <Card>
+                <Card.Header>D. Data Mutu & Keselamatan Pasien</Card.Header>
+                <Card.Body>
+                  <Table size="sm" bordered>
+                    <tbody>
+                      <tr>
+                        <td>Keluhan Pasien</td>
+                        <td width="50" className="text-center">
+                          {mutu?.keluhan_pasien}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>Insiden Keselamatan</td>
+                        <td className="text-center">
+                          {mutu?.insiden_keselamatan}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>Kejadian Sentinel</td>
+                        <td className="text-center">
+                          {mutu?.kejadian_sentinel}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>Infeksi Nosokomial</td>
+                        <td className="text-center">
+                          {mutu?.infeksi_nosokomial}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </Table>
+                </Card.Body>
+              </Card>
+            </Col>
+          </Row>
+        </div>
+      </div>
+
+      {/* Kebutuhan, Kendala, Fokus Direksi, Rencana Aksi */}
+      <div className="row mt-3">
+        <div className="col-md-4">
+          <Card>
+            <Card.Header>Kebutuhan & Kendala Utama</Card.Header>
+            <Card.Body>
+              <h6>Kebutuhan</h6>
+              {kendala?.kebutuhan_detail?.length > 0 ? (
                 <ul className="mb-0 ps-3">
-                  {eksekutif.detail.map((item, idx) => (
+                  {kendala.kebutuhan_detail.map((item, idx) => (
                     <li key={idx}>{item.uraian}</li>
                   ))}
                 </ul>
               ) : (
+                <span className="text-muted">Belum ada kebutuhan</span>
+              )}
+              <hr />
+              <h6>Kendala</h6>
+              {kendala?.kendala_detail?.length > 0 ? (
+                <ul className="mb-0 ps-3">
+                  {kendala.kendala_detail.map((item, idx) => (
+                    <li key={idx}>{item.uraian}</li>
+                  ))}
+                </ul>
+              ) : (
+                <span className="text-muted">Belum ada kendala</span>
+              )}
+            </Card.Body>
+          </Card>
+        </div>
+
+        <div className="col-md-4">
+          <Card>
+            <Card.Header>Fokus Perhatian Direksi Hari Ini</Card.Header>
+            <Card.Body>
+              {fokusDireksi?.length > 0 ? (
+                fokusDireksi.map((item, idx) => (
+                  <div key={idx} className="mb-2">
+                    <Badge bg="danger">{item.prioritas}</Badge>
+                    <span className="ms-2 fw-bold">{item.judul}</span>
+                    {item.uraian && (
+                      <div className="small text-muted mt-1">{item.uraian}</div>
+                    )}
+                  </div>
+                ))
+              ) : (
                 <span className="text-muted">
-                  Belum ada ringkasan eksekutif
+                  Tidak ada fokus direksi hari ini
                 </span>
               )}
             </Card.Body>
           </Card>
+        </div>
 
-          <div className="row">
-            <div className="col-md-3">
-              <Row className="g-3">
-                {/* ========================================= */}
-                {/* IGD */}
-                {/* ========================================= */}
-                <Col md={12}>
-                  <Card>
-                    <Card.Header>A. IGD & Rawat Inap</Card.Header>
-
-                    <Card.Body>
-                      <Table size="sm" bordered>
-                        <thead>
-                          <tr>
-                            <th>Total Pasien IGD</th>
-                            <th width="50" className="text-center">
-                              {igd?.pasien_total}
-                            </th>
-                          </tr>
-                        </thead>
-
-                        <tbody>
-                          <tr>
-                            <td>Pasien Lama</td>
-                            <td className="text-center">
-                              {igd?.pasien_igd_lama}
-                            </td>
-                          </tr>
-
-                          <tr>
-                            <td>Pasien Baru</td>
-                            <td className="text-center">
-                              {igd?.pasien_igd_baru}
-                            </td>
-                          </tr>
-
-                          <tr>
-                            <td>Pasien Masuk Ranap</td>
-                            <td className="text-center">
-                              {igd?.pasien_rawat_inap}
-                            </td>
-                          </tr>
-
-                          <tr>
-                            <td>Sisa Pasien IGD</td>
-                            <td className="text-center">
-                              {igd?.pasien_igd_sisa}
-                            </td>
-                          </tr>
-
-                          <tr>
-                            <td>Kematian IGD &lt; 6 Jam</td>
-                            <td className="text-center">
-                              {igd?.kematian_igd_6_jam}
-                            </td>
-                          </tr>
-                        </tbody>
-                      </Table>
-                    </Card.Body>
-                  </Card>
-                </Col>
-
-                {/* IBS */}
-
-                <Col md={12}>
-                  <Card>
-                    <Card.Header>B. Instalasi Bedah Sentral</Card.Header>
-
-                    <Card.Body>
-                      <Table size="sm" bordered>
-                        <thead>
-                          <tr>
-                            <th>Total Pasien IBS</th>
-                            <th width="50" className="text-center">
-                              {ibs?.pasien_ibs_total}
-                            </th>
-                          </tr>
-                        </thead>
-
-                        <tbody>
-                          <tr>
-                            <td>Emergency</td>
-                            <td className="text-center">{ibs?.emergency}</td>
-                          </tr>
-
-                          <tr>
-                            <td>Urgency</td>
-                            <td className="text-center">{ibs?.urgency}</td>
-                          </tr>
-
-                          <tr>
-                            <td>Elektif</td>
-                            <td className="text-center">{ibs?.elektif}</td>
-                          </tr>
-
-                          <tr>
-                            <td>Operasi Besar</td>
-                            <td className="text-center">
-                              {ibs?.operasi_besar}
-                            </td>
-                          </tr>
-
-                          <tr>
-                            <td>Operasi Sedang</td>
-                            <td className="text-center">
-                              {ibs?.operasi_sedang}
-                            </td>
-                          </tr>
-
-                          <tr>
-                            <td>Operasi Khusus</td>
-                            <td className="text-center">
-                              {ibs?.operasi_khusus}
-                            </td>
-                          </tr>
-                        </tbody>
-                      </Table>
-                    </Card.Body>
-                  </Card>
-                </Col>
-
-                {/* HD */}
-
-                <Col md={12}>
-                  <Card>
-                    <Card.Header>C. Hemodialisa</Card.Header>
-
-                    <Card.Body>
-                      <Table size="sm" bordered>
-                        <thead>
-                          <tr>
-                            <th>Total Pasien HD</th>
-                            <th width="50" className="text-center">
-                              {hd?.pasien_hd_total}
-                            </th>
-                          </tr>
-                        </thead>
-
-                        <tbody>
-                          <tr>
-                            <td>Pasien Reguler</td>
-                            <td className="text-center">
-                              {hd?.pasien_reguler}
-                            </td>
-                          </tr>
-
-                          <tr>
-                            <td>Pasien Isolasi</td>
-                            <td className="text-center">
-                              {hd?.pasien_isolasi}
-                            </td>
-                          </tr>
-
-                          <tr>
-                            <td>CAPD</td>
-                            <td className="text-center">{hd?.capd}</td>
-                          </tr>
-                        </tbody>
-                      </Table>
-                    </Card.Body>
-                  </Card>
-                </Col>
-
-                {/* MUTU */}
-
-                <Col md={12}>
-                  <Card>
-                    <Card.Header>D. Data Mutu & Keselamatan Pasien</Card.Header>
-
-                    <Card.Body>
-                      <Table size="sm" bordered>
-                        <tbody>
-                          <tr>
-                            <td>Keluhan Pasien</td>
-                            <td width="50" className="text-center">
-                              {mutu?.keluhan_pasien}
-                            </td>
-                          </tr>
-
-                          <tr>
-                            <td>Insiden Keselamatan</td>
-                            <td className="text-center">
-                              {mutu?.insiden_keselamatan}
-                            </td>
-                          </tr>
-
-                          <tr>
-                            <td>Kejadian Sentinel</td>
-                            <td className="text-center">
-                              {mutu?.kejadian_sentinel}
-                            </td>
-                          </tr>
-
-                          <tr>
-                            <td>Infeksi Nosokomial</td>
-                            <td className="text-center">
-                              {mutu?.infeksi_nosokomial}
-                            </td>
-                          </tr>
-                        </tbody>
-                      </Table>
-                    </Card.Body>
-                  </Card>
-                </Col>
-              </Row>
-            </div>
-
-            <div className="col-md-9">
-              <Col md={12}>
-                {" "}
-                {/* KENDALA */}
-                <Card>
-                  <Card.Header>Kebutuhan & Kendala Utama</Card.Header>
-
-                  <Card.Body>
-                    <h6>Kebutuhan</h6>
-
-                    {kendala?.kebutuhan_detail?.length > 0 ? (
-                      <ul className="mb-0 ps-3">
-                        {kendala.kebutuhan_detail.map((item, idx) => (
-                          <li key={idx}>{item.uraian}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <span className="text-muted">Belum ada kebutuhan</span>
-                    )}
-
-                    <hr />
-
-                    <h6>Kendala</h6>
-
-                    {kendala?.kendala_detail?.length > 0 ? (
-                      <ul className="mb-0 ps-3">
-                        {kendala.kendala_detail.map((item, idx) => (
-                          <li key={idx}>{item.uraian}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <span className="text-muted">Belum ada kendala</span>
-                    )}
-                  </Card.Body>
-                </Card>
-              </Col>
-
-              <Col md={12}>
-                {/* FOKUS DIREKSI */}
-
-                <Card className="mt-3">
-                  <Card.Header>Fokus Perhatian Direksi Hari Ini</Card.Header>
-
-                  <Card.Body>
-                    {fokusDireksi?.map((item, idx) => (
-                      <div key={idx} className="mb-2">
-                        <Badge bg="danger">{item.prioritas}</Badge>
-
-                        <span className="ms-2 fw-bold">{item.judul}</span>
-                      </div>
-                    ))}
-                  </Card.Body>
-                </Card>
-              </Col>
-
-              {/* RENCANA AKSI */}
-
-              <Col md={12}>
-                <Card className="mt-3 mb-4">
-                  <Card.Header>Rencana Aksi Cepat</Card.Header>
-
-                  <Card.Body>
-                    <Table bordered hover>
-                      <thead>
-                        <tr>
-                          <th>Issue</th>
-                          <th>Tindakan</th>
-                          <th>PIC</th>
-                          <th>Status</th>
-                        </tr>
-                      </thead>
-
-                      <tbody>
-                        {rencanaAksi?.map((item) => (
-                          <tr key={item.direksi_plan_id}>
-                            <td>{item.issue_judul}</td>
-                            <td>{item.uraian_tindakan}</td>
-                            <td>{item.pic}</td>
-                            <td>{item.status}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </Table>
-                  </Card.Body>
-                </Card>
-              </Col>
-            </div>
-          </div>
-        </Card.Body>
-      </Card>
+        <div className="col-md-4">
+          <Card className="mb-4">
+            <Card.Header>Rencana Aksi Cepat</Card.Header>
+            <Card.Body>
+              <Table bordered hover>
+                <thead>
+                  <tr>
+                    <th>Issue</th>
+                    <th>Tindakan</th>
+                    <th>PIC</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rencanaAksi?.length > 0 ? (
+                    rencanaAksi.map((item) => (
+                      <tr key={item.direksi_plan_id}>
+                        <td>{item.issue_judul}</td>
+                        <td>{item.uraian_tindakan}</td>
+                        <td>{item.pic}</td>
+                        <td>{item.status}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="4" className="text-center text-muted">
+                        Belum ada rencana aksi
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </Table>
+            </Card.Body>
+          </Card>
+        </div>
+      </div>
     </>
   );
 };

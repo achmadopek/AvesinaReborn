@@ -1,6 +1,32 @@
 const db_lokal = require("../../db/connection-lokal");
 const ExcelJS = require("exceljs");
 
+function hitungNilaiAkhir(totalNum, totalDen, measurement) {
+  if (!totalDen && measurement !== "jumlah") return null;
+
+  switch (measurement) {
+    case "%":
+      return (totalNum / totalDen) * 100;
+
+    case "Perseribu":
+      return (totalNum / totalDen) * 1000;
+
+    case "Menit":
+    case "Detik":
+    case "Jam":
+    case "Hari":
+    case "Minggu":
+      return totalNum / totalDen;
+
+    case "Tim":
+    case "Orang":
+      return totalNum;
+
+    default:
+      return totalNum / totalDen;
+  }
+}
+
 // GET data INM harian by unit & tanggal
 exports.getINMHarianByUnit = (req, res) => {
   const { unit_id, tgl_sensus } = req.query;
@@ -42,38 +68,6 @@ exports.getINMHarianByUnit = (req, res) => {
   });
 };
 
-function hitungCapaian(num, den, measurement) {
-  if (!den || den === 0) return null;
-
-  switch (measurement) {
-    case "%":
-      return (num / den) * 100;
-    default:
-      return null;
-  }
-}
-
-function cekStandar(nilai, operator, standar) {
-  if (nilai === null) return null;
-
-  const std = Number(standar);
-
-  switch (operator) {
-    case "=":
-      return nilai === std;
-    case ">=":
-      return nilai >= std;
-    case "<=":
-      return nilai <= std;
-    case ">":
-      return nilai > std;
-    case "<":
-      return nilai < std;
-    default:
-      return null;
-  }
-}
-
 exports.getRekapBulanan = (req, res) => {
   const { unit_id, bulan } = req.query; // contoh: 2026-01
 
@@ -99,21 +93,28 @@ exports.getRekapBulanan = (req, res) => {
       i.measurement,
       i.operator,
       i.standart,
+
+      sd.is_meet_standard,
+      sd.final_value,
+
       DATE_FORMAT(d.tgl, '%Y-%m-%d') AS tgl,
+
       h.id AS harian_id,
       h.status_verifikasi,
       h.catatan_verifikasi,
+
       COALESCE(SUM(sd.numerator_value), 0) AS numerator,
       COALESCE(SUM(sd.denominator_value), 0) AS denominator
+
     FROM inm_indikator i
 
-    -- mapping indikator -> unit
-    LEFT JOIN inm_group_pelayanan grp 
-      ON grp.id = i.group_pelayanan_id
-    LEFT JOIN inm_unit u 
-      ON u.group_pelayanan_id = grp.id
+    LEFT JOIN inm_unit_group_pelayanan ug
+      ON ug.group_pelayanan_id = i.group_pelayanan_id
 
-    -- generate tanggal 1 bulan
+    LEFT JOIN inm_unit u 
+      ON u.id = ug.unit_id
+
+    -- generate tanggal
     CROSS JOIN (
       SELECT DATE_ADD(DATE(CONCAT(?, '-01')), INTERVAL n DAY) AS tgl
       FROM (
@@ -139,7 +140,7 @@ exports.getRekapBulanan = (req, res) => {
       ON sd.harian_id = h.id
       AND sd.indikator_id = i.id
 
-    -- filter by unit
+    -- filter
     WHERE u.id = ?
 
     GROUP BY i.id, d.tgl
@@ -198,8 +199,8 @@ exports.getRekapBulanan = (req, res) => {
       const num = Number(r.numerator) || 0;
       const den = Number(r.denominator) || 0;
 
-      const nilai = hitungCapaian(num, den, r.measurement);
-      const memenuhi = cekStandar(nilai, r.operator, r.standart);
+      const nilai = r.final_value;
+      const memenuhi = r.is_meet_standard;
 
       map[r.indikator_id].data[tglKey] = {
         harian_id: r.harian_id || null,
@@ -218,13 +219,18 @@ exports.getRekapBulanan = (req, res) => {
     // -------------------------
     // 5. Hitung persen & final result
     // -------------------------
-    const result = Object.values(map).map((i) => ({
-      ...i,
-      persen:
-        i.total_denominator > 0
-          ? ((i.total_numerator / i.total_denominator) * 100).toFixed(2)
-          : "NIHIL",
-    }));
+    const result = Object.values(map).map((i) => {
+      const nilai = hitungNilaiAkhir(
+        i.total_numerator,
+        i.total_denominator,
+        i.measurement,
+      );
+
+      return {
+        ...i,
+        nilai_akhir: nilai !== null ? Number(nilai).toFixed(2) : "NIHIL",
+      };
+    });
 
     // -------------------------
     // 6. Response
@@ -236,10 +242,8 @@ exports.getRekapBulanan = (req, res) => {
         harian: Object.values(mapHarian),
       },
     });
-
   });
 };
-
 
 exports.generateRekapValidasi = (req, res) => {
   const { instalasi_id, bulan, tahun } = req.body;
@@ -270,61 +274,61 @@ exports.generateRekapValidasi = (req, res) => {
       ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)
     `;
 
-    db_lokal.query(
-      sqlInsertRekap,
-      [instalasi_id, bulan, tahun],
-      (err, r1) => {
-        if (err) return res.status(500).json({ success: false, error: err });
+    db_lokal.query(sqlInsertRekap, [instalasi_id, bulan, tahun], (err, r1) => {
+      if (err) return res.status(500).json({ success: false, error: err });
 
-        const rekap_id = r1.insertId;
+      const rekap_id = r1.insertId;
 
-        // 3. Loop unit → ambil rekap bulanan per unit
-        let selesai = 0;
+      // 3. Loop unit → ambil rekap bulanan per unit
+      let selesai = 0;
 
-        units.forEach((u) => {
-          const unit_id = u.id;
-          const bulanStr = `${tahun}-${String(bulan).padStart(2, "0")}`;
+      units.forEach((u) => {
+        const unit_id = u.id;
+        const bulanStr = `${tahun}-${String(bulan).padStart(2, "0")}`;
 
-          ambilRekapUnit(unit_id, bulanStr, (err, dataRekap) => {
-            if (err) return console.error(err);
+        ambilRekapUnit(unit_id, bulanStr, (err, dataRekap) => {
+          if (err) return console.error(err);
 
-            simpanDetail(rekap_id, unit_id, dataRekap, () => {
-              selesai++;
-              if (selesai === units.length) {
-                res.json({
-                  success: true,
-                  message: "Rekap verifikasi berhasil digenerate",
-                  rekap_id,
-                });
-              }
-            });
+          simpanDetail(rekap_id, unit_id, dataRekap, () => {
+            selesai++;
+            if (selesai === units.length) {
+              res.json({
+                success: true,
+                message: "Rekap verifikasi berhasil digenerate",
+                rekap_id,
+              });
+            }
           });
         });
-      }
-    );
+      });
+    });
   });
 };
 
 function ambilRekapUnit(unit_id, bulan, cb) {
-  const sql = 
-    `SELECT
+  const sql = `SELECT
       i.id AS indikator_id,
       i.judul_indikator,
-      i.numerator as nama_numerator,
-      i.denominator as nama_denominator,
+      i.numerator AS nama_numerator,
+      i.denominator AS nama_denominator,
       i.measurement,
       i.operator,
       i.standart,
       d.tgl,
+
+      sd.is_meet_standard,
+      sd.final_value,
+
       COALESCE(SUM(sd.numerator_value), 0) AS numerator,
       COALESCE(SUM(sd.denominator_value), 0) AS denominator
+
     FROM inm_indikator i
 
-    -- mapping indikator -> unit
-    LEFT JOIN inm_group_pelayanan grp 
-      ON grp.id = i.group_pelayanan_id
-    LEFT JOIN inm_unit u 
-      ON u.group_pelayanan_id = grp.id
+    LEFT JOIN inm_unit_group_pelayanan ug
+      ON ug.group_pelayanan_id = i.group_pelayanan_id
+
+    LEFT JOIN inm_unit u
+      ON u.id = ug.unit_id
 
     -- generate tanggal 1 bulan
     CROSS JOIN (
@@ -379,15 +383,17 @@ function ambilRekapUnit(unit_id, bulan, cb) {
         };
       }
 
-      const num = Number(r.numerator);
-      const den = Number(r.denominator);
+      const num = Number(r.numerator) || 0;
+      const den = Number(r.denominator) || 0;
 
-      const nilai = hitungCapaian(num, den, r.measurement);
-      const memenuhi = cekStandar(nilai, r.operator, r.standart);
+      const memenuhi = r.is_meet_standard == 1;
 
       if (den > 0) {
         map[r.indikator_id].days_total++;
-        if (memenuhi) map[r.indikator_id].days_meet++;
+
+        if (memenuhi) {
+          map[r.indikator_id].days_meet++;
+        }
       }
 
       map[r.indikator_id].total_numerator += num;
@@ -401,9 +407,7 @@ function ambilRekapUnit(unit_id, bulan, cb) {
           : null;
 
       const meetPercent =
-        i.days_total > 0
-          ? (i.days_meet / i.days_total) * 100
-          : null;
+        i.days_total > 0 ? (i.days_meet / i.days_total) * 100 : null;
 
       return {
         indikator_id: i.indikator_id,
@@ -542,6 +546,6 @@ exports.validasiBulanan = (req, res) => {
       if (err) return res.status(500).json({ success: false, error: err });
 
       res.json({ success: true });
-    }
+    },
   );
 };

@@ -1,40 +1,29 @@
 import React, { useState, useEffect } from "react";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  ResponsiveContainer,
-  Legend,
-} from "recharts";
-import { toast } from "react-toastify";
-import { useAuth } from "../../context/AuthContext";
-import { fetchRekapINMIndikator } from "../../api/wj_inm/DashboardINM";
+import { fetchRekapINMIndikator } from "../../../api/wj_inm/DashboardINM";
 import {
   fetchRuangan,
   fetchInstalasi,
   fetchBidang,
-} from "../../api/wj_inm/EntriHarian";
+} from "../../../api/wj_inm/EntriHarian";
+import { generateRekapPDF } from "../../../utils/generateRekapPDF";
+import { toast } from "react-toastify";
+import { useAuth } from "../../../context/AuthContext";
 
-const HomeINM = () => {
-  const { role } = useAuth();
+const RekapitulasiINM = () => {
+  const { role, unit_id: userUnitId } = useAuth(); // pastikan AuthContext mengembalikan unit_id user
 
-  // ================= STATE =================
   const [rekap, setRekap] = useState([]);
   const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // ================= FILTER =================
-  const now = new Date();
-  const [mode, setMode] = useState("instalasi");
+  const [mode, setMode] = useState("unit");
   const [selectedId, setSelectedId] = useState("");
   const [listUnit, setListUnit] = useState([]);
   const [listInstalasi, setListInstalasi] = useState([]);
   const [listBidang, setListBidang] = useState([]);
+
   const [periode, setPeriode] = useState("TW1");
-  const [year, setYear] = useState(now.getFullYear());
+  const [year, setYear] = useState(new Date().getFullYear());
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
 
@@ -54,7 +43,47 @@ const HomeINM = () => {
     "Des",
   ];
 
-  // ================= HELPER =================
+  // Format Capaian
+  const formatCapaian = (value, measurement = "") => {
+    if (value === null || value === undefined) return "-";
+    const num = Number(value);
+
+    switch (measurement?.toLowerCase()) {
+      case "%":
+        return `${num.toFixed(2)}%`;
+      case "menit":
+      case "jam":
+      case "hari":
+        return `${num.toFixed(2)} ${measurement}`;
+      default:
+        return `${num.toFixed(2)} ${measurement}`;
+    }
+  };
+
+  // Load Master Data
+  useEffect(() => {
+    const loadMaster = async () => {
+      try {
+        if (mode === "unit") {
+          const res = await fetchRuangan();
+          setListUnit(res.data || []);
+          if (res.data?.length > 0) setSelectedId(res.data[0].ruangan_id);
+        } else if (mode === "instalasi") {
+          const res = await fetchInstalasi();
+          setListInstalasi(res.data || []);
+          if (res.data?.length > 0) setSelectedId(res.data[0].instalasi_id);
+        } else if (mode === "bidang") {
+          const res = await fetchBidang();
+          setListBidang(res.data || []);
+          if (res.data?.length > 0) setSelectedId(res.data[0].bidang_id);
+        }
+      } catch (err) {
+        toast.error("Gagal memuat data master");
+      }
+    };
+    loadMaster();
+  }, [mode]);
+
   const getRangeByPeriode = (tahun, p) => {
     switch (p) {
       case "TW1":
@@ -76,73 +105,8 @@ const HomeINM = () => {
     }
   };
 
-  // Helper untuk format tampilan capaian
-  const formatCapaian = (value, measurement) => {
-    if (value === null || value === undefined) return "-";
-
-    const num = Number(value);
-
-    switch (measurement?.toLowerCase()) {
-      case "%":
-        return `${num.toFixed(2)}%`;
-      case "menit":
-      case "jam":
-      case "hari":
-        return `${num.toFixed(2)} ${measurement}`;
-      case "orang":
-      case "tim":
-      case "poli":
-      case "buah":
-        return `${Math.round(num)} ${measurement}`;
-      default:
-        return `${num.toFixed(2)} ${measurement || ""}`;
-    }
-  };
-
-  // ================= LOAD MASTER DATA =================
-  useEffect(() => {
-    setSelectedId("");
-    setRekap([]);
-    setMeta(null);
-    setStart("");
-    setEnd("");
-
-    const loadMaster = async () => {
-      try {
-        if (mode === "unit") {
-          const res = await fetchRuangan();
-          const data = res.data || [];
-          setListUnit(data);
-          setListInstalasi([]);
-          setListBidang([]);
-        } else if (mode === "instalasi") {
-          const res = await fetchInstalasi();
-          const data = res.data || [];
-          setListInstalasi(data);
-          setListUnit([]);
-          setListBidang([]);
-        } else if (mode === "bidang") {
-          const res = await fetchBidang();
-          const data = res.data || [];
-          setListBidang(data);
-          setListUnit([]);
-          setListInstalasi([]);
-        }
-      } catch (err) {
-        console.error(err);
-        toast.error("Gagal memuat data master");
-      }
-    };
-
-    loadMaster();
-  }, [mode]);
-
-  // ================= FETCH DASHBOARD =================
   const fetchDashboard = async () => {
-    if (!selectedId) {
-      toast.warn(`Pilih ${mode} terlebih dahulu`);
-      return;
-    }
+    if (!selectedId) return toast.warn(`Pilih ${mode} terlebih dahulu`);
 
     try {
       setLoading(true);
@@ -164,7 +128,7 @@ const HomeINM = () => {
       console.error(err);
       setRekap([]);
       setMeta(null);
-      toast.error("Gagal memuat rekap indikator");
+      toast.error("Gagal memuat data rekapitulasi");
     } finally {
       setLoading(false);
     }
@@ -225,23 +189,36 @@ const HomeINM = () => {
     return null;
   };
 
-  // ================= RENDER =================
+  const handlePrintPDF = () => {
+    if (rekap.length === 0) return toast.warn("Tidak ada data untuk dicetak");
+
+    generateRekapPDF({
+      rekap,
+      meta,
+      periode,
+      year,
+      start,
+      end,
+      namaMode:
+        mode === "unit"
+          ? "Unit"
+          : mode === "instalasi"
+            ? "Instalasi"
+            : "Bidang",
+      namaTarget: meta?.nama || "-",
+    });
+  };
+
   return (
     <div className="container-fluid px-2">
-      {/* HEADER */}
       <div className="card shadow-sm mb-3">
-        <div className="card-body">
-          <h5 className="mb-1">Dashboard INM – {meta?.nama || "-"}</h5>
-          <small className="text-muted">
-            Periode: {start} s/d {end}
-          </small>
-        </div>
-      </div>
-
-      {/* FILTER */}
-      <div className="card shadow-sm mb-3">
-        <div className="card-header">
-          <b>Filter Rekap Ringkas INM</b>
+        <div className="card-header d-flex justify-content-between align-items-center">
+          <b>Rekapitulasi INM Rumah Sakit</b>
+          {rekap.length > 0 && (
+            <button className="btn btn-success btn-sm" onClick={handlePrintPDF}>
+              🖨 Cetak PDF
+            </button>
+          )}
         </div>
         <div className="card-body row g-2 align-items-end">
           <div className="col-md-2">
@@ -306,10 +283,9 @@ const HomeINM = () => {
         </div>
       </div>
 
-      <div className="card shadow-sm mb-3">
-        <div className="card-header">
-          <b>Rekap Ringkas INM</b>
-        </div>
+      {/* TABLE */}
+      {/* Tabel Rekap */}
+      <div className="card shadow-sm">
         <div className="card-body table-responsive">
           <table className="table table-bordered table-sm">
             <thead>
@@ -343,9 +319,7 @@ const HomeINM = () => {
                     </td>
                     {(meta?.periode?.bulan || []).map((b) => (
                       <td key={b} className="text-center">
-                        {r.bulan?.[b] !== null && r.bulan?.[b] !== undefined
-                          ? formatCapaian(r.bulan[b], r.measurement)
-                          : "-"}
+                        {formatCapaian(r.bulan?.[b], r.measurement)}
                       </td>
                     ))}
                     <td className="fw-bold text-center">
@@ -358,69 +332,8 @@ const HomeINM = () => {
           </table>
         </div>
       </div>
-
-      {/* CHART */}
-      <div className="card shadow-sm mb-3">
-        <div className="card-header">
-          <b>Grafik Benchmark</b>
-        </div>
-        <div className="card-body row m-1">
-          {rekap.map((indikator) => {
-            const chartData =
-              meta?.periode?.bulan?.map((b) => ({
-                bulan: namaBulan[b],
-                nilai: indikator.bulan?.[b] ?? null,
-                target: indikator.target ?? null,
-              })) || [];
-
-            return (
-              <div
-                className="card shadow-sm mb-3 col-12 col-md-6"
-                key={indikator.indikator_id}
-              >
-                <div className="card-header">
-                  <b>{indikator.indikator}</b>
-                </div>
-
-                <div className="card-body" style={{ height: 280 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="bulan" />
-                      <YAxis domain={[0, 100]} />
-                      <Tooltip />
-                      <Legend />
-
-                      {/* nilai capaian */}
-                      <Line
-                        type="monotone"
-                        dataKey="nilai"
-                        stroke="#2563eb"
-                        strokeWidth={2}
-                        dot
-                        connectNulls
-                        name="Capaian"
-                      />
-
-                      {/* garis target */}
-                      <Line
-                        type="monotone"
-                        dataKey="target"
-                        stroke="#dc2626"
-                        strokeDasharray="5 5"
-                        dot={false}
-                        name="Target"
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
     </div>
   );
 };
 
-export default HomeINM;
+export default RekapitulasiINM;

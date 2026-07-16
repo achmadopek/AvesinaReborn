@@ -1,14 +1,13 @@
-import { useState, useEffect, Fragment } from "react";
-import {
-  fetchRekapINMBulanan
-} from "../../../api/wj_inm/DataINM";
+import { useState, useEffect, Fragment, useMemo } from "react";
+import { fetchRekapINMBulanan } from "../../../api/wj_inm/DataINM";
 import { toast } from "react-toastify";
-import {
-  fetchRuangan,
-} from "../../../api/wj_inm/EntriHarian";
+import { fetchRuanganByInstalasi } from "../../../api/wj_inm/VerifikasiINM";
+import { fetchRuangan } from "../../../api/wj_inm/EntriHarian";
 import VerifikasiINMModal from "./VerifikasiINMModal";
+import { useAuth } from "../../../context/AuthContext";
 
 const MonitoringINM = () => {
+  const { units, peg_id, role } = useAuth();
 
   const today = new Date();
   const bulanInit = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
@@ -39,6 +38,9 @@ const MonitoringINM = () => {
     }
 
     setLoading(true);
+
+    const unitName = unitMap[unitId]?.nama_ruangan || "Unit tidak ditemukan";
+
     try {
       const res = await fetchRekapINMBulanan(unitId, bulan);
       setIndikatorData(res.data?.indikator || []);
@@ -50,7 +52,6 @@ const MonitoringINM = () => {
       });
 
       setHarianData(harianObj);
-
     } catch (err) {
       console.error(err);
       toast.error("Gagal memuat rekap INM bulanan");
@@ -62,21 +63,37 @@ const MonitoringINM = () => {
   };
 
   useEffect(() => {
+    if (!peg_id) return;
+
     const loadRuangan = async () => {
       try {
-        const res = await fetchRuangan(); // res = { success: true, data: [...] }
-        setRuanganList(Array.isArray(res.data) ? res.data : []);
+        let ruangan = [];
+
+        if (role === "verifikator_inm") {
+          const res = await fetchRuanganByInstalasi(peg_id, role, units);
+          ruangan = res.data || [];
+        } else if (role === "user_inm") {
+          const res = await fetchRuangan();
+          const allRuangan = res.data || [];
+
+          ruangan = allRuangan.filter((r) => units.includes(r.srvc_unit_id));
+        } else if (role === "admin_inm") {
+          const res = await fetchRuangan();
+          ruangan = res.data || [];
+        }
+
+        setRuanganList(ruangan);
       } catch (err) {
-        toast.error("Gagal load ruangan!");
+        console.error("ERROR LOAD RUANGAN:", err);
+        toast.error("Gagal load ruangan");
         setRuanganList([]);
       }
     };
 
     loadRuangan();
-  }, []);
+  }, [peg_id, role, units]);
 
   const handleOpenVerifikasi = (dataHarian, tanggal) => {
-
     if (!dataHarian?.harian_id) {
       toast.warning("INM harian belum diinput");
       return;
@@ -94,14 +111,25 @@ const MonitoringINM = () => {
 
   // hitung jumlah hari dalam bulan terpilih (YYYY-MM)
   const daysInMonth = new Date(
-    Number(bulan.split("-")[0]),     // tahun
-    Number(bulan.split("-")[1]),     // bulan + 1
-    0                                // hari ke-0 = hari terakhir bulan sebelumnya
+    Number(bulan.split("-")[0]), // tahun
+    Number(bulan.split("-")[1]), // bulan + 1
+    0, // hari ke-0 = hari terakhir bulan sebelumnya
   ).getDate();
 
   // helper array tanggal 1..n
   const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
+  /* ===============================
+       UNIT MAP (OPTIMASI)
+    =============================== */
+  const unitMap = useMemo(() => {
+    const map = {};
+    ruanganList.forEach((r) => {
+      map[r.ruangan_id] = r;
+    });
+
+    return map;
+  }, [ruanganList]);
 
   // -------------------------
   // Render UI
@@ -133,15 +161,16 @@ const MonitoringINM = () => {
               <select
                 className="form-control form-control-sm"
                 value={unitId}
+                disabled={!ruanganList.length}
                 onChange={(e) => setUnitId(e.target.value)}
               >
                 <option value="">-- Pilih Ruangan --</option>
-                {Array.isArray(ruanganList) &&
-                  ruanganList.map((r) => (
-                    <option key={r.ruangan_id} value={r.ruangan_id}>
-                      {r.kode_ruangan} - {r.nama_ruangan || "Tanpa Nama"}
-                    </option>
-                  ))}
+
+                {ruanganList.map((r) => (
+                  <option key={r.ruangan_id} value={r.ruangan_id}>
+                    {r.kode_ruangan} - {r.nama_ruangan}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -156,9 +185,9 @@ const MonitoringINM = () => {
               </button>
             </div>
 
-            <div className="ms-auto">
+            {/*<div className="ms-auto">
               <div className="d-flex gap-2">
-                {/* Tombol Export & Cetak */}
+                {/* Tombol Export & Cetak 
                 <div className="d-flex">
                   <button
                     className="btn btn-success btn-sm me-2"
@@ -174,27 +203,43 @@ const MonitoringINM = () => {
                   </button>
                 </div>
               </div>
-            </div>
+            </div>*/}
           </div>
 
           {/* Table utama */}
           <table className="table table-bordered table-sm">
             <thead>
               <tr>
+                <th>No</th>
                 <th>INM Indicator</th>
                 {[...Array(daysInMonth)].map((_, i) => (
-                  <th key={i}>{i + 1}</th>
+                  <th key={i} className="text-center">
+                    {i + 1}
+                  </th>
                 ))}
-                <th>Jumlah</th>
+                <th className="text-center">Jumlah</th>
+                <th className="text-center">Standar/INM</th>
               </tr>
             </thead>
 
             <tbody>
-              {indikatorData.map((indikator) => (
+              {indikatorData.map((indikator, i) => (
                 <Fragment key={indikator.indikator_id}>
                   <tr className="fw-bold">
+                    <td rowSpan={6} className="text-center">
+                      <br />
+                      {i + 1}
+                    </td>
                     <td colSpan={daysInMonth + 2}>
+                      <br />
                       {indikator.nama_indikator}
+                    </td>
+                    <td rowSpan={5} className="text-center align-middle">
+                      {indikator.operator}
+                      <br />
+                      {indikator.standart}
+                      <br />
+                      {indikator.measurement}
                     </td>
                   </tr>
 
@@ -208,12 +253,12 @@ const MonitoringINM = () => {
                     {[...Array(daysInMonth)].map((_, i) => {
                       const tgl = `${bulan}-${String(i + 1).padStart(2, "0")}`;
                       return (
-                        <td key={i}>
+                        <td key={i} className="text-center">
                           {indikator.data?.[tgl]?.numerator ?? "-"}
                         </td>
                       );
                     })}
-                    <td>{indikator.total_numerator}</td>
+                    <td className="text-center">{indikator.total_numerator}</td>
                   </tr>
 
                   <tr>
@@ -226,24 +271,31 @@ const MonitoringINM = () => {
                     {[...Array(daysInMonth)].map((_, i) => {
                       const tgl = `${bulan}-${String(i + 1).padStart(2, "0")}`;
                       return (
-                        <td key={i}>
+                        <td key={i} className="text-center">
                           {indikator.data?.[tgl]?.denominator ?? "-"}
                         </td>
                       );
                     })}
-                    <td>{indikator.total_denominator}</td>
+                    <td className="text-center">
+                      {indikator.total_denominator}
+                    </td>
                   </tr>
 
-                  <tr>
-                    <td>Pencapaian</td>
+                  <tr height={40}>
+                    <td className="align-middle">Pencapaian</td>
                     {[...Array(daysInMonth)].map((_, i) => {
                       const tgl = `${bulan}-${String(i + 1).padStart(2, "0")}`;
                       const d = indikator.data?.[tgl];
 
-                      if (!d || d.memenuhi === null) return <td key={i}>-</td>;
+                      if (!d || d.memenuhi === null)
+                        return (
+                          <td key={i} className="align-middle text-center">
+                            -
+                          </td>
+                        );
 
                       return (
-                        <td key={i} className="text-center">
+                        <td key={i} className="text-center align-middle">
                           {d.memenuhi ? (
                             <i className="fas fa-check-circle text-success"></i>
                           ) : (
@@ -252,41 +304,54 @@ const MonitoringINM = () => {
                         </td>
                       );
                     })}
-                    <td colSpan={daysInMonth + 1}>{indikator.persen}</td>
+                    <td className="text-center align-middle"></td>
+                    <td
+                      className="text-center fw-bold align-middle"
+                      colSpan={daysInMonth + 1}
+                    >
+                      {Number(indikator.nilai_akhir)} {indikator.measurement}
+                    </td>
                   </tr>
-
                 </Fragment>
               ))}
 
-              <tr><td></td></tr>
+              <tr>
+                <td></td>
+              </tr>
 
               <tr>
-                <td className="fw-bold fs-5">Verifikasi</td>
+                <td
+                  colSpan={2}
+                  height={50}
+                  className="fw-bold fs-5 align-middle"
+                >
+                  Verifikasi
+                </td>
 
                 {daysArray.map((day, i) => {
                   const tgl = `${bulan}-${String(day).padStart(2, "0")}`;
                   const d = harianData[tgl];
 
                   if (!d || !d.harian_id)
-                    return <td key={i}> <i className="far fa-minus text-muted fs-3"></i></td>;
+                    return (
+                      <td key={i} className="align-middle text-center">
+                        {" "}
+                        <i className="far fa-minus text-muted fs-3"></i>
+                      </td>
+                    );
 
                   return (
-                    <td key={i} className="text-center fs-5">
+                    <td key={i} className="text-center fs-5 align-middle">
                       <span
-                        style={{
-                          cursor: "pointer",
-                          opacity: 1,
-                        }}
-                        onClick={() => {
-                          handleOpenVerifikasi(d, tgl);
-                        }}
+                        style={{ cursor: "pointer" }}
+                        onClick={() => handleOpenVerifikasi(d, tgl)}
                       >
                         {d.status_verifikasi === 1 ? (
-                          <i className="fas fa-check-square text-success fs-4"></i>
+                          <i className="fas fa-check-circle text-success fs-4"></i>
                         ) : d.status_verifikasi === 0 ? (
                           <i className="fas fa-times-circle text-danger fs-4"></i>
                         ) : (
-                          <i className="far fa-square text-muted fs-4"></i>
+                          <i className="fas fa-clock text-secondary fs-4"></i>
                         )}
                       </span>
                     </td>
@@ -295,10 +360,8 @@ const MonitoringINM = () => {
 
                 <td></td>
               </tr>
-
             </tbody>
           </table>
-
         </div>
       </div>
 
@@ -313,7 +376,6 @@ const MonitoringINM = () => {
       />
     </>
   );
-
 };
 
 export default MonitoringINM;
