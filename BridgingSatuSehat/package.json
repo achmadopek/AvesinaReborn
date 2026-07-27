@@ -1,0 +1,39 @@
+{
+  "name": "bridgingsatusehat",
+  "version": "1.0.0",
+  "description": "Simple SatuSehat Bridge",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "scheduler": "node scheduler.js",
+    "retry": "node src/workers/retryWorker.js",
+    "pm2:start": "npx pm2 start ecosystem.config.js",
+    "pm2:stop": "npx pm2 stop satusehat-scheduler",
+    "pm2:restart": "npx pm2 restart satusehat-scheduler",
+    "pm2:logs": "npx pm2 logs satusehat-scheduler",
+    "pm2:status": "npx pm2 status",
+    "pm2:save": "npx pm2 save",
+    "pm2:monit": "npx pm2 monit"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "axios": "^1.18.1",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "helmet": "^8.3.0",
+    "morgan": "^1.11.0",
+    "mysql2": "^3.23.1",
+    "node-cron": "^4.6.0",
+    "pg": "^8.22.0",
+    "winston": "^3.19.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14",
+    "pm2": "^7.0.3"
+  }
+}
