@@ -4,10 +4,15 @@ const mysql = require("mysql2/promise");
 const { Pool } = require("pg");
 const config = require("./config/database");
 const { createPatient, getPatientByNIK } = require("./services/patientService");
+const { createEncounter } = require("./services/encounterService");
 const {
-  createEncounter,
-  checkExistingEncounter,
-} = require("./services/encounterService");
+  updateEncounterToInProgress,
+  updateEncounterToFinished,
+} = require("./services/encounterStatusService");
+const { createCondition } = require("./services/conditionService");
+const { createObservation } = require("./services/observationService");
+const { createProcedure } = require("./services/procedureService");
+const { createComposition } = require("./services/compositionService");
 const logger = require("./helpers/logger");
 const { getToken } = require("./services/authService");
 
@@ -19,11 +24,12 @@ let simrs, erm, satusehat;
 async function connectDB() {
   try {
     logger.info("🔄 Connecting to MySQL (SIMRS)...");
-    simrs = await mysql.createConnection(config.simrs);
+    // ✅ PAKAI POOL BUKAN CREATE CONNECTION
+    simrs = require("./db/simrs"); // ← PAKAI MODULE POOL
     logger.info("✅ MySQL (SIMRS) connected");
 
     logger.info("🔄 Connecting to MySQL (ERM)...");
-    erm = await mysql.createConnection(config.erm);
+    erm = mysql.createPool(config.erm); // ← PAKAI POOL
     logger.info("✅ MySQL (ERM) connected");
 
     logger.info("🔄 Connecting to PostgreSQL...");
@@ -53,7 +59,6 @@ async function getLocationUUID(srvcUnitId) {
     `,
       [srvcUnitId],
     );
-
     return rows[0]?.location_uuid || null;
   } catch (error) {
     logger.warn(`⚠️ Could not get location UUID: ${error.message}`);
@@ -62,19 +67,16 @@ async function getLocationUUID(srvcUnitId) {
 }
 
 // ============================================
-// ✅ VALIDASI DATA LENGKAP SEBELUM KIRIM
+// VALIDASI DATA LENGKAP
 // ============================================
-
 function isDataComplete(reg) {
   const errors = [];
-  const now = new Date(); // 🔥 TAMBAHKAN INI!
+  const now = new Date();
 
-  // 1. Cek NIK (wajib)
   if (!reg.no_ktp || reg.no_ktp.length !== 16) {
     errors.push(`NIK tidak valid (${reg.no_ktp})`);
   }
 
-  // 2. Cek tanggal lahir (tidak future)
   if (reg.tgl_lahir) {
     const birthDate = new Date(reg.tgl_lahir);
     if (birthDate > now) {
@@ -85,19 +87,16 @@ function isDataComplete(reg) {
     }
   }
 
-  // 3. Cek tanggal registrasi (tidak future)
   const regDate = new Date(reg.registry_dt);
   if (regDate > now) {
     errors.push(`Tanggal registrasi future (${reg.registry_dt})`);
   }
 
-  // 4. Cek tanggal registrasi terlalu tua
   const minDate = new Date("2014-06-03");
   if (regDate < minDate) {
     errors.push(`Tanggal registrasi terlalu tua (${reg.registry_dt})`);
   }
 
-  // 5. Cek unit_id_to (harus ada)
   if (!reg.unit_id_to) {
     errors.push("Unit tujuan tidak ditemukan");
   }
@@ -146,18 +145,11 @@ async function getRegistrations(limit = 100) {
     LEFT JOIN subdistrict sub ON p.subdistrict_id = sub.subdistrict_id
     LEFT JOIN village v ON p.village_id = v.village_id
     WHERE 
-      -- AMBIL DATA 8 JAM TERAKHIR
-      -- r.registry_dt >= DATE_SUB(NOW(), INTERVAL 8 HOUR)
-      -- AND r.registry_dt <= NOW()
-
-      -- AMBIL DATA KEMARIN (00:00 - 23:59)
       r.registry_dt >= DATE_SUB(CURDATE(), INTERVAL 1 DAY)
       AND r.registry_dt < CURDATE()
-      
       AND p.id_number IS NOT NULL
       AND p.id_number != ''
       AND LENGTH(p.id_number) = 16
-      -- AND p.patient_ihs_number IS NOT NULL (--> ambil meski yg belum punya IHS, untuk nnti dibuatkan)
       AND uv.unit_id_from = 'T0001'
     ORDER BY r.registry_dt DESC
     LIMIT ?
@@ -165,7 +157,6 @@ async function getRegistrations(limit = 100) {
     [limit],
   );
 
-  // Untuk setiap row, ambil location_uuid dari ERM (jika belum ada)
   for (const row of rows) {
     if (!row.satusehat_uuid && row.unit_id_to) {
       const locationUuid = await getLocationUUID(row.unit_id_to);
@@ -188,7 +179,7 @@ async function getRegistrations(limit = 100) {
 }
 
 // ============================================
-// ✅ CEK DATA YANG SUDAH DIPROSES (TIDAK KIRIM ULANG)
+// CEK DATA YANG SUDAH DIPROSES
 // ============================================
 async function getProcessedRegistries() {
   const result = await satusehat.query(`
@@ -205,6 +196,138 @@ async function getProcessedRegistries() {
 }
 
 // ============================================
+// SIMPAN STATUS KE DATABASE
+// ============================================
+async function saveResourceStatus(data) {
+  try {
+    const query = `
+      INSERT INTO satusehat_resource_status 
+      (resource_type, local_resource_id, satusehat_id, patient_id, 
+       status, request_payload, response_payload, response_status_code,
+       last_error, batch_id, source_system, processed_by, retry_count, 
+       duration_ms, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
+    `;
+
+    const values = [
+      data.resource_type || "Encounter",
+      data.local_resource_id,
+      data.satusehat_id || null,
+      data.patient_id || null,
+      data.status || "processing",
+      data.request_payload ? JSON.stringify(data.request_payload) : null,
+      data.response_payload ? JSON.stringify(data.response_payload) : null,
+      data.response_status_code || null,
+      data.last_error || null,
+      data.batch_id || `BATCH-${new Date().toISOString().slice(0, 10)}`,
+      data.source_system || "SIMRS",
+      data.processed_by || "bridge-service",
+      data.retry_count || 0,
+      data.duration_ms || 0,
+    ];
+
+    await satusehat.query(query, values);
+    logger.info(
+      `💾 Status recorded: ${data.status} for ${data.local_resource_id}`,
+    );
+  } catch (error) {
+    logger.error(`❌ Failed to save status: ${error.message}`);
+  }
+}
+
+// ============================================
+// PROSES SEMUA RESOURCE UNTUK SATU REGISTRY
+// ============================================
+async function processRegistryResources(
+  reg,
+  patientId,
+  encounterId,
+  practitionerId,
+) {
+  const results = {
+    condition: null,
+    observation: null,
+    procedure: null,
+    composition: null,
+  };
+
+  // 1. CREATE CONDITION (ICD-10)
+  try {
+    const condition = await createCondition(
+      reg.registry_id,
+      patientId,
+      encounterId,
+    );
+    if (condition.success) {
+      logger.info(`✅ Condition created: ${condition.id || "existing"}`);
+      results.condition = condition;
+    } else {
+      logger.warn(`⚠️ Condition skipped: ${condition.error}`);
+    }
+  } catch (e) {
+    logger.warn(`⚠️ Condition error: ${e.message}`);
+  }
+
+  // 2. CREATE OBSERVATION (Vital Sign)
+  try {
+    const observation = await createObservation(
+      reg.registry_id,
+      patientId,
+      encounterId,
+      practitionerId,
+    );
+    if (observation.success) {
+      const successCount =
+        observation.results?.filter((r) => r.success).length || 0;
+      const totalCount = observation.results?.length || 0;
+      logger.info(`✅ Observations created: ${successCount}/${totalCount}`);
+      results.observation = observation;
+    } else {
+      logger.warn(`⚠️ Observation skipped: ${observation.error}`);
+    }
+  } catch (e) {
+    logger.warn(`⚠️ Observation error: ${e.message}`);
+  }
+
+  // 3. CREATE PROCEDURE (ICD-9)
+  try {
+    const procedure = await createProcedure(
+      reg.registry_id,
+      patientId,
+      encounterId,
+    );
+    if (procedure.success) {
+      logger.info(`✅ Procedure created: ${procedure.id || "existing"}`);
+      results.procedure = procedure;
+    } else {
+      logger.warn(`⚠️ Procedure skipped: ${procedure.error}`);
+    }
+  } catch (e) {
+    logger.warn(`⚠️ Procedure error: ${e.message}`);
+  }
+
+  // 4. CREATE COMPOSITION (Resume Medis)
+  try {
+    const composition = await createComposition(
+      reg.registry_id,
+      patientId,
+      encounterId,
+      practitionerId,
+    );
+    if (composition.success) {
+      logger.info(`✅ Composition created: ${composition.id || "existing"}`);
+      results.composition = composition;
+    } else {
+      logger.warn(`⚠️ Composition skipped: ${composition.error}`);
+    }
+  } catch (e) {
+    logger.warn(`⚠️ Composition error: ${e.message}`);
+  }
+
+  return results;
+}
+
+// ============================================
 // PROSES BRIDGING
 // ============================================
 async function processBridging() {
@@ -212,11 +335,9 @@ async function processBridging() {
   const token = await getToken();
   console.log(`\n🔑 ACCESS TOKEN: ${token}\n`);
 
-  // 🔥 Ambil data dengan LIMIT yang sesuai (250-350 per hari / 3 batch = ~100 per batch)
   const registrations = await getRegistrations(100);
   logger.info(`📊 Found ${registrations.length} registrations`);
 
-  // 🔥 Data yang sudah diproses hari ini (hindari duplikat)
   const processedIds = await getProcessedRegistries();
 
   let success = 0;
@@ -227,88 +348,47 @@ async function processBridging() {
   for (const reg of registrations) {
     logger.info(`\n📌 ${reg.registry_id} - ${reg.nm_pasien}`);
 
-    // ============================================
-    // ✅ STEP 1: CEK APAKAH SUDAH DIPROSES
-    // ============================================
+    // STEP 1: CEK SUDAH DIPROSES
     if (processedIds.has(reg.registry_id)) {
       logger.info(`⏭️ Already processed today, skip`);
       skipped++;
       continue;
     }
 
-    // ============================================
-    // ✅ STEP 2: VALIDASI DATA LENGKAP
-    // ============================================
+    // STEP 2: VALIDASI DATA
     const validation = isDataComplete(reg);
     if (!validation.valid) {
       logger.warn(`⚠️ Data incomplete: ${validation.errors.join(", ")}`);
       invalid++;
-
-      // Simpan ke database sebagai skipped dengan alasan
-      try {
-        await satusehat.query(
-          `INSERT INTO satusehat_resource_status 
-          (resource_type, local_resource_id, status, last_error, created_at)
-          VALUES ($1, $2, $3, $4, NOW())`,
-          [
-            "Encounter",
-            reg.registry_id,
-            "skipped",
-            validation.errors.join(", "),
-          ],
-        );
-      } catch (e) {}
+      await satusehat.query(
+        `INSERT INTO satusehat_resource_status 
+        (resource_type, local_resource_id, status, last_error, created_at)
+        VALUES ($1, $2, $3, $4, NOW())`,
+        ["Encounter", reg.registry_id, "skipped", validation.errors.join(", ")],
+      );
       continue;
     }
 
-    // ============================================
-    // ✅ STEP 3: CEK DI SATUSEHAT (duplikat)
-    // ============================================
-    const existing = await checkExistingEncounter(reg.registry_id);
-    if (existing.exists) {
-      logger.info(`⏭️ Already exists in SatuSehat (${existing.id})`);
-      skipped++;
-
-      // Simpan ke database
-      try {
-        await satusehat.query(
-          `INSERT INTO satusehat_resource_status 
-          (resource_type, local_resource_id, satusehat_id, status, created_at)
-          VALUES ($1, $2, $3, $4, NOW())`,
-          ["Encounter", reg.registry_id, existing.id, "skipped"],
-        );
-      } catch (e) {}
-      continue;
-    }
-
-    // ============================================
-    // STEP 4: PROSES PATIENT
-    // ============================================
+    // STEP 3: PROSES PATIENT
     let patientId = reg.patient_ihs_number;
 
     if (!patientId) {
-      // 🔥 Coba cari di SatuSehat dulu
       logger.info(`🔍 Checking patient in SatuSehat (NIK: ${reg.no_ktp})`);
 
       const existing = await getPatientByNIK(reg.no_ktp);
       if (existing.success && existing.patient) {
         patientId = existing.patient.id;
         logger.info(`✅ Patient exists in SatuSehat: ${patientId}`);
-
-        // Update SIMRS dengan IHS number
         try {
           await simrs.query(
             `UPDATE patient SET patient_ihs_number = ? WHERE mr_id = ?`,
             [patientId, reg.mr_id],
           );
-          logger.info(`💾 Updated patient_ihs_number in SIMRS`);
         } catch (e) {
           logger.warn(`⚠️ Could not update SIMRS: ${e.message}`);
         }
       } else {
-        // 🔥 CREATE PATIENT BARU!
         logger.info(`👤 Creating new patient: ${reg.nm_pasien}`);
-
         const patient = await createPatient({
           mr_id: reg.mr_id,
           no_ktp: reg.no_ktp,
@@ -316,7 +396,6 @@ async function processBridging() {
           jk: reg.jk,
           tgl_lahir: reg.tgl_lahir,
           alamat: reg.alamat,
-          //address: reg.alamat,
           province_id: reg.province_id,
           district_id: reg.district_id,
           subdistrict_id: reg.subdistrict_id,
@@ -339,50 +418,126 @@ async function processBridging() {
       logger.info(`✅ Patient has IHS: ${patientId}`);
     }
 
-    // ============================================
-    // STEP 5: PROSES ENCOUNTER
-    // ============================================
+    // STEP 4: CREATE ENCOUNTER (arrived)
     const encounter = await createEncounter(reg, patientId);
 
-    if (encounter.success) {
-      success++;
-      logger.info(`✅ Encounter success: ${encounter.id || "created"}`);
+    if (encounter.success && encounter.id && !encounter.existing) {
+      const encounterId = encounter.id;
+      const practitionerId = encounter.practitionerId || null;
+      logger.info(`✅ Encounter created: ${encounterId}`);
 
-      // 🔥 SAVE SUCCESS KE DATABASE
-      try {
-        const result = await satusehat.query(
-          `INSERT INTO satusehat_resource_status 
-      (resource_type, local_resource_id, satusehat_id, status, created_at)
-      VALUES ($1, $2, $3, $4, NOW())
-      RETURNING id`,
-          ["Encounter", reg.registry_id, encounter.id || "success", "success"],
-        );
-        logger.info(`💾 Saved to database (ID: ${result.rows[0].id})`);
-      } catch (e) {
-        logger.error(`❌ Failed to save to database: ${e.message}`);
+      // REKAM STATUS ARRIVED
+      await saveResourceStatus({
+        resource_type: "Encounter",
+        local_resource_id: reg.registry_id,
+        satusehat_id: encounterId,
+        patient_id: patientId,
+        status: "arrived",
+        request_payload: encounter.requestPayload || null,
+        response_payload: encounter.data || null,
+        response_status_code: 201,
+        batch_id: `BATCH-${new Date().toISOString().slice(0, 10)}`,
+        source_system: "SIMRS",
+        processed_by: "bridge-service",
+        duration_ms: encounter.duration || 0,
+      });
+
+      // STEP 5: UPDATE ENCOUNTER TO IN-PROGRESS
+      const inProgressResult = await updateEncounterToInProgress(
+        reg.registry_id,
+        encounterId,
+        reg.registry_dt,
+      );
+
+      if (inProgressResult.success) {
+        logger.info(`✅ Encounter updated to in-progress`);
+        await saveResourceStatus({
+          resource_type: "Encounter",
+          local_resource_id: reg.registry_id,
+          satusehat_id: encounterId,
+          patient_id: patientId,
+          status: "in-progress",
+          request_payload: inProgressResult.requestPayload || null,
+          response_payload: inProgressResult.data || null,
+          response_status_code: 200,
+          batch_id: `BATCH-${new Date().toISOString().slice(0, 10)}`,
+          source_system: "SIMRS",
+          processed_by: "bridge-service",
+          duration_ms: inProgressResult.duration || 0,
+        });
       }
+
+      // STEP 6: UPDATE ENCOUNTER TO FINISHED
+      const finishedResult = await updateEncounterToFinished(
+        reg.registry_id,
+        encounterId,
+        reg.registry_dt,
+      );
+
+      if (finishedResult.success) {
+        logger.info(`✅ Encounter updated to finished`);
+        await saveResourceStatus({
+          resource_type: "Encounter",
+          local_resource_id: reg.registry_id,
+          satusehat_id: encounterId,
+          patient_id: patientId,
+          status: "finished",
+          request_payload: finishedResult.requestPayload || null,
+          response_payload: finishedResult.data || null,
+          response_status_code: 200,
+          batch_id: `BATCH-${new Date().toISOString().slice(0, 10)}`,
+          source_system: "SIMRS",
+          processed_by: "bridge-service",
+          duration_ms: finishedResult.duration || 0,
+        });
+      }
+
+      // STEP 7: PROCESS CONDITION, OBSERVATION, PROCEDURE, COMPOSITION
+      const resourceResults = await processRegistryResources(
+        reg,
+        patientId,
+        encounterId,
+        practitionerId,
+      );
+
+      success++;
+      await satusehat.query(
+        `INSERT INTO satusehat_resource_status 
+        (resource_type, local_resource_id, satusehat_id, status, created_at)
+        VALUES ($1, $2, $3, $4, NOW())`,
+        ["Encounter", reg.registry_id, encounterId, "success"],
+      );
+    } else if (encounter.existing) {
+      logger.info(`⏭️ Encounter already exists, skip update`);
+      skipped++;
+      await saveResourceStatus({
+        resource_type: "Encounter",
+        local_resource_id: reg.registry_id,
+        satusehat_id: encounter.id || null,
+        patient_id: patientId,
+        status: "skipped",
+        last_error: "Encounter already exists",
+        batch_id: `BATCH-${new Date().toISOString().slice(0, 10)}`,
+        source_system: "SIMRS",
+        processed_by: "bridge-service",
+      });
     } else {
       failed++;
       logger.error(`❌ Encounter failed: ${encounter.error}`);
-
-      try {
-        await satusehat.query(
-          `INSERT INTO satusehat_resource_status 
-      (resource_type, local_resource_id, status, last_error, created_at)
-      VALUES ($1, $2, $3, $4, NOW())`,
-          [
-            "Encounter",
-            reg.registry_id,
-            "failed",
-            encounter.error || "Unknown error",
-          ],
-        );
-      } catch (e) {
-        logger.error(`❌ Failed to save failed status: ${e.message}`);
-      }
+      await saveResourceStatus({
+        resource_type: "Encounter",
+        local_resource_id: reg.registry_id,
+        patient_id: patientId,
+        status: "failed",
+        last_error: encounter.error || "Unknown error",
+        batch_id: `BATCH-${new Date().toISOString().slice(0, 10)}`,
+        source_system: "SIMRS",
+        processed_by: "bridge-service",
+        retry_count: 0,
+      });
     }
 
-    // Delay
+    // Delay antar registry
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
 
@@ -402,7 +557,6 @@ async function main() {
   process.exit(0);
 }
 
-// Jalankan
 if (require.main === module) {
   main().catch(console.error);
 }

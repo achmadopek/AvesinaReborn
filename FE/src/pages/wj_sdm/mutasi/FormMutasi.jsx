@@ -59,7 +59,7 @@ const FormMutasi = ({
 
     if (form.validated_by) {
       toast.warn(
-        "Data sudah divalidasi dan tidak dapat dibatalkan verifikasinya."
+        "Data sudah divalidasi dan tidak dapat dibatalkan verifikasinya.",
       );
       return;
     }
@@ -125,135 +125,98 @@ const FormMutasi = ({
 
   return (
     <form className="form-theme" onSubmit={handleSubmit}>
-      {/* Pegawai */}
-      <div className="form-group">
-        {requiredLabel("Cari Pegawai")}
-        <SearchSelectPegawai
-          value={
-            form.peg_id
-              ? { value: form.peg_id, label: form.nama_pegawai || "" }
-              : null
-          }
-          onChange={(option) =>
-            setForm((prev) => ({
-              ...prev,
-              peg_id: option?.value || "",
-              nama_pegawai: option?.label || "", // simpan nama pegawai
-            }))
-          }
-        />
+      <div className="row">
+        {/* Pegawai */}
+        <div className="col-md-6 mb-3">
+          {requiredLabel("Pegawai")}
+          <SearchSelectPegawai
+            value={
+              form.peg_id
+                ? {
+                    value: form.peg_id,
+                    label: form.nama_pegawai || "",
+                  }
+                : null
+            }
+            onChange={(option) =>
+              setForm((prev) => ({
+                ...prev,
+                peg_id: option?.value || "",
+                nama_pegawai: option?.label || "",
+              }))
+            }
+          />
+        </div>
+
+        {(role === "kepegawaian" || role === "admin") && (
+          <>
+            {/* Tanggal Mutasi */}
+            <div className="col-md-6 mb-3">
+              {requiredLabel("Tanggal Mutasi")}
+              <input
+                type="date"
+                className="form-control"
+                name="mutation_dt"
+                value={formatDateInput(form.mutation_dt) || ""}
+                onChange={handleChange}
+                required
+              />
+            </div>
+
+            {/* Unit */}
+            <div className="col-md-6 mb-3">
+              {requiredLabel("Unit Tujuan")}
+              <SearchSelectUnit
+                value={
+                  form.unit_id
+                    ? {
+                        value: form.unit_id,
+                        label: form.unit_nm,
+                      }
+                    : null
+                }
+                onChange={(option) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    unit_id: option?.value || "",
+                    unit_nm: option?.raw?.nama || "",
+                  }))
+                }
+              />
+            </div>
+
+            {/* Jabatan */}
+            <div className="col-md-6 mb-3">
+              {requiredLabel("Jabatan")}
+              <input
+                type="text"
+                className="form-control"
+                name="jabatan"
+                value={form.jabatan || ""}
+                onChange={handleChange}
+                placeholder="Contoh: Kepala Ruangan"
+                required
+              />
+            </div>
+          </>
+        )}
       </div>
 
-      {role === "kepegawaian" && (
-        <>
-          {/* Tanggal Mutasi */}
-          <div className="form-group">
-            {requiredLabel("Tanggal Mutasi")}
-            <input
-              type="date"
-              name="mutation_dt"
-              value={formatDateInput(form.mutation_dt) || ""}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          {/* Nama Unit */}
-          <div className="form-group">
-            {requiredLabel("Nama Unit")}
-            <SearchSelectUnit
-              value={
-                form.unit_id
-                  ? { value: form.unit_id, label: form.unit_nm }
-                  : null
-              }
-              onChange={(option) =>
-                setForm((prev) => ({
-                  ...prev,
-                  unit_id: option?.value || "",
-                  unit_nm: option?.raw?.nama || "",
-                }))
-              }
-            />
-          </div>
-
-          {/* Jabatan */}
-          <div className="form-group">
-            {requiredLabel("Jabatan")}
-            <input
-              type="text"
-              name="jabatan"
-              value={form.jabatan || ""}
-              onChange={handleChange}
-              placeholder="Contoh: Kepala Bagian"
-              required
-            />
-          </div>
-        </>
-      )}
-
-      {/* Tombol Aksi */}
-      <div className="form-actions mt-3">
+      <div className="mt-3 d-flex flex-wrap gap-2">
         {role !== "keuangan" && (
-          <button type="submit" className="btn btn-sm btn-outline-primary me-2">
-            {isEditing ? "Update" : "Tambah"}
+          <button type="submit" className="btn btn-primary btn-sm">
+            {isEditing ? "💾 Update" : "➕ Simpan"}
           </button>
         )}
 
         {isEditing && (
-          <>
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-secondary me-2"
-              onClick={resetForm}
-            >
-              Batal
-            </button>
-
-            {role !== "keuangan" && !form.verified_by && (
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-info me-2"
-                onClick={handleVerify}
-              >
-                Verifikasi
-              </button>
-            )}
-
-            {role !== "keuangan" && form.verified_by && !form.validated_by && (
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-danger"
-                onClick={handleCancelVerification}
-              >
-                Batal Verifikasi
-              </button>
-            )}
-
-            {role === "keuangan" && (
-              <>
-                {!form.validated_by && form.verified_by && (
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-warning me-2"
-                    onClick={handleValidity}
-                  >
-                    Validasi
-                  </button>
-                )}
-
-                {form.validated_by && (
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-danger"
-                    onClick={handleCancelValidity}
-                  >
-                    Batal Validasi
-                  </button>
-                )}
-              </>
-            )}
-          </>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={resetForm}
+          >
+            Batal
+          </button>
         )}
       </div>
     </form>

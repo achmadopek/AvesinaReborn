@@ -1,12 +1,17 @@
-import API from '../axiosInstance';
+import API from "../axiosInstance";
 
 // ===============================
 // FUNGSI UNTUK DATA PRESENSI PEGAWAI
 // ===============================
 
 // Ambil daftar mutasi pegawai (dengan pagination & optional filter pegawai/periode)
-export const fetchPaginatedData = async (page = 1, limit = 10, peg_id = '', periode = '') => {
-  const res = await API.get('/api/sdm/MutasiPegawai', {
+export const fetchPaginatedData = async (
+  page = 1,
+  limit = 10,
+  peg_id = "",
+  periode = "",
+) => {
+  const res = await API.get("/api/sdm/MutasiPegawai", {
     params: { page, limit, peg_id, periode },
   });
   return res.data;
@@ -14,7 +19,7 @@ export const fetchPaginatedData = async (page = 1, limit = 10, peg_id = '', peri
 
 // cari pegawai by name untuk search-select
 export const searchUnit = async (nama) => {
-  const res = await API.get('/api/sdm/UnitSearch', {
+  const res = await API.get("/api/sdm/UnitSearch", {
     params: { nama },
   });
   return res.data.data || []; // Ambil array di dalam "data"
@@ -22,7 +27,7 @@ export const searchUnit = async (nama) => {
 
 // Ambil seluruh history Take Home Pay milik pegawai
 export const getHistoryMutasi = async (peg_id) => {
-  const res = await API.get('/api/sdm/MutasiPegawai/history', {
+  const res = await API.get("/api/sdm/MutasiPegawai/history", {
     params: { peg_id },
   });
   return res.data;
@@ -62,7 +67,7 @@ export const validityMutasi = async (id, validated_by) => {
 
 // Tambah mutasi baru
 export const createMutasi = async (data) => {
-  const res = await API.post('/api/sdm/MutasiPegawai', data);
+  const res = await API.post("/api/sdm/MutasiPegawai", data);
   return res.data;
 };
 

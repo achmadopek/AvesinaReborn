@@ -100,7 +100,7 @@ exports.getDokterSearch = (req, res) => {
   if (nama.length < 3) {
     return res.json([]);
   }
-  
+
   const search = `%${nama}%`;
   const sql = `
     SELECT
@@ -173,17 +173,17 @@ exports.createPegawai = (req, res) => {
   const values = [
     nik,
     employee_nm,
-    birth_dt,
-    place_of_birth,
-    nip,
-    pangkat,
-    golongan,
-    mkg,
-    npwp,
+    birth_dt || null,
+    place_of_birth || null,
+    nip?.trim() || null,
+    pangkat?.trim() || null,
+    golongan || null,
+    mkg || null,
+    npwp?.trim() || null,
     education,
     employee_sts,
     job_sts,
-    doctor_sts,
+    doctor_sts || "Lainnya",
   ];
 
   db.query(query, values, (err) => {

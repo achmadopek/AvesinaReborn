@@ -256,6 +256,10 @@ app.use(
   require("./routes/wj_mobay/PembelianBarangRoutes"),
 );
 app.use(
+  "/api/mobay/PengadaanJasa",
+  require("./routes/wj_mobay/PengadaanJasaRoutes"),
+);
+app.use(
   "/api/mobay/MonitoringPembelian",
   require("./routes/wj_mobay/MonitoringPembelianRoutes"),
 );

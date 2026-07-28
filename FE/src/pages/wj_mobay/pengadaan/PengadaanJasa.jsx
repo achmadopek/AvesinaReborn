@@ -12,7 +12,7 @@ import {
   saveBarangBaru,
   submitFinalisasi,
   getPembelianById,
-} from "../../../api/wj_mobay/PembelianBarang";
+} from "../../../api/wj_mobay/PengadaanJasa";
 
 import { formatCurrency } from "../../../utils/FormatNumber";
 
@@ -26,7 +26,7 @@ import { useParams } from "react-router-dom";
  * ===============================
  */
 
-const PembelianBarang = () => {
+const PengadaanJasa = () => {
   // -----------------------
   // STATE
   // -----------------------
@@ -276,13 +276,13 @@ const PembelianBarang = () => {
 
       <div className="card shadow-sm mb-3">
         <div className="card-header">
-          <strong>Pembelian Barang</strong>
+          <strong>Pengadaan Jasa</strong>
         </div>
 
         <div className="card-body">
           <div className="row">
             <div className="col-md-3 mb-2">
-              <label>Tanggal Beli</label>
+              <label>Tanggal Pengadaan</label>
 
               <input
                 type="date"
@@ -298,7 +298,7 @@ const PembelianBarang = () => {
             </div>
 
             <div className="col-md-3 mb-2">
-              <label>Tanggal Terima</label>
+              <label>Tanggal Pelaksanaan</label>
 
               <input
                 type="date"
@@ -330,7 +330,7 @@ const PembelianBarang = () => {
             </div>
 
             <div className="col-md-3 mb-2">
-              <label>Supplier</label>
+              <label>Supplier/Pelaksana</label>
 
               <input
                 type="text"
@@ -380,11 +380,11 @@ const PembelianBarang = () => {
 
           <hr />
 
-          {/* ============================ DETAIL BARANG ============================ */}
+          {/* ============================ DETAIL JASA ============================ */}
 
           <div className="card shadow-sm mt-4">
             <div className="card-header d-flex justify-content-between">
-              <strong>Detail Barang</strong>
+              <strong>Detail Jasa</strong>
 
               <div>
                 <button
@@ -398,7 +398,7 @@ const PembelianBarang = () => {
                   className="btn btn-sm btn-primary"
                   onClick={() => setShowBarangModal(true)}
                 >
-                  + Barang Baru
+                  + Jasa Baru
                 </button>
               </div>
             </div>
@@ -408,9 +408,9 @@ const PembelianBarang = () => {
                 <thead>
                   <tr>
                     <th width="50">No</th>
-                    <th>Barang</th>
-                    <th width="100">Qty</th>
-                    <th width="120">Satuan</th>
+                    <th>Nama Jasa</th>
+                    {/*<th width="100">Qty</th>
+                    <th width="120">Satuan</th>*/}
                     <th width="180">Harga</th>
                     <th width="180">Subtotal</th>
                   </tr>
@@ -450,7 +450,7 @@ const PembelianBarang = () => {
                         />
                       </td>
 
-                      <td>
+                      {/*<td>
                         <input
                           type="number"
                           min="1"
@@ -463,7 +463,7 @@ const PembelianBarang = () => {
                         />
                       </td>
 
-                      <td>{row.satuan}</td>
+                      <td>{row.satuan}</td>*/}
 
                       <td>
                         <input
@@ -523,7 +523,7 @@ const PembelianBarang = () => {
         size="lg"
       >
         <Modal.Header closeButton>
-          <Modal.Title>Tambah Barang Baru</Modal.Title>
+          <Modal.Title>Tambah Jasa Baru</Modal.Title>
         </Modal.Header>
 
         <Modal.Body>
@@ -552,7 +552,7 @@ const PembelianBarang = () => {
             </div>
 
             <div className="col-md-12 mb-3">
-              <label className="form-label">Nama Barang</label>
+              <label className="form-label">Nama Jasa</label>
 
               <input
                 type="text"
@@ -592,7 +592,7 @@ const PembelianBarang = () => {
           </Button>
 
           <Button variant="success" onClick={handleSaveBarang}>
-            Simpan Barang
+            Simpan
           </Button>
         </Modal.Footer>
       </Modal>
@@ -600,4 +600,4 @@ const PembelianBarang = () => {
   );
 };
 
-export default PembelianBarang;
+export default PengadaanJasa;

@@ -17,10 +17,9 @@ const initialFormState = {
   mutation_dt: "",
   peg_id: "",
   nama_pegawai: "",
+  peg_nm: "", // untuk filter
   unit_id: "",
   unit_nm: "",
-  keterangan: "",
-  nilai: "",
 };
 
 const MutasiPegawai = ({ setRightContent, defaultRightContent }) => {
@@ -56,28 +55,30 @@ const MutasiPegawai = ({ setRightContent, defaultRightContent }) => {
   }, []);
 
   const loadData = useCallback(
-    async (page = 1, searchNama = "") => {
+    async (page = 1, peg_id = "") => {
       try {
-        const result = await fetchPaginatedData(page, limit, searchNama);
+        const result = await fetchPaginatedData(page, limit, peg_id);
+
         setData(result.data);
         setTotalPages(result.totalPages);
       } catch (err) {
         console.error("Gagal fetch data:", err);
       }
     },
-    [limit]
+    [limit],
   );
 
   useEffect(() => {
     if (isEditing) return;
 
     if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+
     debounceTimeout.current = setTimeout(() => {
-      loadData(currentPage, form.peg_nm); // pencarian case-insensitive nanti di API
+      loadData(currentPage, form.peg_id);
     }, 500);
 
     return () => clearTimeout(debounceTimeout.current);
-  }, [currentPage, form.peg_nm, isEditing, loadData]);
+  }, [currentPage, form.peg_id, isEditing, loadData]);
 
   const handleChange = useCallback(
     (e) => {
@@ -102,7 +103,7 @@ const MutasiPegawai = ({ setRightContent, defaultRightContent }) => {
         setCurrentPage(1);
       }
     },
-    [isEditing]
+    [isEditing],
   );
 
   // untuk handle pilihan SearchSelectPegawai
@@ -133,7 +134,7 @@ const MutasiPegawai = ({ setRightContent, defaultRightContent }) => {
       setIsEditing(true);
       setEditIndex(index);
     },
-    [data]
+    [data],
   );
 
   const handleSelectMutasi = useCallback(
@@ -141,7 +142,7 @@ const MutasiPegawai = ({ setRightContent, defaultRightContent }) => {
       handleEdit(index);
       setRightContent(<HistoryMutasi pegId={item.peg_id} />);
     },
-    [handleEdit]
+    [handleEdit],
   );
 
   const handlePrevPage = useCallback(() => {
@@ -179,7 +180,7 @@ const MutasiPegawai = ({ setRightContent, defaultRightContent }) => {
         toast.error("Terjadi kesalahan saat menyimpan.");
       }
     },
-    [form, isEditing, resetForm, loadData, currentPage]
+    [form, isEditing, resetForm, loadData, currentPage],
   );
 
   return (
