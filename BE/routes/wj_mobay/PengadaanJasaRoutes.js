@@ -11,8 +11,6 @@ router.get("/barangList", pengadaanJasaController.fetchBarangList);
 
 router.get("/kategoriList", pengadaanJasaController.fetchKategoriList);
 
-router.get("/data", pengadaanJasaController.getData);
-
 router.get("/detail/:id", pengadaanJasaController.getDetail);
 
 router.post("/saveBarang", pengadaanJasaController.saveBarang);

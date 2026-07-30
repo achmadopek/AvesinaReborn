@@ -61,6 +61,7 @@ const PembelianBarang = () => {
     kategori_id: "",
     nama_barang: "",
     satuan: "",
+    harga_satuan: "",
   });
 
   const loadUnit = async () => {
@@ -240,6 +241,12 @@ const PembelianBarang = () => {
         return;
       }
 
+      // TAMBAHKAN VALIDASI HARGA SATUAN
+      if (!barangBaru.harga_satuan || Number(barangBaru.harga_satuan) <= 0) {
+        toast.warning("Harga satuan wajib diisi dan harus lebih dari 0");
+        return;
+      }
+
       await saveBarangBaru(barangBaru);
 
       toast.success("Barang berhasil ditambahkan");
@@ -250,12 +257,22 @@ const PembelianBarang = () => {
         kategori_id: "",
         nama_barang: "",
         satuan: "",
+        harga_satuan: "", // RESET
       });
 
       await loadBarang();
     } catch (err) {
       toast.error(err.response?.data?.message || "Gagal menyimpan barang");
     }
+  };
+
+  const handleDeleteRow = (idx) => {
+    if (!isDraft) {
+      toast.warning("Tidak dapat menghapus item pada status FINAL");
+      return;
+    }
+
+    setDetails((prev) => prev.filter((_, i) => i !== idx));
   };
 
   // =========================
@@ -273,7 +290,6 @@ const PembelianBarang = () => {
   return (
     <>
       {/* ============================ FORM HEADER ============================ */}
-
       <div className="card shadow-sm mb-3">
         <div className="card-header">
           <strong>Pembelian Barang</strong>
@@ -413,13 +429,15 @@ const PembelianBarang = () => {
                     <th width="120">Satuan</th>
                     <th width="180">Harga</th>
                     <th width="180">Subtotal</th>
+                    <th width="80">Aksi</th> {/* TAMBAHKAN */}
                   </tr>
                 </thead>
-
                 <tbody>
                   {details.length === 0 && (
                     <tr>
-                      <td colSpan="6" className="text-center">
+                      <td colSpan="7" className="text-center">
+                        {" "}
+                        {/* UBAH COLSPAN */}
                         Belum ada item
                       </td>
                     </tr>
@@ -480,6 +498,17 @@ const PembelianBarang = () => {
                       <td className="text-end">
                         {formatCurrency(row.subtotal || 0)}
                       </td>
+
+                      {/* TAMBAHKAN TOMBOL HAPUS */}
+                      <td className="text-center">
+                        <button
+                          className="btn btn-danger btn-sm"
+                          onClick={() => handleDeleteRow(idx)}
+                          disabled={!isDraft}
+                        >
+                          <i className="fas fa-trash"></i> Hapus
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -515,7 +544,6 @@ const PembelianBarang = () => {
       </div>
 
       {/* MODAL BARANG */}
-
       <Modal
         show={showBarangModal}
         onHide={() => setShowBarangModal(false)}
@@ -530,7 +558,6 @@ const PembelianBarang = () => {
           <div className="row">
             <div className="col-md-12 mb-3">
               <label className="form-label">Kategori</label>
-
               <select
                 className="form-control"
                 value={barangBaru.kategori_id}
@@ -542,7 +569,6 @@ const PembelianBarang = () => {
                 }
               >
                 <option value="">-- Pilih Kategori --</option>
-
                 {kategoriList.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.nama}
@@ -553,7 +579,6 @@ const PembelianBarang = () => {
 
             <div className="col-md-12 mb-3">
               <label className="form-label">Nama Barang</label>
-
               <input
                 type="text"
                 className="form-control"
@@ -569,7 +594,6 @@ const PembelianBarang = () => {
 
             <div className="col-md-6 mb-3">
               <label className="form-label">Satuan</label>
-
               <input
                 type="text"
                 className="form-control"
@@ -583,6 +607,23 @@ const PembelianBarang = () => {
                 }
               />
             </div>
+
+            {/* TAMBAHKAN INPUT HARGA SATUAN */}
+            <div className="col-md-6 mb-3">
+              <label className="form-label">Harga Satuan</label>
+              <input
+                type="number"
+                className="form-control"
+                placeholder="Masukkan harga satuan"
+                value={barangBaru.harga_satuan || ""}
+                onChange={(e) =>
+                  setBarangBaru({
+                    ...barangBaru,
+                    harga_satuan: e.target.value,
+                  })
+                }
+              />
+            </div>
           </div>
         </Modal.Body>
 
@@ -590,7 +631,6 @@ const PembelianBarang = () => {
           <Button variant="secondary" onClick={() => setShowBarangModal(false)}>
             Batal
           </Button>
-
           <Button variant="success" onClick={handleSaveBarang}>
             Simpan Barang
           </Button>

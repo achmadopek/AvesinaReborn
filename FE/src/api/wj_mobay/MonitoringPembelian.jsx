@@ -5,12 +5,14 @@ export const fetchMonitoringPembelian = async (params, units) => {
     ...params,
     units,
   });
-
   return res.data;
 };
 
 export const fetchMonitoringDetail = async (id) => {
   const res = await API.get(`/api/mobay/MonitoringPembelian/${id}`);
-
-  return res.data;
+  return {
+    header: res.data.header,
+    detail: res.data.detail || [],
+    rincian: res.data.rincian || [],
+  };
 };

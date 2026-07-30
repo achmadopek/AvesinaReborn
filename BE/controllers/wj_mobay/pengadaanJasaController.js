@@ -148,7 +148,60 @@ exports.getData = async (req, res) => {
 };
 
 // ======================================
-// DETAIL
+// GET BY ID
+// ======================================
+exports.getById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [header] = await db.promise().query(
+      `
+      SELECT *
+      FROM mobay_pembelian
+      WHERE id = ?
+      `,
+      [id],
+    );
+
+    const [detail] = await db.promise().query(
+      `
+      SELECT *
+      FROM mobay_pembelian_detail
+      WHERE pembelian_id = ?
+      `,
+      [id],
+    );
+
+    // Ambil rincian berdasarkan pembelian_id
+    const [rincian] = await db.promise().query(
+      `
+      SELECT 
+        r.*,
+        r.pembelian_id as jasa_id
+      FROM mobay_pembelian_rincian r
+      WHERE r.pembelian_id = ?
+      ORDER BY r.id
+      `,
+      [id],
+    );
+
+    res.json({
+      success: true,
+      header: header[0] || null,
+      detail: detail || [],
+      rincian: rincian || [],
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+// ======================================
+// GET DETAIL (dengan join nama barang)
 // ======================================
 exports.getDetail = async (req, res) => {
   try {
@@ -176,49 +229,27 @@ exports.getDetail = async (req, res) => {
       [id],
     );
 
+    // Ambil rincian - menggunakan pembelian_id
+    const [rincian] = await db.promise().query(
+      `
+      SELECT 
+        r.*,
+        r.pembelian_id as jasa_id
+      FROM mobay_pembelian_rincian r
+      WHERE r.pembelian_id = ?
+      ORDER BY r.id
+      `,
+      [id],
+    );
+
     res.json({
       success: true,
       header: header[0] || null,
-      detail,
+      detail: detail || [],
+      rincian: rincian || [],
     });
   } catch (err) {
     console.error(err);
-
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
-  }
-};
-
-exports.getById = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const [header] = await db.promise().query(
-      `
-      SELECT *
-      FROM mobay_pembelian
-      WHERE id = ?
-      `,
-      [id],
-    );
-
-    const [detail] = await db.promise().query(
-      `
-      SELECT *
-      FROM mobay_pembelian_detail
-      WHERE pembelian_id = ?
-      `,
-      [id],
-    );
-
-    res.json({
-      success: true,
-      header: header[0],
-      detail,
-    });
-  } catch (err) {
     res.status(500).json({
       success: false,
       message: err.message,
@@ -229,9 +260,12 @@ exports.getById = async (req, res) => {
 // ======================================
 // SAVE BARANG BARU
 // ======================================
+// ======================================
+// SAVE BARANG/JASA BARU
+// ======================================
 exports.saveBarang = async (req, res) => {
   try {
-    const { kategori_id, nama_barang, satuan } = req.body;
+    const { kategori_id, nama_barang, satuan, harga_satuan } = req.body;
 
     if (!kategori_id) {
       return res.status(400).json({
@@ -243,7 +277,7 @@ exports.saveBarang = async (req, res) => {
     if (!nama_barang) {
       return res.status(400).json({
         success: false,
-        message: "Nama barang wajib diisi",
+        message: "Nama barang/jasa wajib diisi",
       });
     }
 
@@ -251,6 +285,14 @@ exports.saveBarang = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Satuan wajib diisi",
+      });
+    }
+
+    // TAMBAHKAN VALIDASI HARGA SATUAN
+    if (!harga_satuan || Number(harga_satuan) <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Harga satuan wajib diisi dan harus lebih dari 0",
       });
     }
 
@@ -268,7 +310,7 @@ exports.saveBarang = async (req, res) => {
     if (exist.length > 0) {
       return res.status(400).json({
         success: false,
-        message: "Barang sudah terdaftar",
+        message: "Barang/jasa sudah terdaftar",
       });
     }
 
@@ -290,10 +332,7 @@ exports.saveBarang = async (req, res) => {
       )
       VALUES
       (
-        ?, ?, ?, ?, 0,
-        'Y',
-        ?,
-        NOW()
+        ?, ?, ?, ?, ?, 'Y', ?, NOW()
       )
       `,
       [
@@ -301,18 +340,18 @@ exports.saveBarang = async (req, res) => {
         kategori_id,
         nama_barang,
         satuan,
+        harga_satuan, // PAKAI HARGA SATUAN DARI INPUT
         req.user?.employee_id || null,
       ],
     );
 
     return res.json({
       success: true,
-      message: "Barang berhasil ditambahkan",
+      message: "Barang/jasa berhasil ditambahkan",
       id: result.insertId,
     });
   } catch (err) {
     console.error(err);
-
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -321,13 +360,17 @@ exports.saveBarang = async (req, res) => {
 };
 
 // ======================================
-// SAVE
+// SAVE (dengan rincian dari details)
 // ======================================
 exports.save = async (req, res) => {
   const conn = await db.promise().getConnection();
 
   try {
     const { header, details, employee_id, units } = req.body;
+
+    // DEBUG: Cek data masuk
+    console.log("📥 Data masuk - header:", JSON.stringify(header, null, 2));
+    console.log("📥 Data masuk - details:", JSON.stringify(details, null, 2));
 
     const allowedUnits = units || [];
 
@@ -340,21 +383,45 @@ exports.save = async (req, res) => {
 
     await conn.beginTransaction();
 
-    const total = details.reduce(
-      (sum, item) => sum + Number(item.qty || 0) * Number(item.harga || 0),
-      0,
-    );
+    // =====================================
+    // HITUNG TOTAL
+    // =====================================
+    let total = 0;
+    for (const item of details) {
+      // Cek apakah item memiliki rincian (dari properti rincian di dalam details)
+      const hasRincian = item.rincian && item.rincian.length > 0;
+
+      if (hasRincian) {
+        const subtotalRincian = item.rincian.reduce(
+          (sum, r) => sum + Number(r.qty || 0) * Number(r.harga || 0),
+          0,
+        );
+        item.harga = subtotalRincian;
+        item.subtotal = subtotalRincian * Number(item.qty || 1);
+        total += item.subtotal;
+        console.log(
+          `💰 Item ${item.barang_id} pakai rincian, subtotal: ${item.subtotal}`,
+        );
+      } else {
+        item.subtotal = Number(item.qty || 1) * Number(item.harga || 0);
+        total += item.subtotal;
+        console.log(
+          `💰 Item ${item.barang_id} tanpa rincian, subtotal: ${item.subtotal}`,
+        );
+      }
+    }
+
+    console.log(`💰 Total keseluruhan: ${total}`);
 
     let pembelianId = header.id || null;
 
     // =====================================
-    // UPDATE DRAFT
+    // UPDATE DRAFT (jika ada ID)
     // =====================================
-
     if (pembelianId) {
       const [cek] = await conn.query(
         `
-        SELECT id,status
+        SELECT id, status
         FROM mobay_pembelian
         WHERE id = ?
         `,
@@ -373,14 +440,14 @@ exports.save = async (req, res) => {
         `
         UPDATE mobay_pembelian
         SET
-          tanggal_beli=?,
-          tanggal_terima=?,
-          unit_id=?,
-          supplier=?,
-          nomor_nota=?,
-          total=?,
-          keterangan=?
-        WHERE id=?
+          tanggal_beli = ?,
+          tanggal_terima = ?,
+          unit_id = ?,
+          supplier = ?,
+          nomor_nota = ?,
+          total = ?,
+          keterangan = ?
+        WHERE id = ?
         `,
         [
           header.tanggal_beli,
@@ -394,18 +461,27 @@ exports.save = async (req, res) => {
         ],
       );
 
+      // Hapus detail dan rincian lama
       await conn.query(
         `
-        DELETE
-        FROM mobay_pembelian_detail
-        WHERE pembelian_id=?
+        DELETE FROM mobay_pembelian_detail
+        WHERE pembelian_id = ?
         `,
         [pembelianId],
       );
-    }
 
+      await conn.query(
+        `
+        DELETE FROM mobay_pembelian_rincian
+        WHERE pembelian_id = ?
+        `,
+        [pembelianId],
+      );
+
+      //console.log(`🔄 Update draft ID: ${pembelianId}`);
+    }
     // =====================================
-    // INSERT BARU
+    // INSERT BARU (jika tidak ada ID)
     // =====================================
     else {
       const nomorPembelian = "PBL-" + Date.now();
@@ -424,11 +500,12 @@ exports.save = async (req, res) => {
           total,
           status,
           keterangan,
-          created_by
+          created_by,
+          created_at
         )
         VALUES
         (
-          ?,?,?,?,?,?,?,?,?,?,?
+          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW()
         )
         `,
         [
@@ -447,14 +524,27 @@ exports.save = async (req, res) => {
       );
 
       pembelianId = result.insertId;
+      //console.log(`🆕 Insert baru ID: ${pembelianId}`);
     }
 
     // =====================================
-    // INSERT DETAIL
+    // INSERT DETAIL DAN RINCIAN
     // =====================================
 
-    for (const item of details) {
-      await conn.query(
+    //console.log(      `📝 Menyimpan ${details.length} detail untuk pembelian_id: ${pembelianId}`,);
+
+    for (let idx = 0; idx < details.length; idx++) {
+      const item = details[idx];
+
+      // Cek apakah item memiliki rincian
+      const hasRincian = item.rincian && item.rincian.length > 0 ? 1 : 0;
+
+      console.log(
+        `  - Detail ${idx + 1}: barang_id=${item.barang_id}, has_rincian=${hasRincian}`,
+      );
+
+      // Insert detail
+      const [detailResult] = await conn.query(
         `
         INSERT INTO mobay_pembelian_detail
         (
@@ -463,34 +553,98 @@ exports.save = async (req, res) => {
           qty,
           satuan,
           harga,
-          subtotal
+          subtotal,
+          has_rincian
         )
         VALUES
         (
-          ?,?,?,?,?,?
+          ?, ?, ?, ?, ?, ?, ?
         )
         `,
         [
           pembelianId,
           item.barang_id,
-          item.qty,
-          item.satuan,
-          item.harga,
-          Number(item.qty || 0) * Number(item.harga || 0),
+          item.qty || 1,
+          item.satuan || "",
+          item.harga || 0,
+          Number(item.qty || 1) * Number(item.harga || 0),
+          hasRincian,
         ],
       );
 
-      await conn.query(
-        `
-        UPDATE mobay_barang
-        SET last_price = ?
-        WHERE id = ?
-        `,
-        [item.harga, item.barang_id],
-      );
+      const detailId = detailResult.insertId;
+      console.log(`    ✅ Detail ID: ${detailId}`);
+
+      // =====================================
+      // INSERT RINCIAN (jika ada)
+      // =====================================
+      if (hasRincian && item.rincian) {
+        console.log(
+          `    📋 Menyimpan ${item.rincian.length} rincian untuk detail_id: ${detailId}`,
+        );
+
+        for (let ridx = 0; ridx < item.rincian.length; ridx++) {
+          const r = item.rincian[ridx];
+          const subtotal = Number(r.qty || 0) * Number(r.harga || 0);
+
+          console.log(
+            `      - Rincian ${ridx + 1}: ${r.nama_item} | ${r.qty} x ${r.harga} = ${subtotal}`,
+          );
+
+          await conn.query(
+            `
+            INSERT INTO mobay_pembelian_rincian
+            (
+              pembelian_id,
+              nama_item,
+              qty,
+              satuan,
+              harga,
+              subtotal
+            )
+            VALUES
+            (
+              ?, ?, ?, ?, ?, ?
+            )
+            `,
+            [
+              pembelianId,
+              r.nama_item,
+              r.qty || 1,
+              r.satuan || "",
+              r.harga || 0,
+              subtotal,
+            ],
+          );
+        }
+      }
+
+      // =====================================
+      // UPDATE LAST PRICE
+      // =====================================
+      if (item.harga && item.harga > 0) {
+        await conn.query(
+          `
+          UPDATE mobay_barang
+          SET last_price = ?
+          WHERE id = ?
+          `,
+          [item.harga, item.barang_id],
+        );
+        console.log(
+          `    💾 Update last_price ${item.barang_id} = ${item.harga}`,
+        );
+      }
     }
 
+    // =====================================
+    // COMMIT
+    // =====================================
     await conn.commit();
+
+    console.log(
+      `✅ Transaksi ${pembelianId} berhasil disimpan dengan total ${total}`,
+    );
 
     return res.json({
       success: true,
@@ -498,9 +652,12 @@ exports.save = async (req, res) => {
       id: pembelianId,
     });
   } catch (err) {
+    // =====================================
+    // ROLLBACK
+    // =====================================
     await conn.rollback();
-
-    console.error(err);
+    console.error("❌ Error save:", err);
+    console.error("❌ Stack trace:", err.stack);
 
     return res.status(500).json({
       success: false,
